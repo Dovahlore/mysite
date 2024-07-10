@@ -1,0 +1,85 @@
+version: "3"
+
+volumes: # 自定义数据卷
+  db_vol: #定义数据卷同步存放容器内mysql数据
+  redis_vol: #定义数据卷同步存放redis数据
+  media_vol: #定义数据卷同步存放web项目用户上传到media文件夹的数据
+  static_vol: #定义数据卷同步存放web项目static文件夹的数据
+networks:
+  back:
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    command: redis-server /etc/redis/redis.conf # 容器启动后启动redis服务器
+    volumes:
+      - redis_vol:/data # 通过挂载给redis数据备份
+      - ./compose/redis/redis.conf:/etc/redis/redis.conf # 挂载redis配置文件
+    ports:
+      - "6379:6379"
+    restart: always # always表容器运行发生错误时一直重启
+    networks:
+      - back
+  db:
+    image: mysql:latest
+    container_name: db
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: mysite
+
+      MYSQL_ROOT_PASSWORD: Alexmercer2000@                         #设置root连接密码
+
+    volumes:
+      - db_vol:/var/lib/mysql:rw # 挂载数据库数据, 可读可写
+    ports:
+      - "33062:3306" # 与配置文件保持一致
+    restart: always
+    entrypoint: [
+      "sh", "-c",
+      "docker-entrypoint.sh mysqld && \
+           mysql -uroot -p${MYSQL_ROOT_PASSWORD} -e 'CREATE DATABASE IF NOT EXISTS mybase;'"
+    ]
+    networks:
+      - back
+
+  nginx:
+    container_name: nginx
+    image: nginx:latest
+    ports:
+      - "80:80"
+
+    expose:
+      - "80"
+    volumes:
+      - ./compose/nginx/nginx.conf:/etc/nginx/nginx.conf # 挂载nginx配置文件
+      - static_vol:/usr/share/nginx/html/static
+      - media_vol:/usr/share/nginx/html/media
+    networks:
+      - back
+    links:
+      - web
+    depends_on:
+      - web
+    restart: always
+  web:
+    build: ./myproject
+    container_name: web
+    working_dir: /mysite
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./myproject:/mysite # 挂载项目代码
+      - media_vol:/mysite/media # 以数据卷挂载容器内用户上传媒体文件
+      - static_vol:/mysite/collect_static
+    #  - ./compose/uwsgi:/tmp # 挂载uwsgi日志
+    networks:
+      - back
+    links:
+      - db
+      - redis
+    depends_on:
+      - db
+      - redis
+    restart: always
+    tty: true
+    stdin_open: true
