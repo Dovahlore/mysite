@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Base</title>
+    <link rel="shortcut icon" href="/media/dovahbase.ico">
+    <link href="{% static 'css/base.css' %}" rel="stylesheet">
+    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+    <style>
+
+         .scroll-container {
+            width: 100%;
+            overflow-x: auto;
+            white-space: nowrap;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg" style="background-color: #e3f2fd;position:fixed;top:0;width:100%;z-index:10">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Dovahlore</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link  active" aria-current="page" href="/s/base">Base</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle " id="navbarDropdown1" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        Episode
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown1">
+                        <li><a class="dropdown-item" href="/base/episode/new">New Episode</a></li>
+                        <li><a class="dropdown-item" href="/base/episode">Episode List</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" id="navbarDropdown2" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        Movie
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown2">
+                        <li><a class="dropdown-item" href="/base/movie/new">New Movie</a></li>
+                        <li><a class="dropdown-item" href="/base/movie">Movie list</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown ">
+                    <a class="nav-link dropdown-toggle" id="navbarDropdown3" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        Manga
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown3">
+                        <li><a class="dropdown-item" href="/base/manga/new">New Manga</a></li>
+                        <li><a class="dropdown-item" href="/base/manga">Manga list</a></li>
+                    </ul>
+                </li>
+            </ul>
+
+        </div>
+    </div>
+</nav>
+<div style="margin:80px 40px;">
+    <a href="/base/movie"><h2> 本月观看看电影 </h2></a>
+    <div class="scroll-container">
+
+        {% for movie in movies %}
+        <div class="show_box" style="width:300px;">
+            <a href="/base/movie/edit/{{movie.id}}">
+                <h3>{{movie.title}} {{movie.org_title}}</h3>
+            </a>
+            <h5>年份：{{movie.release_time}}</h5>
+            <div>
+                <a href="/base/movie/edit/{{movie.id}}">
+                <span style="vertical-align:top;  display: flex;justify-content: center;
+            align-items: center;">
+                    {% if movie.pic %}
+                    <img src="/media/{{movie.pic}}" class="show_pic" alt="">
+                    {% else %}
+                    <img src="{% static 'img/material/upload.jpg' %}" class="show_pic" alt="">
+                    {% endif %}
+                </span>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<div style="margin:80px 40px;">
+    <a href="/base/manga"><h2> 漫画阅读中 </h2></a>
+    <div class="scroll-container">
+
+        {% for manga in mangas %}
+        <div class="show_box" style="width:300px;">
+            <a href="/base/manga/edit/{{manga.id}}">
+                <h3>{{manga.title}}</h3>
+            </a>
+            <h3>{{manga.author}}</h3>
+            <div>
+                <span style="vertical-align:top;  display: flex;justify-content: center;
+            align-items: center;">
+                    <a href="/base/manga/edit/{{manga.id}}">
+                    {% if manga.pic %}
+                    <img src="/media/{{manga.pic}}" class="show_pic" alt="">
+                    {% else %}
+                    <img src="{% static 'img/material/upload.jpg' %}" class="show_pic" alt="">
+                    {% endif %}
+                    </a>
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<div style="margin:80px 40px;">
+    <a href="/base/episode"><h2> 追剧中 </h2></a>
+    <div class="scroll-container">
+
+        {% for episode in episodes %}
+        <div class="show_box" style="width:300px;">
+            <a href="/base/episode/edit/{{episode.id}}">
+                <h3>{{episode.title}}</h3>
+            </a>
+            <h3>{{episode.author}}</h3>
+            <div>
+                <span style="vertical-align:top;  display: flex;justify-content: center;
+            align-items: center;">
+                    <a href="/base/episode/edit/{{episode.id}}">
+                    {% if episode.pic %}
+                    <img src="/media/{{episode.pic}}" class="show_pic" alt="">
+                    {% else %}
+                    <img src="{% static 'img/material/upload.jpg' %}" class="show_pic" alt="">
+                    {% endif %}
+                    </a>
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
+</body>
+</html>

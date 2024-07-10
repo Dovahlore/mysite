@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<head>
+    <meta charset="UTF-8">
+    <title>Movie Edit</title>
+    <link rel="shortcut icon" href="/media/dovahbase.ico">
+    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+    <link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
+    <style>
+        .box{
+          box-shadow: 3px 3px 7px #aaa;
+            border-radius:10px;
+            margin:30px auto;
+            background-color:#f0f0f0;
+        }
+        .preview{
+            position:absolute;
+            right:5%;
+             top:5%;
+            width:40%;
+            max-width:500px;
+            max-height:900px;
+
+ }
+#preview_pic{
+border-radius:5px;
+}
+.halfwidth{
+width:50%;
+margin-bottom:10px;
+margin-top:10px;
+}
+.marg{margin-bottom:10px;
+margin-top:10px;
+}
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg" style="background-color: #e3f2fd;position:fixed;top:0;width:100%;z-index:10">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Dovahlore</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" aria-current="page" href="/s/base">Base</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" id="navbarDropdown1" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        Episode
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown1">
+                        <li><a class="dropdown-item" href="/base/episode/new">New Episode</a></li>
+                        <li><a class="dropdown-item" href="/base/episode">Episode List</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" id="navbarDropdown2" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        Movie
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown2">
+                        <li><a class="dropdown-item" href="/base/movie/new">New Movie</a></li>
+                        <li><a class="dropdown-item" href="/base/movie">Movie list</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown ">
+                    <a class="nav-link dropdown-toggle active" id="navbarDropdown3" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        Manga
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown3">
+                        <li><a class="dropdown-item" href="/base/manga/new">New Manga</a></li>
+                        <li><a class="dropdown-item" href="/base/manga">Manga list</a></li>
+                    </ul>
+                </li>
+            </ul>
+
+        </div>
+    </div>
+</nav>
+<div class="container box" style="margin-top:70px;">
+    <form method="post" enctype="multipart/form-data" style="position:relative;">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-3">
+            <label for="{{field.id_for_label}}" class="form-label marg">{{field.label}}</label>
+            <div class="halfwidth">{{ field }}</div>
+            {{ field.errors }}
+        </div>
+        {% endfor %}
+        <div class="preview">
+            {% if form.pic.value %}
+                    <img id="preview_pic" style="width:100%;max-height:80%;object-fit:cover;"
+                 src="/media/{{form.pic.value}}"/>
+                    {% else %}
+                    <img src="{% static 'img/material/upload.jpg' %}" id="preview_pic" style="width:100%;max-height:80%;object-fit:cover;" alt="">
+                    {% endif %}
+        </div>
+        <div style="text-align:center;">
+            <input type="submit" class="btn btn-primary" style="text-align:center;margin:50px;width:200px;">
+        </div>
+    </form>
+</div>
+<script src="{% static 'jquery-3.7.1.min.js'%}"></script>
+<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
+<script src="{% static 'select2/dist/js/select2.min.js'%}"></script>
+<script>
+
+{#$(".js-select").select2()#}
+
+$(function(){
+ $(".js-select").select2();
+ $('#id_pic').on('change', function() {
+
+        var file = this.files[0];
+         var reader = new FileReader();
+         console.log(reader);
+         reader.onloadstart = function(){
+         $('#progress').show();
+         };
+         reader.onprogress = function(e){
+         $("div[role=progressbar]").width(e.loaded/e.total*100+"%");
+              };
+         reader.readAsDataURL(file);
+         reader.onload = function() {
+         var dataURL = reader.result;
+         var img = $("#preview_pic").attr('src', dataURL);
+       }
+    });
+
+})
+
+</script>
+</body>
+</html>

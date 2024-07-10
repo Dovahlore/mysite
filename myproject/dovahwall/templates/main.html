@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<head>
+    <meta charset="UTF-8">
+    <title>Dovahlore</title>
+    <link rel="shortcut icon" href="/media/main.ico">
+    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+    <style>
+         .video-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            object-fit: cover;
+        }
+        .content {
+            position: relative;
+            z-index: 1;
+            color: white;
+            text-align: center;
+           width:100%;
+           height:50%;
+        }
+         .mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            background:linear-gradient(180deg,rgba(0,0,0,0.4),rgba(0,0,0,0.9));
+            width: 100%;
+            height: 100%;
+        }
+        .avatar{
+        object-fit: cover;
+        width:200px;
+        height:200px;
+        border-radius:30%;
+        margin-bottom: 50px;
+        box-shadow: 0px 0px 220px #aaaaaa;
+        }
+        .linkpic{
+         width:100px;
+        height:100px;
+        border-radius:30%;
+        box-shadow: 0px 0px 11px #999999;
+        opacity:0.9;
+        }
+        .linkpic:hover{
+
+        opacity:1;
+        }
+
+    </style>
+</head>
+<body>
+<video class="video-background" autoplay muted loop>
+    <source src="{% static 'img/bg/DJI_0294.MP4' %}" type="video/mp4">
+</video>
+<div class="mask"></div>
+<div class="content">
+    <div style="margin-top:5%">
+        <img class="avatar" src="{% static 'img/material/Avatar.png' %}">
+        <h1># Dovahlore #</h1>
+        <div style="margin-top:100px;">
+            Email
+            <i class='fas fa-envelope fa-lg' style='color:#89bfe1'></i>
+            :  mayuqing11111@qq.com
+        </div>
+        <div style="margin-top:100px;">
+            <div style="display:inline-block;margin:20px;width:400px;">
+                <a href="/s/wall" >
+                    <img class="linkpic" src="{% static 'img/material/DovahWall.gif' %}" alt="">
+                </a>
+                <h3 style="color:#aaa;margin-top:20px;"> DovahPhotoWall</h3>
+            </div>
+            <div style="display:inline-block;margin:20px;width:400px;">
+                <a href="/s/base">
+                    <img class="linkpic" src="{% static 'img/material/dovahbase.gif' %}" alt="">
+                </a>
+                <h3 style="color:#aaa;margin-top:20px;">DovahBase</h3>
+            </div>
+
+
+        </div>
+
+    </div>
+
+</div>
+</body>
+</html>

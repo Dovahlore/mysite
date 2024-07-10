@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+<link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+<link href="{% static 'viewerjs/viewer.min.css' %}" rel="stylesheet">
+<link href="{% static 'css/wall.css' %}" rel="stylesheet">
+<link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
+<head>
+    <meta charset="UTF-8">
+    <title>Dovahlore PhotoWall</title>
+    <link rel="shortcut icon" href="/media/favicon.ico">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg" style="background-color: #e3f2fd;position:fixed;top:0;width:100%;z-index:10">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Dovahlore</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" href="/s/wall">Photo Wall</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="/organize" id="navbarDropdown" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        Management
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                        <li><a class="dropdown-item" href="/upload">Upload</a></li>
+                        <li><a class="dropdown-item" href="/organize">Manage</a></li>
+                    </ul>
+                </li>
+            </ul>
+            <form class="d-flex" role="search" method="post">
+                {% csrf_token %}
+                {{form.tags}}
+                <button class="btn btn-outline-success" style="margin-left:20px;" type="submit">Search</button>
+            </form>
+        </div>
+    </div>
+</nav>
+<div id="carouselCaptions" class="carousel slide" data-bs-ride="carousel">
+    <div class="carousel-indicators">
+        <button type="button" data-bs-target="#carouselCaptions" data-bs-slide-to="0" class="active"
+                aria-current="true" aria-label="Slide 1"></button>
+        <button type="button" data-bs-target="#carouselCaptions" data-bs-slide-to="1"
+                aria-label="Slide 2"></button>
+        <button type="button" data-bs-target="#carouselCaptions" data-bs-slide-to="2"
+                aria-label="Slide 3"></button>
+    </div>
+    <div class="carousel-inner">
+        <div class="carousel-item active">
+            <img src="{% static 'img/bg/peak.jpg' %}" class="d-block w-100" alt="...">
+            <div class="carousel-caption d-none d-md-block">
+                <h1>PEAK</h1>
+                <p>四姑娘山</p>
+            </div>
+        </div>
+        <div class="carousel-item">
+            <img src="{% static 'img/bg/DSC_1168-已增强-降噪.jpg' %}" class="d-block w-100" alt="...">
+            <div class="carousel-caption d-none d-md-block">
+                <h1>清晨</h1>
+                <p>川西</p>
+            </div>
+        </div>
+        <div class="carousel-item">
+            <img src="{% static 'img/bg/operator-1.jpg' %}" class="d-block w-100" alt="...">
+            <div class="carousel-caption d-none d-md-block">
+                <h1>DJI</h1>
+                <p>Travel with DJI mini3</p>
+            </div>
+        </div>
+    </div>
+    <button class="carousel-control-prev" type="button" data-bs-target="#carouselCaptions" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#carouselCaptions" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Next</span>
+    </button>
+</div>
+<h1>{{message}}</h1>
+<div class="wall" id="galley">
+    <div class="wrapper">
+        {% for pic in pics %}
+        <div class="photo-box" data-id="{{pic.id}}" style="width:{{pic.flex}}px;flex-grow:{{pic.flex}};">
+            <img class="image" data-original="/media/{{pic.pic}}" src="/{{pic.small_pic}}" alt="{{pic.camera_exif}}">
+            <div class="top-desk" style="display: none;">
+                <div style="float:right;">
+                    <span data-liked="0" data-id="{{pic.id}}" class='far fa-heart '
+                          style='color:#fff;margin-right:15px;'></span>
+                    <span style='color:#fff;font-size:14px;'>{{pic.like}}</span>
+                </div>
+                <h5 class="pic_title">
+                    <i class='fas fa-camera' style='color:#ccc'></i>
+                    {{pic.title}}
+                </h5>
+                <h6 style="color:#dda">{{pic.information}}</h6>
+            </div>
+            <div class="desk" style="display: none;">
+                <div class="album;" style="color:#888;">
+
+                    {% for tag in pic.tags.all %}
+                    <h5 style='display:inline-block;margin-right:5px;'>
+                        <span class="badge rounded-pill bg-info">{{tag}}</span>
+                    </h5>
+                    {% endfor %}
+                </div>
+
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<script src="{% static 'jquery-3.7.1.min.js'%}"></script>
+<script src="{% static 'js/wall.js'%}"></script>
+<script src="{% static 'viewerjs/viewer.min.js' %}"></script>
+<script src="{% static 'select2/dist/js/select2.min.js'%}"></script>
+<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
+<script type="text/javascript">
+window.addEventListener('DOMContentLoaded', function () {
+      var galley = document.getElementById('galley');
+      var viewer = new Viewer(galley, {
+        url: 'data-original',
+        title: function (image, imageData) {
+          return 'EXIF:  '+image.alt +'\nResolution:'+ imageData.naturalWidth +'×'+ imageData.naturalHeight+'\n INDEX (' + (this.index + 1) + '/' + this.length + ')';
+        },
+      });
+    });
+$(function(){ $(".js-select").select2();
+
+    $(".photo-box").hover(
+        function(){$(this).children(".desk ,.top-desk").fadeIn("fast");
+         },
+         function(){$(this).children(".desk ,.top-desk").fadeOut("slow");
+         }
+      );
+     $(".fa-heart").click(function(){
+         like_add("{{ csrf_token }}",$(this));});
+ });
+
+
+
+</script>
+</body>
+</html>
+
+

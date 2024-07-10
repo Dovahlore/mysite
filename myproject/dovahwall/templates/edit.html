@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<head>
+    <meta charset="UTF-8">
+    <title>编辑</title>
+    <link rel="shortcut icon" href="/media/favicon.ico">
+    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+    <link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
+    <style>
+                .box{
+          box-shadow: 3px 3px 7px #aaa;
+            border-radius:10px;
+            margin:30px auto;
+            background-color:#f0f0f0;
+        }
+        .preview{
+            position:absolute;
+            right:5%;
+             top:5%;
+            width:40%;
+            max-width:400px;
+            height:80%;
+            max-height:400px;
+
+        }
+        #preview_pic{
+          border-radius:5px;
+        }
+        .halfwidth{
+        width:50%;
+         margin-bottom:10px;
+        margin-top:10px;
+        }
+        .marg{margin-bottom:10px;
+        margin-top:10px;
+        }
+    .title{
+        text-align:center;
+        width:100%;
+        height:400px;
+        line-height: 400px;
+        color:#fff;
+        background-image:url("{% static 'img/bg/landscape-1.jpg'%}");
+        background-position: center center;
+        margin:0;
+        background-size: cover;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg" style="background-color: #e3f2fd;position:fixed;top:0;width:100%;z-index:10">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Dovahlore</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" href="/s/wall">Photo Wall</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle active" href="/organize" id="navbarDropdown" role="button"
+                       data-bs-toggle="dropdown" aria-current="page" aria-expanded="false">
+                        Management
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                        <li><a class="dropdown-item" href="/upload">Upload</a></li>
+                        <li><a class="dropdown-item"  href="/organize">Manage</a></li>
+                    </ul>
+                </li>
+            </ul>
+            <form class="d-flex" role="search">
+                <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
+                <button class="btn btn-outline-success" type="submit">Search</button>
+            </form>
+        </div>
+    </div>
+</nav>
+<h1 class="title">
+    修改编辑
+</h1>
+<div style="margin:100px;">{{message}}</div>
+<div class="container box">
+    <form method="post" id="form" enctype="multipart/form-data" style="position:relative;">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-3">
+            <label for="{{field.id_for_label}}" class="form-label marg">{{field.label}}</label>
+            <div class="halfwidth">{{ field }}</div>
+            {{ field.errors }}
+        </div>
+        {% endfor %}
+        <div class="preview">
+            <img id="preview_pic" style="width:100%;max-height:80%;object-fit:cover;"
+                 src="/{{pic.small_pic}}"/>
+        </div>
+        <div style="text-align:center">
+            <input type="submit" class="btn btn-primary" value="更新" name="edit"
+                   style="text-align:center;margin:50px;width:200px;">
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#Modal"
+                    style="text-align:center;margin:50px;width:200px;">删除
+            </button>
+        </div>
+        <div class="modal fade" id="Modal" tabindex="-1" aria-labelledby="ModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5" id="ModalLabel">确认</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        确认删除该图片吗
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" name="delete" class="btn btn-primary">确认删除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+<script src="{% static 'jquery-3.7.1.min.js'%}"></script>
+<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
+<script src="{% static 'select2/dist/js/select2.min.js'%}"></script>
+<script>
+{#$(".js-select").select2()#}
+$(function(){
+
+        $(".js-select").select2();
+})
+</script>
+</body>
+</html>

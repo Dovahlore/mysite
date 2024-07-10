@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+<link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dovahlore - 管理登录</title>
+    <link rel="shortcut icon" href="/media/main.ico">
+    <style>
+        .loginbox .container{
+            background-color:#fff;            margin-top:100px;
+
+            width:35%;
+            min-width:600px;
+            box-shadow: 10px 10px 7px #333;
+            padding:50px;
+            border-radius:10px;
+            opacity:0.9;
+            margin-bottom:300px;
+        }
+        .hoverclear:hover{
+            opacity:1.0;
+        }
+        .loginbox .mb3{
+            margin-bottom:15px;
+        }
+        .loginbox .form-label{
+            font-size:20px;}
+
+        .header img{
+            width:150px;
+            margin-top:40px;
+            margin-left:40px;
+            border-radius:20px;
+            box-shadow: 2px 2px 5px #aaa;
+            opacity:0.9;
+            z-index:1;}
+        .marg{
+            margin-bottom:20px;
+            margin-top:13px;}
+         .mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            background:linear-gradient(180deg,rgba(0,0,0,0.2),rgba(0,0,0,0.9));
+            width: 100%;
+            height: 100%;
+        }
+
+    </style>
+</head>
+<body background={{bg}} style="background-position: center center;margin:0;background-repeat: no-repeat;background-size: cover;
+background-attachment: fixed;">
+<div class="header">
+    <a href="/s/wall">
+        <img class="hoverclear" src="{% static 'img/material/DovahWall.gif' %}" alt="">
+    </a>
+    <a href="/base">
+        <img class="hoverclear" src="{% static 'img/material/dovahbase.gif' %}" alt="">
+    </a>
+</div>
+<div class="mask"></div>
+<div class="loginbox">
+    <div class="container hoverclear">
+        <h1 class="h2" style="margin-bottom:40px;text-align:center">登录到管理系统</h1>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="{{form.user.id_for_label}}" class="form-label marg">管理员账号</label>
+                {{form.user}}
+
+            </div>
+            <div class="mb-3">
+                <label for="{{form.password.id_for_label}}" class="form-label marg">密码</label>
+                {{form.password}}
+            </div>
+            <div class="mb-3">
+                <label class="form-label marg">图片验证码</label>
+                <div class="row">
+                    <div class="col-8">
+                        {{form.image_code}}
+                    </div>
+                    <div class="col-4">
+                        <img src="/s/check/code" alt="" style="box-shadow: 1px 1px 4px #aaa;" >
+                    </div>
+                </div>
+            </div>
+            {% if message %}
+            <div class="alert alert-warning alert-dismissible fade show " role="alert" style="margin-top:30px;">
+                <strong>{{message}}</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+            <div style="text-align: center;" style="margin-top:30px;">
+                <button type="submit" class="btn btn-primary marg"
+                        style="width:200px;display:inline-block;margin-top:38px;">
+                    提交
+                </button>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+<script src="{% static 'jquery-3.7.1.min.js'%}"></script>
+<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
+<script type="text/javascript">
+
+
+
+
+
+
+
+
+
+
+
+
+
+</script>
+</body>
+</html>

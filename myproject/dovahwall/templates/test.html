@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link href="{% static 'viewerjs/viewer.min.css' %}" rel="stylesheet">
+
+</head>
+<style>
+    .pictures {
+      list-style: none;
+      margin: 0;
+      max-width: 30rem;
+      padding: 0;
+    }
+
+    .pictures > li {
+      border: 1px solid transparent;
+      float: left;
+      height: calc(100% / 3);
+      margin: 0 -1px -1px 0;
+      overflow: hidden;
+      width: calc(100% / 3);
+    }
+
+    .pictures > li > img {
+      cursor: zoom-in;
+      width: 100%;
+    }
+
+
+</style>
+<body>
+
+
+<div id="galley">
+    <ul class="Pictures">
+        <li><img style="width:10%;" src="{% static 'img/bg/peak.jpg' %}" data-original="{% static 'img/bg/peak.jpg' %}"
+                 alt="Picture 1"></li>
+        <li><img style="width:10%;" src="{% static 'img/bg/peak.jpg' %}" data-original="{% static 'img/bg/peak.jpg' %}"
+                 alt="Picture 2"></li>
+
+    </ul>
+</div>
+<script src="{% static 'jquery-3.7.1.min.js'%}"></script>
+<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.min.js'%}"></script>
+<script src="{% static 'viewerjs/viewer.min.js' %}"></script>
+<script type="text/javascript">
+
+    window.addEventListener('DOMContentLoaded', function () {
+      var galley = document.getElementById('galley');
+      var viewer = new Viewer(galley, {
+        url: 'data-original',
+        title: function (image) {
+          return image.alt + ' (' + (this.index + 1) + '/' + this.length + ')';
+        },
+      });
+    });
+
+
+
+</script>
+</body>
+
+</html>
