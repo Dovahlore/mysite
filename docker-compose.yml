@@ -27,7 +27,7 @@ services:
     environment:
       MYSQL_DATABASE: mysite
 
-      MYSQL_ROOT_PASSWORD: Alexmercer2000@                         #设置root连接密码
+      MYSQL_ROOT_PASSWORD: ****                     #设置root连接密码
 
     volumes:
       - db_vol:/var/lib/mysql:rw # 挂载数据库数据, 可读可写
