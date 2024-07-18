@@ -82,7 +82,7 @@ WSGI_APPLICATION = "mysite.wsgi.application"
 #         "ENGINE": "django.db.backends.mysql",
 #         "NAME": "mysite",
 #         "USER": "root",
-#         "PASSWORD": "Alexmercer2000@",
+#         "PASSWORD": "**********",
 #         "HOST": "127.0.0.1",
 #         "PORT": 33062,
 #     }
@@ -94,7 +94,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.mysql",
         "NAME": "mysite",
         "USER": "root",
-        "PASSWORD": "Alexmercer2000@",
+        "PASSWORD": "***********",
         "HOST": "db",
         "PORT": 3306,
     }
