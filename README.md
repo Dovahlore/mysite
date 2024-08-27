@@ -3,7 +3,7 @@
 个人照片库+影视记录库
 ## 功能
 ### URL
-网址可访问：blog.dovahwall.cn
+网址可访问：www.dovahwall.cn
 ### DOVAHWALL 
 照片墙，上传一些摄影作品。
 登录后访问管理系统，可进行墙体调整。
