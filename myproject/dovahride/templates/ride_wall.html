@@ -1,0 +1,156 @@
+{% extends 'ride_base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- 头部统计区域 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">Cycling Activities</h1>
+            <p class="text-muted">
+                总里程: {{ total_km }} km | 总次数: {{ total_count }} | 
+                当前第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页
+            </p>
+        </div>
+        <a href="{% url 'ride_upload' %}" class="btn btn-primary">+ 上传数据</a>
+    </div>
+
+    <!-- 卡片列表区域 -->
+    <div class="row g-4">
+        <!-- 注意：这里改成了 page_obj -->
+        {% for ride in page_obj %}
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="card h-100 shadow-sm ride-card">
+                <a href="{% url 'ride_display' ride.id %}" class="text-decoration-none text-dark">
+                    <!-- 缩略图 -->
+                    <div class="card-img-top d-flex align-items-center justify-content-center bg-light position-relative" style="height: 200px; overflow: hidden;">
+                        {% if ride.thumbnail %}
+                            <img src="{{ ride.thumbnail.url }}" class="ride-thumbnail" alt="Track">
+                        {% else %}
+                            <span class="text-muted">无轨迹图</span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 数据概览 -->
+                    <div class="card-body">
+                        <h5 class="card-title text-truncate">{{ ride.title }}</h5>
+                        <div class="text-muted small mb-2">开始时间：{{ ride.start_time|date:"Y-m-d H:i" }}</div>
+                        
+                        <div class="row text-center mt-3">
+                            <div class="col-4 border-end">
+                                <div class="text-muted small">总里程：</div>
+                                <div class="fw-bold fs-5">{{ ride.total_distance }}</div>
+                                <div class="text-muted small">km</div>
+                            </div>
+                            <div class="col-4 border-end">
+                                <div class="text-muted small">总爬升：</div>
+                                <div class="fw-bold fs-5">{{ ride.total_ascent|floatformat:"0" }}</div>
+                                <div class="text-muted small">m</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted small">平均速度：</div>
+                                <div class="fw-bold fs-5"> {{ ride.avg_speed }}</div>
+                                <div class="text-muted small">km/h</div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+                
+                <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
+                     <small class="text-muted">耗时: {{ ride.total_duration_str}}</small>
+                     <form action="{% url 'ride_delete' ride.pk %}" method="post" onsubmit="return confirm('确定要删除这条记录吗？');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-link text-danger p-0 text-decoration-none btn-sm">删除</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5">
+            <h3>暂无数据</h3>
+            <p>请上传 GPX 或 FIT 文件</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 分页导航条 (Pagination) -->
+    <!-- 只有当总页数大于1时才显示 -->
+    {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="mt-5">
+          <ul class="pagination justify-content-center">
+
+            <!-- 上一页 -->
+            {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">«</span></li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+
+              {% if num == 1 or num == page_obj.paginator.num_pages %}
+                <!-- 首页 / 尾页 -->
+                {% if num == page_obj.number %}
+                  <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% else %}
+                  <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+
+              {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                <!-- 当前页附近 -->
+                {% if num == page_obj.number %}
+                  <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% else %}
+                  <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+
+              {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+                <!-- 省略号 -->
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+              {% endif %}
+
+            {% endfor %}
+
+            <!-- 下一页 -->
+            {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">»</span></li>
+            {% endif %}
+
+          </ul>
+        </nav>
+        {% endif %}
+
+</div>
+
+<!-- 补充样式：让缩略图更美观 -->
+<style>
+.ride-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 15px;
+    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.1));
+    transition: transform 0.3s ease;
+}
+.ride-card:hover .ride-thumbnail {
+    transform: scale(1.05);
+}
+/* 优化分页按钮样式 */
+.pagination .page-link {
+    color: #333;
+    border-radius: 20px;
+    margin: 0 5px;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.pagination .page-item.active .page-link {
+    background-color: #333;
+    color: #fff;
+}
+</style>
+{% endblock %}

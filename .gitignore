@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.py[cod]
+
+.idea
+/myproject/collect_static/
+/compose/nginx/cert/www.dovahwall.cn.key
+/compose/nginx/cert/www.dovahwall.cn.key.bak
+/compose/nginx/cert/www.dovahwall.cn.pem
+/compose/nginx/cert/www.dovahwall.cn.pem.bak
+*.mp4
+*.MP4

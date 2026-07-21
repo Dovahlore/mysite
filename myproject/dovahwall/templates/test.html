@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>Tech Page</title>
+
+  <!-- CDN -->
+  <script src="https://unpkg.com/tsparticles@3/tsparticles.bundle.min.js"></script>
+  <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #05070c;
+      overflow: hidden;
+      font-family: "Segoe UI", Arial;
+      color: white;
+    }
+
+    #tsparticles {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .panel {
+      position: relative;
+      z-index: 10;
+      width: 420px;
+      margin: 220px auto;
+      padding: 40px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 0 40px rgba(0,200,255,.35);
+      transition: .3s;
+    }
+
+    .panel:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 70px rgba(0,200,255,.6);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+
+    p {
+      opacity: .7;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="tsparticles"></div>
+
+<div class="panel">
+  <h1>AI Control Center</h1>
+  <p>Django · Particles · GSAP</p>
+</div>
+
+<script>
+  console.log("tsParticles:", window.tsParticles);
+  console.log("gsap:", window.gsap);
+
+tsParticles.load("tsparticles", {
+  fullScreen: { enable: false },
+
+  background: {
+    color: "#05070c"
+  },
+
+  detectRetina: true,
+
+  particles: {
+    number: {
+      value: 160,
+      density: { enable: true, area: 800 }
+    },
+
+    color: { value: ["#00e5ff", "#4facfe"] },
+
+    shape: { type: "circle" },
+
+    opacity: {
+      value: 0.9
+    },
+
+    size: {
+      value: { min: 2, max: 4 }
+    },
+
+    links: {
+      enable: true,
+      distance: 150,
+      color: "#00d9ff",
+      opacity: 0.7,
+      width: 1.2
+    },
+
+    move: {
+      enable: true,
+      speed: 1.2,
+      direction: "none",
+      outModes: "out"
+    }
+  }
+});
+
+  gsap.from(".panel", {
+    y: 120,
+    opacity: 0,
+    duration: 1.2,
+    ease: "power3.out"
+  });
+</script>
+
+</body>
+</html>

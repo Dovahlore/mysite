@@ -1,0 +1,15 @@
+django
+mysqlclient
+wheel
+django-imagekit
+django-redis
+ExifRead
+piexif
+pillow
+redis
+uwsgi
+requests
+beautifulsoup4
+fitparse
+gpxpy
+openai

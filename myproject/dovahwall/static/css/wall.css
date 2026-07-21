@@ -1,0 +1,604 @@
+:root {
+            --cream: #faf8f5;
+            --dark: #1a1a1a;
+            --charcoal: #2d2d2d;
+            --gold: #c9a961;
+            --light-gold: #e4d4b4;
+            --gray: #6b6b6b;
+            --light-gray: #e8e6e3;
+            --shadow: rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Lato', sans-serif;
+            background: var(--cream);
+            color: var(--dark);
+            overflow-x: hidden;
+            cursor: none;
+        }
+
+        /* 禁用所有元素的默认光标 */
+        *, *::before, *::after {
+            cursor: none !important;
+        }
+
+        /* ========== 自定义光标 ========== */
+        .custom-cursor {
+            position: fixed;
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--gold);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            mix-blend-mode: difference;
+            transform: translate(-50%, -50%); /* 圆环居中对齐鼠标 */
+        }
+
+        .cursor-dot {
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            background: var(--gold);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%); /* 圆心精确对齐鼠标位置 */
+        }
+
+        .custom-cursor.hover {
+            width: 60px;
+            height: 60px;
+            background: rgba(201, 169, 97, 0.1);
+        }
+
+        /* ========== 背景粒子画布 ========== */
+        #particles-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ========== 鼠标光晕 ========== */
+        .mouse-glow {
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(201, 169, 97, 0.12), transparent 70%);
+            pointer-events: none;
+            z-index: 1;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.3s ease;
+        }
+
+        /* ========== 导航栏重设计 ========== */
+        .navbar {
+            background: rgba(250, 248, 245, 0.98) !important;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--light-gray);
+            position: relative;
+            z-index: 100;
+        }
+
+        .navbar-brand {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--dark) !important;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .navbar-brand:hover {
+            color: var(--gold) !important;
+            transform: translateY(-1px);
+        }
+
+        .nav-link {
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: var(--charcoal) !important;
+            letter-spacing: 0.5px;
+            margin: 0 0.5rem;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 2px;
+            background: var(--gold);
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover::after,
+        .nav-link.active::after {
+            width: 80%;
+        }
+
+        .nav-link:hover {
+            color: var(--gold) !important;
+        }
+
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 10px 40px var(--shadow);
+            border-radius: 0;
+            margin-top: 0.5rem;
+        }
+
+        .dropdown-item {
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .dropdown-item:hover {
+            background: var(--light-gold);
+            color: var(--dark);
+            padding-left: 2rem;
+        }
+
+        /* ========== 搜索表单美化 ========== */
+        .navbar form {
+            gap: 0.75rem;
+        }
+
+        .navbar .btn-outline-success {
+            border: 2px solid var(--gold);
+            color: var(--gold);
+            font-weight: 500;
+            padding: 0.5rem 1.5rem;
+            border-radius: 0;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            margin-left: 0 !important;
+        }
+
+        .navbar .btn-outline-success:hover {
+            background: var(--gold);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(201, 169, 97, 0.3);
+        }
+
+        /* ========== 轮播图优化 ========== */
+        .carousel {
+            margin-top: 76px;
+            height: 70vh;
+            position: relative;
+            z-index: 2;
+        }
+
+        .carousel-inner,
+        .carousel-item {
+            height: 100%;
+        }
+
+        .carousel-item img {
+            object-fit: cover;
+            height: 100%;
+            filter: brightness(0.85);
+            transition: all 0.8s ease;
+        }
+
+        .carousel-item.active img {
+            filter: brightness(0.75);
+        }
+
+        .carousel-caption {
+            bottom: 15% !important;
+            text-align: left;
+            left: 10% !important;
+            right: auto !important;
+        }
+
+        .carousel-caption h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            animation: fadeInUp 1s ease;
+        }
+
+        .carousel-caption p {
+            font-family: 'Lato', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 300;
+            letter-spacing: 3px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            animation: fadeInUp 1s ease 0.2s backwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .carousel-control-prev,
+        .carousel-control-next {
+            width: 80px;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .carousel-control-prev:hover,
+        .carousel-control-next:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .carousel-indicators button {
+            width: 50px;
+            height: 3px;
+            border-radius: 0;
+            margin: 0 5px;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .carousel-indicators button.active {
+            background: var(--gold);
+        }
+
+        /* ========== 页面标题 ========== */
+        h1 {
+            text-align: center;
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin: 4rem 0 3rem;
+            letter-spacing: 1px;
+            position: relative;
+            z-index: 2;
+        }
+
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 2px;
+            background: var(--gold);
+        }
+
+        /* ========== 照片墙 ========== */
+        .wall {
+            padding: 2rem 5%;
+            animation: fadeIn 1s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .photo-box {
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 15px var(--shadow);
+            background: white;
+            border-radius: 12px;
+        }
+
+        .photo-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(201, 169, 97, 0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            z-index: 1;
+            pointer-events: none;
+            border-radius: 12px;
+        }
+
+        .photo-box:hover::before {
+            opacity: 1;
+        }
+
+        .photo-box:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        .photo-box .image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: all 0.6s ease;
+            border-radius: 12px;
+        }
+
+        .photo-box:hover .image {
+            transform: scale(1.08);
+            filter: brightness(0.9);
+        }
+
+        /* ========== 图片信息覆盖层 ========== */
+        /* 关键 CSS: 遮罩层 pointer-events: none 以允许点击穿透 */
+        .top-desk,
+        .desk {
+            position: absolute;
+            left: 0;
+            right: 0;
+            padding: 1.5rem;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+            color: white;
+            z-index: 2;
+            opacity: 0;
+            transition: all 0.4s ease;
+            border-radius: 12px;
+            pointer-events: none; /* 让点击穿透遮罩层，直接点到图片 */
+        }
+
+        .top-desk {
+            top: 0;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent);
+            padding-bottom: 4rem;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .desk {
+            bottom: 0;
+            padding-top: 4rem;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .photo-box:hover .top-desk,
+        .photo-box:hover .desk {
+            opacity: 1;
+        }
+
+        .pic_title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: white;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+        }
+
+        .pic_title i {
+            margin-right: 0.5rem;
+            color: var(--gold) !important;
+            pointer-events: none;
+        }
+
+        .top-desk h6 {
+            font-size: 0.9rem;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+            color: #dda !important;
+            pointer-events: none;
+        }
+
+        .top-desk > div {
+            margin-bottom: 1rem;
+            pointer-events: none;
+        }
+
+        /* 关键 CSS: 恢复交互元素的点击能力 */
+        /* 爱心按钮所在的容器需要能接收事件 */
+        .top-desk > div[style*="float:right"] {
+            pointer-events: auto;
+        }
+
+        /* 但容器内的数字文字不阻挡 */
+        .top-desk > div[style*="float:right"] > span:not(.fa-heart) {
+            pointer-events: none;
+        }
+
+        .fa-heart {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.2rem !important;
+            pointer-events: auto !important; /* 确保爱心可点击，且层级高于遮罩 */
+            position: relative;
+            z-index: 10;
+        }
+
+        .fa-heart:hover {
+            color: #ff6b6b !important;
+            transform: scale(1.3);
+        }
+
+        /* ========== 标签美化 ========== */
+        .desk .album {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+
+        .badge {
+            background: rgba(201, 169, 97, 0.9) !important;
+            padding: 0.4rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            border-radius: 20px !important;
+            transition: all 0.3s ease;
+            pointer-events: auto !important; /* 恢复标签的点击 */
+            cursor: pointer;
+            position: relative;
+            z-index: 10;
+        }
+
+        .badge:hover {
+            background: var(--gold) !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(201, 169, 97, 0.4);
+        }
+
+        /* ========== Select2 优化 ========== */
+        .select2-container--default .select2-selection--multiple {
+            border: 2px solid var(--light-gray);
+            border-radius: 0;
+            min-height: 42px;
+            background: white;
+        }
+
+        .select2-container--default.select2-container--focus .select2-selection--multiple {
+            border-color: var(--gold);
+        }
+
+        /* ========== 浮动装饰元素 ========== */
+        .floating-shape {
+            position: fixed;
+            border-radius: 50%;
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .floating-shape:nth-child(1) {
+            width: 300px;
+            height: 300px;
+            background: var(--gold);
+            top: 10%;
+            left: 5%;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .floating-shape:nth-child(2) {
+            width: 200px;
+            height: 200px;
+            background: var(--charcoal);
+            bottom: 10%;
+            right: 10%;
+            animation: float 15s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+            33% {
+                transform: translate(30px, -30px) rotate(120deg);
+            }
+            66% {
+                transform: translate(-20px, 20px) rotate(240deg);
+            }
+        }
+
+        /* ========== 响应式 ========== */
+        @media (max-width: 768px) {
+            body {
+                cursor: auto;
+            }
+
+            .custom-cursor,
+            .cursor-dot,
+            .mouse-glow {
+                display: none;
+            }
+
+            .carousel {
+                height: 50vh;
+            }
+
+            .carousel-caption h1 {
+                font-size: 3rem;
+            }
+
+            .carousel-caption p {
+                font-size: 1rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+                margin: 2rem 0;
+            }
+
+            .wall {
+                padding: 1rem 3%;
+            }
+
+            .wrapper {
+                gap: 1rem;
+            }
+
+            .photo-box {
+                width: 100% !important;
+            }
+        }
+
+        /* ========== 加载动画 ========== */
+        .photo-box {
+            animation: photoAppear 0.6s ease backwards;
+        }
+
+        .photo-box:nth-child(1) { animation-delay: 0.1s; }
+        .photo-box:nth-child(2) { animation-delay: 0.15s; }
+        .photo-box:nth-child(3) { animation-delay: 0.2s; }
+        .photo-box:nth-child(4) { animation-delay: 0.25s; }
+        .photo-box:nth-child(5) { animation-delay: 0.3s; }
+        .photo-box:nth-child(6) { animation-delay: 0.35s; }
+
+        @keyframes photoAppear {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ========== 页脚装饰 ========== */
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(to right, transparent, var(--gold), transparent);
+            pointer-events: none;
+            z-index: 1;
+        }

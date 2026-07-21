@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+{% load static %}
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DovahRide 骑行记录</title>
+
+    <!-- 引入 Bootstrap 5 CSS (用于美化界面) -->
+    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="shortcut icon" href="/media/dovahcyc.ico">
+    <!-- 引入 Bootstrap Icons (用于图标) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+    <style>
+        body { background-color: #f8f9fa; }
+        .navbar { box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="{% url 'mainpage' %}">
+              Dovahlore
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'ride_wall' %}"> <i class="bi bi-bicycle"></i> 展示墙</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'ride_manage' %}">后台管理</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link btn btn-primary text-white ms-2 px-3" href="{% url 'ride_upload' %}">上传数据</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 消息提示区域 (用于显示 "上传成功" 或 "删除成功" 的提示) -->
+    <div class="container mt-3">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- 核心内容区域：其他页面的内容会填充到这里 -->
+    <div class="main-content">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-4 text-muted mt-5">
+        <small>&copy; 2025 DovahRide. Keep Riding.</small>
+    </footer>
+
+    <!-- 引入 Bootstrap JS (用于弹窗、下拉菜单等交互) -->
+    <script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
+
+</body>
+</html>

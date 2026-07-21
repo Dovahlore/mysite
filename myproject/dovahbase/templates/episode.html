@@ -1,0 +1,429 @@
+{% extends 'effect.html' %}
+{% load static %}
+
+{% block title %}Episode List - Dovahlore{% endblock %}
+
+{% block nav_episode_active %}active{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
+<link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+<style>
+    /* ========== 检索过滤面板 ========== */
+    .glass-filter-panel {
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(15px);
+        border-top: 1px solid rgba(255, 255, 255, 0.8);
+        border-left: 1px solid rgba(255, 255, 255, 0.8);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        border-right: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        padding: 25px 30px;
+        margin: 90px 40px 20px 40px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    }
+
+    .form-grid-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px 40px;
+        align-items: center;
+    }
+
+    .form-grid-container p {
+        display: flex;
+        align-items: center;
+        margin: 0;
+        gap: 15px;
+    }
+
+    .form-grid-container p label {
+        white-space: nowrap;
+        flex-shrink: 0;
+        font-weight: 600;
+        color: #4a4a4a;
+        min-width: 70px;
+    }
+
+    .form-grid-container p input,
+    .form-grid-container p select {
+        flex-grow: 1;
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.7);
+        transition: all 0.3s ease;
+    }
+
+    .form-grid-container p input:focus,
+    .form-grid-container p select:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    .filter-actions {
+        margin-top: 25px;
+        text-align: right;
+        border-top: 1px dashed rgba(0,0,0,0.1);
+        padding-top: 20px;
+    }
+
+    /* ========== 标题操作区 ========== */
+    .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0 40px 20px 40px;
+    }
+    .header-message {
+        font-size: 1.2rem;
+        color: #2c3e50;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    /* ========== 横向信息卡片 (重构大卡片版) ========== */
+    #episode_wall {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 30px;
+        padding: 0 40px 40px 40px;
+        align-items: flex-start;
+    }
+    @media (max-width: 900px) {
+        #episode_wall { grid-template-columns: 1fr; }
+        .form-grid-container { grid-template-columns: 1fr; }
+    }
+
+    .show_box {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.9);
+        border-left: 1px solid rgba(255, 255, 255, 0.9);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        border-right: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+
+        /* 🌟 核心：统一 25px 内边距，保证上下左右留白完美对称 */
+        padding: 25px;
+
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+        text-decoration: none !important;
+        color: inherit !important;
+        cursor: pointer;
+        align-self: flex-start;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .show_box:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        border-top: 1px solid rgba(74, 144, 226, 0.4);
+        border-left: 1px solid rgba(74, 144, 226, 0.4);
+        z-index: 10;
+    }
+
+    /* 左侧：封面区 */
+    .poster-container {
+        flex-shrink: 0;
+        width: 150px;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        margin-right: 25px;
+        align-self: flex-start;
+    }
+    .poster-container img {
+        width: 100%;
+        height: 100%;
+        aspect-ratio: 2 / 3;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+    .show_box:hover .poster-container img { transform: scale(1.05); }
+
+    /* 右侧：信息区 */
+    .info-container {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        min-width: 0;
+    }
+
+    /* 🌟 时间角标绝对定位，钉在右上角 */
+    .date-corner {
+        position: absolute;
+        top: 25px;   /* 和卡片的顶部 padding 保持一致 */
+        right: 25px; /* 和卡片的右侧 padding 保持一致 */
+        font-size: 0.8rem;
+        color: #95a5a6;
+        font-weight: 500;
+        background: rgba(0, 0, 0, 0.04);
+        padding: 4px 10px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        z-index: 5;
+    }
+
+    /* 🌟 标题自动成为第一行，并给右侧留白防重叠 */
+    .item-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-top: -2px; /* 光学微调，让文字顶部和海报顶部绝对平齐 */
+        margin-bottom: 4px;
+        padding-right: 110px; /* 关键：给右上角的 Absolute 时间留出空位 */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.2s;
+        display: block;
+    }
+    .show_box:hover .item-title { color: #4a90e2; }
+
+    .item-org-title {
+        font-size: 0.95rem; color: #7f8c8d; margin-bottom: 12px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .info-line { font-size: 0.9rem; color: #555; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .info-line span.label { font-weight: 600; color: #888; margin-right: 5px;}
+    .info-line span.value { color: #333; }
+
+    .status-progress { color: #4a90e2; font-weight: 700; }
+    .status-finish { color: #e74c3c; font-weight: 700; }
+
+    .info-line span.resource-val {
+        color: #e67e22;
+        font-weight: 600;
+        background: rgba(230, 126, 34, 0.1);
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }
+
+    .status-wrapper {
+        display: flex;
+        gap: 15px;
+        margin-top: auto;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    /* ========== 自动巡航滚动评价系统 ========== */
+    .review-box {
+        position: relative;
+        font-size: 0.9rem;
+        height: 6.2em;
+        margin-top: 10px;
+        background: rgba(0, 0, 0, 0.03);
+        padding: 10px 12px;
+        border-radius: 8px;
+        border-left: 4px solid #4a90e2;
+        overflow: hidden;
+    }
+    .review-text {
+        display: block;
+        color: #444;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-all;
+        transform: translateY(0);
+        transition: transform 0.8s ease-in-out;
+    }
+    .show_box:hover .review-text {
+        transform: translateY(calc(-100% + 5em));
+        transition: transform 6s linear 0.5s;
+    }
+    .review-text:only-child {
+        min-height: 6.2em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="glass-filter-panel">
+    <form method="post" id="filterForm">
+        {% csrf_token %}
+        <div class="form-grid-container">
+            {{form.as_p}}
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary" style="border-radius: 8px; padding: 6px 25px;">过滤 Filter</button>
+        </div>
+    </form>
+</div>
+
+<div class="header-actions">
+    <h4 class="header-message">{{message}}</h4>
+    <a href="/base/episode/new">
+        <button class="btn btn-primary" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(74,144,226,0.3);">
+            <i class="fas fa-plus"></i> 新增记录
+        </button>
+    </a>
+</div>
+
+<div id="episode_wall">
+    {% for episode in episodes %}
+    <a href="/base/episode/edit/{{episode.id}}" class="show_box">
+        <div class="poster-container">
+            {% if episode.pic %}
+            <img src="/media/{{episode.pic}}" alt="{{episode.title}}">
+            {% else %}
+            <img src="{% static 'img/material/upload.jpg' %}" alt="No Image">
+            {% endif %}
+        </div>
+
+        <div class="info-container">
+            <!-- 🌟 时间角标脱离文档流 -->
+            <div class="date-corner"><i class="far fa-clock"></i> {{episode.created_at|date:"Y-m-d"}}</div>
+
+            <!-- 🌟 标题作为第一个内容，自然和图片顶部对齐 -->
+            <div class="item-title" title="{{episode.title}}">{{episode.title}}</div>
+            <div class="item-org-title" title="{{episode.org_title}}">{{episode.org_title}}</div>
+
+            <div class="info-line" title="{{episode.alternate_titles}}"><span class="label">其它译名:</span><span class="value">{{episode.alternate_titles}}</span></div>
+            <div class="info-line"><span class="label">Type:</span><span class="value">{{episode.type}}</span></div>
+            <div class="info-line"><span class="label">首播:</span><span class="value" style="color:#e74c3c; font-weight:600;">{{episode.release_time}}</span></div>
+
+            <div class="status-wrapper">
+                <div class="info-line" style="margin:0;"><span class="label">进度:</span><span class="status-progress">{{episode.myprogress}}</span></div>
+                <div class="info-line" style="margin:0;"><span class="label">归档:</span><span class="status-finish">{{episode.finish}}</span></div>
+                {% if episode.resource %}
+                <div class="info-line" style="margin:0;"><span class="label">Resource:</span><span class="resource-val">{{episode.resource}}</span></div>
+                {% endif %}
+            </div>
+
+            {% if episode.review %}
+            <div class="review-box">
+                <div class="review-text">{{episode.review}}</div>
+            </div>
+            {% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+<div id="loading-status" style="text-align:center; padding: 20px; display:none;">
+    <span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>
+    <span style="color:#555; margin-left: 8px;">Loading...</span>
+</div>
+<div id="no-more-status" style="text-align:center; padding: 20px; color:gray; display:none;">
+    -- No more episodes --
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'jquery-3.7.1.min.js'%}"></script>
+<script src="{% static 'select2/dist/js/select2.min.js'%}"></script>
+
+<script>
+$(function(){
+    $(".js-select").select2();
+});
+
+let currentPage = 1;
+let isLoading = false;
+let hasNext = true;
+
+$(window).scroll(function() {
+    if ($(document).height() - ($(window).scrollTop() + $(window).height()) < 100) {
+        loadNextPage();
+    }
+});
+
+function loadNextPage() {
+    if (isLoading || !hasNext) return;
+
+    isLoading = true;
+    $('#loading-status').show();
+    let nextPage = currentPage + 1;
+
+    let formData = new FormData(document.getElementById('filterForm'));
+    formData.append('page', nextPage);
+
+    $.ajax({
+        url: '/s/base/episode/list',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        headers: { 'X-CSRFToken': $('input[name=csrfmiddlewaretoken]').val() },
+        success: function(res) {
+            if (res.success && res.episodes.length > 0) {
+                appendEpisodes(res.episodes);
+                currentPage = nextPage;
+                hasNext = res.has_next;
+            } else {
+                hasNext = false;
+                $('#no-more-status').show();
+            }
+        },
+        complete: function() {
+            isLoading = false;
+            $('#loading-status').hide();
+        }
+    });
+}
+
+function appendEpisodes(episodes) {
+    let html = '';
+    episodes.forEach(e => {
+        let imgHtml = e.pic
+            ? `<img src="/media/${e.pic}" alt="${e.title}">`
+            : `<img src="/static/img/material/upload.jpg" alt="No Image">`;
+
+        let reviewHtml = e.review ?
+            `<div class="review-box">
+                <div class="review-text">${e.review}</div>
+            </div>` : '';
+
+        // 🌟 截取短时间，去掉时分秒
+        let shortDate = e.created_at ? e.created_at.split(' ')[0].split('T')[0] : '';
+        let dateHtml = shortDate ?
+            `<div class="date-corner"><i class="far fa-clock"></i> ${shortDate}</div>` : '';
+
+        let resourceHtml = e.resource ?
+            `<div class="info-line" style="margin:0;"><span class="label">Resource:</span><span class="resource-val">${e.resource}</span></div>` : '';
+
+        html += `
+        <a href="/base/episode/edit/${e.id}" class="show_box">
+            <div class="poster-container">
+                ${imgHtml}
+            </div>
+
+            <div class="info-container">
+                <!-- 🌟 异步加载同样的极致结构 -->
+                ${dateHtml}
+                <div class="item-title" title="${e.title}">${e.title}</div>
+                <div class="item-org-title" title="${e.org_title}">${e.org_title || ''}</div>
+
+                <div class="info-line" title="${e.alternate_titles}"><span class="label">其它译名:</span><span class="value">${e.alternate_titles || ''}</span></div>
+                <div class="info-line"><span class="label">Type:</span><span class="value">${e.type || ''}</span></div>
+                <div class="info-line"><span class="label">首播:</span><span class="value" style="color:#e74c3c; font-weight:600;">${e.release_time || '未知时间'}</span></div>
+
+                <div class="status-wrapper">
+                    <div class="info-line" style="margin:0;"><span class="label">进度:</span><span class="status-progress">${e.myprogress || ''}</span></div>
+                    <div class="info-line" style="margin:0;"><span class="label">归档:</span><span class="status-finish">${e.finish || ''}</span></div>
+                    ${resourceHtml}
+                </div>
+                
+                ${reviewHtml}
+            </div>
+        </a>`;
+    });
+    $('#episode_wall').append(html);
+}
+</script>
+{% endblock %}
