@@ -97,35 +97,43 @@
 </nav>
 <div id="carouselCaptions" class="carousel slide" data-bs-ride="carousel">
     <div class="carousel-indicators">
-        <button type="button" data-bs-target="#carouselCaptions" data-bs-slide-to="0" class="active"
-                aria-current="true" aria-label="Slide 1"></button>
-        <button type="button" data-bs-target="#carouselCaptions" data-bs-slide-to="1"
-                aria-label="Slide 2"></button>
-        <button type="button" data-bs-target="#carouselCaptions" data-bs-slide-to="2"
-                aria-label="Slide 3"></button>
+        {% if carousel_photos %}
+            {% for carousel_photo in carousel_photos %}
+                <button type="button"
+                        data-bs-target="#carouselCaptions"
+                        data-bs-slide-to="{{ forloop.counter0 }}"
+                        class="{% if forloop.first %}active{% endif %}"
+                        {% if forloop.first %}aria-current="true"{% endif %}
+                        aria-label="Slide {{ forloop.counter }}"></button>
+            {% endfor %}
+        {% else %}
+            <button type="button" data-bs-target="#carouselCaptions" data-bs-slide-to="0"
+                    class="active" aria-current="true" aria-label="Slide 1"></button>
+        {% endif %}
     </div>
     <div class="carousel-inner">
-        <div class="carousel-item active">
-            <img src="{% static 'img/bg/peak.jpg' %}" class="d-block w-100" alt="...">
-            <div class="carousel-caption d-none d-md-block">
-                <h1>PEAK</h1>
-                <p>四姑娘山</p>
+        {% if carousel_photos %}
+            {% for carousel_photo in carousel_photos %}
+                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                    <img src="{{ carousel_photo.pic.url }}"
+                         class="d-block w-100"
+                         alt="{{ carousel_photo.title }}">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h1>{{ carousel_photo.title }}</h1>
+                        {% if carousel_photo.information %}
+                            <p>{{ carousel_photo.information }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="carousel-item active">
+                <img src="{% static 'img/bg/peak.jpg' %}" class="d-block w-100" alt="DovahWall">
+                <div class="carousel-caption d-none d-md-block">
+                    <h1>DovahWall</h1>
+                </div>
             </div>
-        </div>
-        <div class="carousel-item">
-            <img src="{% static 'img/bg/DSC_1168-已增强-降噪.jpg' %}" class="d-block w-100" alt="...">
-            <div class="carousel-caption d-none d-md-block">
-                <h1>清晨</h1>
-                <p>川西</p>
-            </div>
-        </div>
-        <div class="carousel-item">
-            <img src="{% static 'img/bg/operator-1.jpg' %}" class="d-block w-100" alt="...">
-            <div class="carousel-caption d-none d-md-block">
-                <h1>DJI</h1>
-                <p>Travel with DJI mini3</p>
-            </div>
-        </div>
+        {% endif %}
     </div>
     <button class="carousel-control-prev" type="button" data-bs-target="#carouselCaptions" data-bs-slide="prev">
         <span class="carousel-control-prev-icon" aria-hidden="true"></span>

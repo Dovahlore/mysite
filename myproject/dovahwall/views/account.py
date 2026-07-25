@@ -2,6 +2,7 @@ from django.shortcuts import render, HttpResponse, redirect
 from django import forms
 import random
 from dovahwall.utils.encrypt import md5
+from dovahwall.utils.photos import random_photos
 import dovahwall.models as models
 from dovahwall.utils.checkcode import check_code
 from django.urls import reverse
@@ -27,7 +28,7 @@ class loginForm(forms.Form):
         return md5(password)
 
 
-def choose_bg():
+def _choose_static_bg():
     x = random.choice(
         ["bird2.jpg",
 "bird4.jpg",
@@ -60,6 +61,16 @@ def choose_bg():
 "赛博都市.jpg",])
     str = "/static/img/bg/" + x
     return str
+
+
+def choose_bg():
+    photos = random_photos(1)
+    if photos:
+        try:
+            return photos[0].pic.url
+        except ValueError:
+            pass
+    return _choose_static_bg()
 
 
 def login(request):

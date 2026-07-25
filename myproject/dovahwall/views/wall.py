@@ -7,6 +7,7 @@ from django import forms
 from django.db.models import Q
 from django.views.decorators.http import require_POST
 from mysite.cache_utils import client_ip, rate_limit_allows
+from dovahwall.utils.photos import random_photos
 
 
 class filter_photo_form(forms.ModelForm):
@@ -20,6 +21,7 @@ class filter_photo_form(forms.ModelForm):
 
 def wall(request):
     pics=models.photo.objects.prefetch_related('tags').order_by('-created_at')
+    carousel_photos = random_photos(3)
     if request.method == 'POST':
         form = filter_photo_form(request.POST)
         filters = Q()
@@ -35,9 +37,18 @@ def wall(request):
 
         
 
-            return render(request, "wall.html", {"pics": pics, "form": form,"message":message})
+            return render(request, "wall.html", {
+                "pics": pics,
+                "carousel_photos": carousel_photos,
+                "form": form,
+                "message": message,
+            })
     form=filter_photo_form()
-    return render(request, "wall.html",{"pics":pics,"form":form})
+    return render(request, "wall.html", {
+        "pics": pics,
+        "carousel_photos": carousel_photos,
+        "form": form,
+    })
 
 @require_POST
 def like(request):
