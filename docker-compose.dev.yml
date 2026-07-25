@@ -1,0 +1,7 @@
+services:
+  web:
+    volumes:
+      # Development only: use the host source tree for live code changes.
+      - ./myproject:/mysite
+      - media_vol:/mysite/media
+      - static_vol:/mysite/collect_static

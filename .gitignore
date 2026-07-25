@@ -4,6 +4,7 @@ __pycache__/
 
 .idea
 /myproject/collect_static/
+/myproject/media/
 /compose/nginx/cert/www.dovahwall.cn.key
 /compose/nginx/cert/www.dovahwall.cn.key.bak
 /compose/nginx/cert/www.dovahwall.cn.pem

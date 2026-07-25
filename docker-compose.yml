@@ -90,7 +90,6 @@ services:
       AGENT_DB_HOST: ${AGENT_DB_HOST:-db}
       AGENT_DB_PORT: ${AGENT_DB_PORT:-3306}
     volumes:
-      - ./myproject:/mysite # 挂载项目代码
       - media_vol:/mysite/media # 以数据卷挂载容器内用户上传媒体文件
       - static_vol:/mysite/collect_static
     #  - ./compose/uwsgi:/tmp # 挂载uwsgi日志
