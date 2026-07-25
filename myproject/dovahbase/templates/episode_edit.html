@@ -376,6 +376,7 @@ $(function(){
         var $reviewInput = $('#id_review');
         var textContent = $reviewInput.val().trim();
         var workTitle = $('#id_title').val().trim();
+        var workContext = window.collectPolishContext($reviewInput[0]);
 
         if(!textContent) {
             alert('💡 请先输入一些评价内容，AI 才能帮你润色哦！');
@@ -404,7 +405,7 @@ $(function(){
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrfToken
                 },
-                body: JSON.stringify({ 'text': textContent, 'title': workTitle, })
+                body: JSON.stringify({ 'text': textContent, 'title': workTitle, 'context': workContext })
             });
 
             // 如果后端报错返回了普通 JSON（比如空文本校验）

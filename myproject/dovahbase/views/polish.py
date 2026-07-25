@@ -11,6 +11,7 @@ def api_common_ai_polish(request):
         data = json.loads(request.body)
         raw_text = data.get('text', '').strip()
         title = data.get('title', '该作品').strip() or '该作品'
+        work_context = str(data.get('context', '')).strip()[:6000]
 
         # 前置校验，如果出错了直接回传普通 JSON
         if not raw_text:
@@ -33,15 +34,23 @@ def api_common_ai_polish(request):
             f"注意：绝对不要改变原意，不要输出额外对话，直接输出润色后的内容。"
         )
 
+        polish_messages = [{"role": "system", "content": system_prompt}]
+        if work_context:
+            polish_messages.append({
+                "role": "system",
+                "content": (
+                    "以下是当前页面已有的作品资料。请结合这些资料润色，"
+                    "不要虚构资料中没有的信息：\n" + work_context
+                ),
+            })
+        polish_messages.append({"role": "user", "content": raw_text})
+
         # 定义一个生成器函数，用来不断产出文字碎片
         def generate_stream():
             try:
                 response = client.chat.completions.create(
                     model=model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": raw_text}
-                    ],
+                    messages=polish_messages,
                     temperature=0.6,
                     max_tokens=800,
 

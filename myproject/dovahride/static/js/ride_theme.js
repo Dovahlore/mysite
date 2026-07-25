@@ -9,6 +9,7 @@
         const isTouch = matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
         let pointerX = innerWidth * .5;
         let pointerY = innerHeight * .5;
+        let cursorFramePending = false;
 
         if (isTouch) {
             [ring, dot, glow].forEach((node) => {
@@ -18,11 +19,16 @@
             document.addEventListener("pointermove", (event) => {
                 pointerX = event.clientX;
                 pointerY = event.clientY;
-                const centered = `translate3d(calc(${pointerX}px - 50%), calc(${pointerY}px - 50%), 0)`;
-                if (ring) ring.style.transform = centered;
-                if (dot) dot.style.transform = centered;
-                if (glow) glow.style.transform = centered;
-            });
+                if (cursorFramePending) return;
+                cursorFramePending = true;
+                requestAnimationFrame(() => {
+                    const centered = `translate3d(${pointerX}px, ${pointerY}px, 0) translate(-50%, -50%)`;
+                    if (ring) ring.style.transform = centered;
+                    if (dot) dot.style.transform = centered;
+                    if (glow) glow.style.transform = centered;
+                    cursorFramePending = false;
+                });
+            }, {passive: true});
 
             document.body.addEventListener("pointerover", (event) => {
                 if (event.target.closest("a, button, input, select, textarea, .card, .leaflet-control")) {
@@ -46,7 +52,7 @@
         ];
 
         function resize() {
-            const ratio = Math.min(devicePixelRatio || 1, 2);
+            const ratio = Math.min(devicePixelRatio || 1, 1.5);
             canvas.width = Math.floor(innerWidth * ratio);
             canvas.height = Math.floor(innerHeight * ratio);
             canvas.style.width = `${innerWidth}px`;
@@ -93,7 +99,7 @@
         }
 
         resize();
-        for (let index = 0; index < 52; index += 1) points.push(new TrailPoint());
+        for (let index = 0; index < 38; index += 1) points.push(new TrailPoint());
 
         function frame() {
             context.clearRect(0, 0, innerWidth, innerHeight);

@@ -1,6 +1,5 @@
 from django.shortcuts import render, HttpResponse, redirect
 from django import forms
-import random
 from dovahwall.utils.encrypt import md5
 from dovahwall.utils.photos import random_photos
 import dovahwall.models as models
@@ -28,41 +27,6 @@ class loginForm(forms.Form):
         return md5(password)
 
 
-def _choose_static_bg():
-    x = random.choice(
-        ["bird2.jpg",
-"bird4.jpg",
-"dogdigging-1.jpg",
-"DSC_0684.jpg",
-"DSC_0697_1.jpg",
-"DSC_0762.jpg",
-"DSC_0803.jpg",
-"DSC_0826.jpg",
-"DSC_0957-已增强-降噪-1.jpg",
-"DSC_1106-已增强-降噪.jpg",
-"DSC_1109-已增强-降噪.jpg",
-"DSC_1111-已增强-降噪.jpg",
-"DSC_1119.jpg",
-"DSC_1132-已增强-降噪.jpg",
-"DSC_1140.jpg",
-"DSC_1157-已增强-降噪.jpg",
-"DSC_1168-已增强-降噪.jpg",
-"DSC_1276-已增强-降噪.jpg",
-"DSC_1280-已增强-降噪-1.jpg",
-"landscape-1.jpg",
-"mount1.jpg",
-"mouse-1.jpg",
-"operator-1.jpg",
-"peak.jpg",
-"sunsetcamp-1.jpg",
-"sunsetpolls-1.jpg",
-"threehillundershade-1.jpg",
-"石雕.jpg",
-"赛博都市.jpg",])
-    str = "/static/img/bg/" + x
-    return str
-
-
 def choose_bg():
     photos = random_photos(1)
     if photos:
@@ -70,7 +34,7 @@ def choose_bg():
             return photos[0].pic.url
         except ValueError:
             pass
-    return _choose_static_bg()
+    return ""
 
 
 def login(request):

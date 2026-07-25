@@ -52,7 +52,8 @@
 
     </style>
 </head>
-<body background="{{ bg }}" style="background-position: center center;margin:0;background-repeat: no-repeat;background-size: cover;
+<body style="background-image: {% if bg %}url('{{ bg }}'){% else %}linear-gradient(135deg, #17232d, #6f604f){% endif %};
+background-position: center center;margin:0;background-repeat: no-repeat;background-size: cover;
 background-attachment: fixed;">
 <div class="header">
     <a href="/s/wall">

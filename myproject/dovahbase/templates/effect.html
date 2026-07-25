@@ -36,7 +36,8 @@
             position: fixed;
             top: 0; left: 0; /* 统一定位到左上角 */
             pointer-events: none;
-            will-change: transform; /* 告诉浏览器这个元素会频繁位移，提前分配显卡资源 */
+            will-change: transform;
+            transform: translate3d(-100vw, -100vh, 0) translate(-50%, -50%);
         }
 
         .mouse-glow {
@@ -211,6 +212,40 @@
 <script src="{% static 'js/agent_widget.js' %}?v=3"></script>
 
 <script type="text/javascript">
+window.collectPolishContext = function(reviewInput) {
+    const form = reviewInput && reviewInput.closest('form');
+    if (!form) return '';
+
+    return Array.from(form.querySelectorAll('input[name], select[name], textarea[name]'))
+        .filter((field) => {
+            return !['review', 'csrfmiddlewaretoken'].includes(field.name)
+                && field.type !== 'file'
+                && field.type !== 'password'
+                && field.type !== 'submit'
+                && (!['checkbox', 'radio'].includes(field.type) || field.checked);
+        })
+        .map((field) => {
+            let value;
+            if (field.tagName === 'SELECT') {
+                value = Array.from(field.selectedOptions)
+                    .map((option) => option.text.trim())
+                    .filter(Boolean)
+                    .join(', ');
+            } else {
+                value = String(field.value || '').trim();
+            }
+            if (!value) return '';
+
+            const label = field.id
+                ? document.querySelector(`label[for="${CSS.escape(field.id)}"]`)
+                : null;
+            const name = (label && label.textContent.trim()) || field.name;
+            return `${name}: ${value}`;
+        })
+        .filter(Boolean)
+        .join('\n');
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const cursor = document.querySelector('.custom-cursor');
@@ -235,9 +270,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 isMoving = true;
                 requestAnimationFrame(() => {
                     // calc( - 50%) 用来确保光标图形的中心点完美对准鼠标针尖
-                    cursorDot.style.transform = `translate3d(calc(${mouseX}px - 50%), calc(${mouseY}px - 50%), 0)`;
-                    cursor.style.transform = `translate3d(calc(${mouseX}px - 50%), calc(${mouseY}px - 50%), 0)`;
-                    mouseGlow.style.transform = `translate3d(calc(${mouseX}px - 50%), calc(${mouseY}px - 50%), 0)`;
+                    const transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%)`;
+                    cursorDot.style.transform = transform;
+                    cursor.style.transform = transform;
+                    mouseGlow.style.transform = transform;
                     isMoving = false;
                 });
             }
@@ -284,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    for (let i = 0; i < 70; i++) particles.push(new Particle());
+    for (let i = 0; i < 42; i++) particles.push(new Particle());
 
     function drawConnections() {
         for (let i = 0; i < particles.length; i++) {

@@ -10,7 +10,7 @@
     <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
     <link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
-    <link href="{% static 'css/wall.css' %}" rel="stylesheet">
+    <link href="{% static 'css/wall.css' %}?v=4" rel="stylesheet">
     <link href="{% static 'css/agent_widget.css' %}?v=4" rel="stylesheet">
 
     <style>
@@ -64,8 +64,7 @@
             align-items: center;
             justify-content: center;
             color: #fff;
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.3)),
-                        url("{% static 'img/bg/bird2.jpg'%}");
+            background: linear-gradient(135deg, #23333f, #74624e);
             background-position: center center;
             background-size: cover;
             margin: 0;
@@ -322,18 +321,21 @@ const cursor = document.querySelector('.custom-cursor');
 const cursorDot = document.querySelector('.cursor-dot');
 const mouseGlow = document.querySelector('.mouse-glow');
 let mouseX = 0, mouseY = 0;
+let cursorFramePending = false;
 
-document.addEventListener('mousemove', (e) => {
+document.addEventListener('pointermove', (e) => {
     mouseX = e.clientX;
     mouseY = e.clientY;
-
-    cursor.style.left = mouseX + 'px';
-    cursor.style.top = mouseY + 'px';
-    cursorDot.style.left = mouseX + 'px';
-    cursorDot.style.top = mouseY + 'px';
-    mouseGlow.style.left = mouseX + 'px';
-    mouseGlow.style.top = mouseY + 'px';
-});
+    if (cursorFramePending) return;
+    cursorFramePending = true;
+    requestAnimationFrame(() => {
+        const transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%)`;
+        cursor.style.transform = transform;
+        cursorDot.style.transform = transform;
+        mouseGlow.style.transform = transform;
+        cursorFramePending = false;
+    });
+}, {passive: true});
 
 // 可点击元素hover效果
 document.body.addEventListener('mouseover', (e) => {
@@ -402,7 +404,7 @@ class Particle {
     }
 }
 
-for (let i = 0; i < 80; i++) {
+for (let i = 0; i < 42; i++) {
     particles.push(new Particle());
 }
 

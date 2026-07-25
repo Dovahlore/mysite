@@ -228,8 +228,8 @@
         }
 
         /* 自定义光标 */
-        .cursor-dot { width: 6px; height: 6px; background: #fff; position: fixed; border-radius: 50%; z-index: 10000; pointer-events: none; }
-        .cursor-outline { width: 35px; height: 35px; border: 1px solid rgba(255,255,255,0.5); position: fixed; border-radius: 50%; z-index: 9999; pointer-events: none; transition: transform 0.1s; }
+        .cursor-dot { width: 6px; height: 6px; background: #fff; position: fixed; top: 0; left: 0; border-radius: 50%; z-index: 10000; pointer-events: none; transform: translate3d(-100vw, -100vh, 0) translate(-50%, -50%); will-change: transform; }
+        .cursor-outline { width: 35px; height: 35px; border: 1px solid rgba(255,255,255,0.5); position: fixed; top: 0; left: 0; border-radius: 50%; z-index: 9999; pointer-events: none; transform: translate3d(-100vw, -100vh, 0) translate(-50%, -50%); will-change: transform; transition: width .18s, height .18s, background-color .18s, border-color .18s; }
     </style>
 </head>
 <body>
@@ -364,7 +364,7 @@
 
     function initStars() {
         stars = [];
-        const count = Math.floor((canvas.width * canvas.height) / 3000);
+        const count = Math.min(220, Math.floor((canvas.width * canvas.height) / 9000));
         for (let i = 0; i < count; i++) {
             stars.push(new Star());
         }
@@ -387,11 +387,22 @@
     /* 2. 鼠标跟随逻辑 */
     const dot = document.getElementById('cursor-dot');
     const outline = document.getElementById('cursor-outline');
-    window.addEventListener('mousemove', (e) => {
-        dot.style.left = e.clientX + 'px';
-        dot.style.top = e.clientY + 'px';
-        outline.animate({ left: e.clientX + 'px', top: e.clientY + 'px' }, { duration: 500, fill: "forwards" });
-    });
+    let targetX = innerWidth / 2;
+    let targetY = innerHeight / 2;
+    let cursorFramePending = false;
+
+    window.addEventListener('pointermove', (e) => {
+        targetX = e.clientX;
+        targetY = e.clientY;
+        if (cursorFramePending) return;
+        cursorFramePending = true;
+        requestAnimationFrame(() => {
+            const transform = `translate3d(${targetX}px, ${targetY}px, 0) translate(-50%, -50%)`;
+            dot.style.transform = transform;
+            outline.style.transform = transform;
+            cursorFramePending = false;
+        });
+    }, {passive: true});
 
     // 悬停交互 (针对所有毛玻璃胶囊和按钮)
     document.querySelectorAll('a, button, .link-card, .service-item, .info-capsule').forEach(el => {

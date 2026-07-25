@@ -19,6 +19,31 @@ class filter_photo_form(forms.ModelForm):
         self.fields['tags'].required = False
         self.fields["tags"].widget.attrs.update({'class': 'js-select form-control','style':"width:300px;"})
 
+
+def _build_photo_timeline(pics):
+    years = []
+    current_year = None
+    current_month = None
+
+    for pic in pics:
+        year = pic.created_at.year
+        month = pic.created_at.month
+        if current_year is None or current_year["year"] != year:
+            current_year = {"year": year, "months": []}
+            years.append(current_year)
+            current_month = None
+        if current_month is None or current_month["month"] != month:
+            current_month = {
+                "month": month,
+                "anchor": f"photos-{year}-{month:02d}",
+                "photos": [],
+            }
+            current_year["months"].append(current_month)
+        current_month["photos"].append(pic)
+
+    return years
+
+
 def wall(request):
     pics=models.photo.objects.prefetch_related('tags').order_by('-created_at')
     carousel_photos = random_photos(3)
@@ -38,14 +63,14 @@ def wall(request):
         
 
             return render(request, "wall.html", {
-                "pics": pics,
+                "photo_timeline": _build_photo_timeline(pics),
                 "carousel_photos": carousel_photos,
                 "form": form,
                 "message": message,
             })
     form=filter_photo_form()
     return render(request, "wall.html", {
-        "pics": pics,
+        "photo_timeline": _build_photo_timeline(pics),
         "carousel_photos": carousel_photos,
         "form": form,
     })

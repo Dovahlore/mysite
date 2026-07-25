@@ -31,6 +31,8 @@
         /* ========== 自定义光标 ========== */
         .custom-cursor {
             position: fixed;
+            top: 0;
+            left: 0;
             width: 40px;
             height: 40px;
             border: 2px solid var(--gold);
@@ -38,18 +40,22 @@
             pointer-events: none;
             z-index: 9999;
             mix-blend-mode: difference;
-            transform: translate(-50%, -50%); /* 圆环居中对齐鼠标 */
+            transform: translate3d(-100vw, -100vh, 0) translate(-50%, -50%);
+            will-change: transform;
         }
 
         .cursor-dot {
             position: fixed;
+            top: 0;
+            left: 0;
             width: 8px;
             height: 8px;
             background: var(--gold);
             border-radius: 50%;
             pointer-events: none;
             z-index: 9999;
-            transform: translate(-50%, -50%); /* 圆心精确对齐鼠标位置 */
+            transform: translate3d(-100vw, -100vh, 0) translate(-50%, -50%);
+            will-change: transform;
         }
 
         .custom-cursor.hover {
@@ -72,12 +78,15 @@
         /* ========== 鼠标光晕 ========== */
         .mouse-glow {
             position: fixed;
+            top: 0;
+            left: 0;
             width: 400px;
             height: 400px;
             background: radial-gradient(circle, rgba(201, 169, 97, 0.12), transparent 70%);
             pointer-events: none;
             z-index: 1;
-            transform: translate(-50%, -50%);
+            transform: translate3d(-100vw, -100vh, 0) translate(-50%, -50%);
+            will-change: transform;
             transition: opacity 0.3s ease;
         }
 
@@ -203,6 +212,10 @@
             filter: brightness(0.75);
         }
 
+        .carousel-empty {
+            background: linear-gradient(135deg, #1f303c, #75634f);
+        }
+
         .carousel-caption {
             bottom: 15% !important;
             text-align: left;
@@ -307,6 +320,169 @@
             display: flex;
             flex-wrap: wrap;
             gap: 1.5rem;
+        }
+
+        .photo-year + .photo-year {
+            margin-top: 4.5rem;
+        }
+
+        .year-divider {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            margin: 1.5rem 0 2rem;
+            color: rgba(55, 52, 48, .55);
+            font-family: 'Playfair Display', serif;
+            font-size: 1.85rem;
+            font-weight: 500;
+            letter-spacing: .08em;
+        }
+
+        .year-divider::before,
+        .year-divider::after {
+            content: '';
+            height: 1px;
+            flex: 1 1 auto;
+            background: linear-gradient(90deg, transparent, rgba(201, 169, 97, .34));
+        }
+
+        .year-divider::after {
+            background: linear-gradient(90deg, rgba(201, 169, 97, .34), transparent);
+        }
+
+        .photo-month {
+            scroll-margin-top: 96px;
+        }
+
+        .photo-month + .photo-month {
+            margin-top: 3.25rem;
+        }
+
+        .month-divider {
+            display: flex;
+            align-items: baseline;
+            gap: .75rem;
+            margin: 0 0 1.1rem .2rem;
+            color: rgba(55, 52, 48, .58);
+        }
+
+        .month-divider span {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.15rem;
+            letter-spacing: .08em;
+        }
+
+        .month-divider small {
+            color: rgba(55, 52, 48, .38);
+            font-size: .72rem;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .photo-wall-empty {
+            padding: 5rem 0;
+            color: rgba(55, 52, 48, .45);
+            text-align: center;
+        }
+
+        .photo-timeline {
+            position: fixed;
+            top: 50%;
+            right: 14px;
+            z-index: 1200;
+            width: 92px;
+            max-height: calc(100vh - 160px);
+            padding: 12px 12px 12px 4px;
+            border: 1px solid rgba(201, 169, 97, .18);
+            border-radius: 18px;
+            background: rgba(250, 248, 245, .76);
+            box-shadow: 0 12px 34px rgba(49, 43, 35, .1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transform: translateY(-50%);
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .photo-timeline::-webkit-scrollbar {
+            display: none;
+        }
+
+        .photo-timeline-track {
+            position: absolute;
+            top: 18px;
+            right: 9px;
+            bottom: 18px;
+            width: 12px;
+            touch-action: none;
+            cursor: ns-resize !important;
+        }
+
+        .photo-timeline-track::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 5px;
+            width: 2px;
+            border-radius: 2px;
+            background: rgba(201, 169, 97, .22);
+        }
+
+        .photo-timeline-thumb {
+            position: absolute;
+            top: 0;
+            left: 1px;
+            width: 10px;
+            height: 10px;
+            border: 2px solid rgba(250, 248, 245, .95);
+            border-radius: 50%;
+            background: var(--gold);
+            box-shadow: 0 0 0 3px rgba(201, 169, 97, .15);
+            transform: translateY(-50%);
+            transition: top .18s ease;
+            pointer-events: none;
+        }
+
+        .photo-timeline.is-dragging .photo-timeline-thumb {
+            transition: none;
+        }
+
+        .photo-timeline-labels {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding-right: 12px;
+        }
+
+        .photo-timeline button {
+            display: grid;
+            grid-template-columns: 42px 24px;
+            align-items: center;
+            min-height: 28px;
+            padding: 2px 0;
+            border: 0;
+            background: transparent;
+            color: rgba(55, 52, 48, .42);
+            text-align: right;
+            transition: color .18s ease, transform .18s ease;
+        }
+
+        .photo-timeline button:hover,
+        .photo-timeline button.active {
+            color: var(--gold);
+            transform: translateX(-2px);
+        }
+
+        .timeline-year {
+            font-family: 'Playfair Display', serif;
+            font-size: .72rem;
+        }
+
+        .timeline-month {
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .06em;
         }
 
         .photo-box {
@@ -534,6 +710,10 @@
             .custom-cursor,
             .cursor-dot,
             .mouse-glow {
+                display: none;
+            }
+
+            .photo-timeline {
                 display: none;
             }
 
