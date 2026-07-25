@@ -1,75 +1,71 @@
-
 <!DOCTYPE html>
 {% load static %}
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DovahRide 骑行记录</title>
-
-    <!-- 引入 Bootstrap 5 CSS (用于美化界面) -->
-    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+    <title>{% block title %}DovahRide 骑行记录{% endblock %}</title>
     <link rel="shortcut icon" href="/media/dovahcyc.ico">
-    <!-- 引入 Bootstrap Icons (用于图标) -->
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-
-    <style>
-        body { background-color: #f8f9fa; }
-        .navbar { box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    </style>
+    <link href="{% static 'css/ride_theme.css' %}?v=2" rel="stylesheet">
+    <link href="{% static 'css/agent_widget.css' %}?v=4" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="ride-theme">
+    <canvas id="ride-particles" aria-hidden="true"></canvas>
+    <div class="ride-ambient-glow" aria-hidden="true"></div>
+    <div class="ride-cursor-ring" aria-hidden="true"></div>
+    <div class="ride-cursor-dot" aria-hidden="true"></div>
 
-    <!-- 顶部导航栏 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="{% url 'mainpage' %}">
-              Dovahlore
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+    <nav class="navbar navbar-expand-lg navbar-dark ride-navbar">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="{% url 'mainpage' %}">Dovahlore</a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#rideNavbar" aria-controls="rideNavbar" aria-expanded="false" aria-label="展开导航">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+            <div class="collapse navbar-collapse" id="rideNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 align-items-lg-center">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'ride_wall' %}"> <i class="bi bi-bicycle"></i> 展示墙</a>
+                        <a class="nav-link {% block nav_ride_wall_active %}{% endblock %}" href="{% url 'ride_wall' %}">DovahRide</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'ride_manage' %}">后台管理</a>
+                        <a class="nav-link" href="{% url 'agent_page' %}">Assistant</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link btn btn-primary text-white ms-2 px-3" href="{% url 'ride_upload' %}">上传数据</a>
+                        <a class="nav-link {% block nav_ride_manage_active %}{% endblock %}" href="{% url 'ride_manage' %}">Ride Management</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% block nav_ride_upload_active %}{% endblock %}" href="{% url 'ride_upload' %}">Upload Data</a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <!-- 消息提示区域 (用于显示 "上传成功" 或 "删除成功" 的提示) -->
-    <div class="container mt-3">
+    <div class="container mt-3 ride-alerts">
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
                     {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button>
                 </div>
             {% endfor %}
         {% endif %}
     </div>
 
-    <!-- 核心内容区域：其他页面的内容会填充到这里 -->
-    <div class="main-content">
-        {% block content %}
-        {% endblock %}
-    </div>
+    <main class="ride-main-content">
+        {% block content %}{% endblock %}
+    </main>
 
-    <!-- 页脚 -->
-    <footer class="text-center py-4 text-muted mt-5">
-        <small>&copy; 2025 DovahRide. Keep Riding.</small>
+    <footer class="ride-footer text-center py-4 mt-4">
+        <small>&copy; 2026 DovahRide · Keep moving, keep recording.</small>
     </footer>
 
-    <!-- 引入 Bootstrap JS (用于弹窗、下拉菜单等交互) -->
     <script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
-
+    <script src="{% static 'js/ride_theme.js' %}?v=1"></script>
+    {% include '_agent_widget_mount.html' %}
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

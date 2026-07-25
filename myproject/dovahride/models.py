@@ -1,5 +1,6 @@
 import os
 import uuid
+from django.core.cache import cache
 from django.db import models
 from django.dispatch import receiver
 
@@ -48,9 +49,17 @@ class Ride(models.Model):
         return f"{self.start_time} - {self.total_distance}km"
 
 
+@receiver(models.signals.post_save, sender=Ride)
+def invalidate_ride_cache_on_save(sender, instance, **kwargs):
+    cache.delete("ride:stats:v1")
+    cache.delete(f"ride:parsed:v1:{instance.pk}")
+
+
 # 信号监听：模型删除后，自动删除本地文件
 @receiver(models.signals.post_delete, sender=Ride)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
+    cache.delete("ride:stats:v1")
+    cache.delete(f"ride:parsed:v1:{instance.pk}")
     if instance.data_file:
         if os.path.isfile(instance.data_file.path):
             os.remove(instance.data_file.path)

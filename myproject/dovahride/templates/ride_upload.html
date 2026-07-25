@@ -1,4 +1,6 @@
 {% extends 'ride_base.html' %}
+{% block title %}上传数据 - DovahRide{% endblock %}
+{% block nav_ride_upload_active %}active{% endblock %}
 
 {% block content %}
 <div class="container py-5">
@@ -38,7 +40,8 @@
                         <!-- 提交按钮 -->
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary btn-lg rounded-pill" id="uploadBtn">
-                                开始上传
+                                <span id="btnSpinner" class="spinner-border spinner-border-sm d-none me-2" aria-hidden="true"></span>
+                                <span id="btnText">开始上传</span>
                             </button>
                         </div>
                     </form>

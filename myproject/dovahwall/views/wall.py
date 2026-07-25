@@ -5,6 +5,8 @@ from django.core import serializers
 from django.db.models import F
 from django import forms
 from django.db.models import Q
+from django.views.decorators.http import require_POST
+from mysite.cache_utils import client_ip, rate_limit_allows
 
 
 class filter_photo_form(forms.ModelForm):
@@ -17,7 +19,7 @@ class filter_photo_form(forms.ModelForm):
         self.fields["tags"].widget.attrs.update({'class': 'js-select form-control','style':"width:300px;"})
 
 def wall(request):
-    pics=models.photo.objects.all().order_by('-created_at')
+    pics=models.photo.objects.prefetch_related('tags').order_by('-created_at')
     if request.method == 'POST':
         form = filter_photo_form(request.POST)
         filters = Q()
@@ -37,7 +39,11 @@ def wall(request):
     form=filter_photo_form()
     return render(request, "wall.html",{"pics":pics,"form":form})
 
+@require_POST
 def like(request):
+    if not rate_limit_allows("photo_like", client_ip(request), limit=60, period=60):
+        return JsonResponse({"res": "rate_limited"}, status=429)
+
     data= request.POST
     id = data.get('id')
     models.photo.objects.filter(id=id).update(like=F('like')+1)

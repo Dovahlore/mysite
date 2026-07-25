@@ -4,9 +4,6 @@ from openai import OpenAI
 import json
 import os
 # ====================z AI 润色配置区 =====================
-ALIYUN_API_KEY = os.getenv("OPENAI_API_KEY")
-ALIYUN_BASE_URL =  os.getenv("OPENAI_BASE_URL")
-
 @require_POST
 def api_common_ai_polish(request):
     """【通用流式】AI 评价润色接口 (支持番剧、电影、漫画等)"""
@@ -19,7 +16,16 @@ def api_common_ai_polish(request):
         if not raw_text:
             return JsonResponse({'success': False, 'error': '评论内容不能为空哦'})
 
-        client = OpenAI(api_key=ALIYUN_API_KEY, base_url=ALIYUN_BASE_URL)
+        api_key = os.environ.get("OPENAI_API_KEY")
+        base_url = os.environ.get("OPENAI_BASE_URL") or None
+        model = os.environ.get("OPENAI_MODEL", "qwen3.7-max")
+        if not api_key:
+            return JsonResponse(
+                {'success': False, 'error': 'AI polish is not configured: set OPENAI_API_KEY.'},
+                status=503,
+            )
+
+        client = OpenAI(api_key=api_key, base_url=base_url)
 
         system_prompt = (
             f"你是一个资深的影视与二次元编辑。请帮用户润色他对《{title}》的评价，并完成补充扩展，类似豆瓣影评评价，使得更加顺畅。词藻一定简练凝缩，不要浮夸的言语，也不要太高级的词语。"
@@ -31,7 +37,7 @@ def api_common_ai_polish(request):
         def generate_stream():
             try:
                 response = client.chat.completions.create(
-                    model="deepseek-v4-flash",
+                    model=model,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": raw_text}
@@ -51,7 +57,13 @@ def api_common_ai_polish(request):
                 yield f"\n[AI 润色发生异常：{str(e)}]"
 
         # 🌟 返回流式响应，指定 Content-Type 为 plain text
-        return StreamingHttpResponse(generate_stream(), content_type='text/plain; charset=utf-8')
+        response = StreamingHttpResponse(
+            generate_stream(),
+            content_type='text/plain; charset=utf-8',
+        )
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['X-Accel-Buffering'] = 'no'
+        return response
 
     except Exception as e:
         import traceback

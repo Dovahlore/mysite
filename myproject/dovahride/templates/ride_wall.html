@@ -1,17 +1,16 @@
 {% extends 'ride_base.html' %}
+{% block title %}骑行墙 - DovahRide{% endblock %}
+{% block nav_ride_wall_active %}active{% endblock %}
 
 {% block content %}
 <div class="container py-4">
     <!-- 头部统计区域 -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="fw-bold">Cycling Activities</h1>
-            <p class="text-muted">
-                总里程: {{ total_km }} km | 总次数: {{ total_count }} | 
-                当前第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页
-            </p>
-        </div>
-        <a href="{% url 'ride_upload' %}" class="btn btn-primary">+ 上传数据</a>
+    <div class="mb-4">
+        <h1 class="fw-bold">Cycling Activities</h1>
+        <p class="text-muted">
+            总里程: {{ total_km }} km | 总次数: {{ total_count }} |
+            当前第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页
+        </p>
     </div>
 
     <!-- 卡片列表区域 -->
@@ -149,7 +148,7 @@
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 .pagination .page-item.active .page-link {
-    background-color: #333;
+    background: linear-gradient(135deg, #18b99f, #35a9d6);
     color: #fff;
 }
 </style>

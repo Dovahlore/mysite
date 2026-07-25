@@ -12,6 +12,7 @@
     <link href="{% static 'viewerjs/viewer.min.css' %}" rel="stylesheet">
     <link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
     <link href="{% static 'css/wall.css' %}" rel="stylesheet">
+    <link href="{% static 'css/agent_widget.css' %}?v=4" rel="stylesheet">
 
     <style>
         /* 修复最后一排照片过大的问题 */
@@ -70,7 +71,7 @@
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="/s/wall">Photo Wall</a>
+                    <a class="nav-link active" aria-current="page" href="/s/wall">DovahWall</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="/s/agent">Assistant</a>
@@ -334,5 +335,6 @@ if ('ontouchstart' in window) {
     document.querySelector('.mouse-glow').style.display = 'none';
 }
 </script>
+{% include '_agent_widget_mount.html' %}
 </body>
 </html>

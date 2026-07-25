@@ -1,5 +1,3 @@
-version: "3"
-
 volumes: # 自定义数据卷
   db_vol: #定义数据卷同步存放容器内mysql数据
   redis_vol: #定义数据卷同步存放redis数据
@@ -11,14 +9,20 @@ services:
   redis:
     image: redis:latest
     container_name: redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     command:
       - redis-server
       - --requirepass
       - ${REDIS_PASSWORD}
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - allkeys-lru
     volumes:
       - redis_vol:/data
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     restart: always
     networks:
       - back
@@ -76,9 +80,10 @@ services:
       MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
       MYSQL_HOST: ${MYSQL_HOST:-db}
       MYSQL_PORT: ${MYSQL_PORT:-3306}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+      OPENAI_MODEL: ${OPENAI_MODEL:-qwen3.7-max}
       AGENT_DB_USER: ${AGENT_DB_USER:-}
       AGENT_DB_PASSWORD: ${AGENT_DB_PASSWORD:-}
       AGENT_DB_NAME: ${AGENT_DB_NAME:-mysite}

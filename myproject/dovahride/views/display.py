@@ -1,6 +1,7 @@
 import os
 from fitparse import FitFile
 from django.conf import settings
+from django.core.cache import cache
 from django.shortcuts import render
 from datetime import datetime, timedelta
 import json
@@ -230,12 +231,20 @@ def ride_display(request, id):
         # 获取绝对路径用于读取
         file_path = ride.data_file.path
 
-        if selected_file.lower().endswith('.fit'):
-            ride_data = parse_fit_file(file_path)
-        elif selected_file.lower().endswith('.gpx'):
-            ride_data = parse_gpx_file(file_path)
-        else:
-            ride_data = {}
+        cache_key = f"ride:parsed:v1:{ride.pk}"
+        ride_data = cache.get(cache_key)
+        if ride_data is None:
+            if selected_file.lower().endswith('.fit'):
+                ride_data = parse_fit_file(file_path)
+            elif selected_file.lower().endswith('.gpx'):
+                ride_data = parse_gpx_file(file_path)
+            else:
+                ride_data = {}
+
+            # Valid tracks are stable, so keep them for a week. Briefly cache
+            # parse failures to avoid repeatedly processing a broken upload.
+            timeout = 7 * 24 * 60 * 60 if ride_data else 5 * 60
+            cache.set(cache_key, ride_data, timeout=timeout)
     else:
         ride_data = {}
 

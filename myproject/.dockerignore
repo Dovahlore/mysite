@@ -1,0 +1,10 @@
+.idea/
+collect_static/
+media/
+tools/
+
+**/__pycache__/
+**/*.py[cod]
+*.log
+**/*.mp4
+**/*.MP4

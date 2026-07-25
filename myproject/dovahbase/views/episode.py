@@ -15,9 +15,7 @@ import uuid
 import requests
 import datetime
 
-# ===================== AI 润色配置区 =====================
-ALIYUN_API_KEY = "sk-9c41c8f116d649efb58937c24fa0ff04"  # ⚠️ 上线前记得隐藏或放到环境变量中
-ALIYUN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
 
 
 SEASON_CHOICES = [

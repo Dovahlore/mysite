@@ -1,4 +1,6 @@
 {% extends 'ride_base.html' %}
+{% block title %}骑行详情 - DovahRide{% endblock %}
+{% block nav_ride_wall_active %}active{% endblock %}
 
 {% block content %}
 {% load tz %}
@@ -21,15 +23,6 @@
     <h1><i class="fas fa-bicycle"></i> 骑行动态回放</h1>
 
     <div class="d-flex align-items-center gap-3">
-        <div class="header-row">
-            <div>
-                <small class="text-muted">{{ activity.start_time|date:"Y-m-d H:i" }}</small>
-            </div>
-            <a href="{% url 'ride_wall' %}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left"></i> 返回列表
-            </a>
-        </div>
-
         <div class="d-flex align-items-center gap-2">
             <label class="mb-0">加速倍数：</label>
             <div class="speed-control-group">

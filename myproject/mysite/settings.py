@@ -123,14 +123,23 @@ CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": "redis://redis:6379/1",
+        "TIMEOUT": 300,
+        "KEY_PREFIX": "dovahlore",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CONNECTION_POOL_KWARGS": {"max_connections": 100},
             "PICKLE_VERSION": -1,
             "PASSWORD": REDIS_PASSWORD,
+            # Redis accelerates the site but must not become a single point of
+            # failure. Normal database/computation paths remain available.
+            "IGNORE_EXCEPTIONS": True,
         }
     }
 }
+
+# Prefer Redis for reads while retaining MySQL as the durable session store.
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+SESSION_CACHE_ALIAS = "default"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

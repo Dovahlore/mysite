@@ -1,13 +1,11 @@
 {% extends 'ride_base.html' %}
+{% block title %}记录管理 - DovahRide{% endblock %}
+{% block nav_ride_manage_active %}active{% endblock %}
 
 {% block content %}
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="mb-4">
         <h2>数据管理后台</h2>
-        <div>
-            <a href="{% url 'ride_wall' %}" class="btn btn-outline-secondary me-2">返回展示墙</a>
-            <a href="{% url 'ride_upload' %}" class="btn btn-primary">+ 上传新数据</a>
-        </div>
     </div>
 
     <div class="card shadow-sm">

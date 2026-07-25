@@ -31,4 +31,4 @@ RUN pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple \
 COPY . /mysite/
 
 # 6. 启动
-ENTRYPOINT python3 manage.py migrate && uwsgi --ini /mysite/uwsgi.ini
+ENTRYPOINT ["sh", "-c", "python3 manage.py migrate && python3 manage.py collectstatic --noinput && exec uwsgi --ini /mysite/uwsgi.ini"]

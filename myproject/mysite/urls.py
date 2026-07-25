@@ -39,6 +39,7 @@ urlpatterns = [
 
                   path("s/base", base_main.main),
                   path("s/agent", agent.agent_page, name="agent_page"),
+                  path("s/agent/history", agent.history, name="agent_history"),
                   path("s/agent/chat", agent.chat, name="agent_chat"),
 
                   # 新增清空历史的路由，替换掉原来的 cancel（如果有 confirm 也一并删掉）

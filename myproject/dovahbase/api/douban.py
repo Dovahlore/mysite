@@ -2,6 +2,7 @@ import requests
 import re
 import hashlib
 import json
+from django.core.cache import cache
 from openai import OpenAI
 from bs4 import BeautifulSoup
 import os
@@ -79,7 +80,7 @@ def parse_sec_form(html):
     return tok, cha, red
 
 
-def run_douban_spider(keyword, cat="1002"):
+def _run_douban_spider_uncached(keyword, cat="1002"):
     data = {
         'success': False,
         'error': '',
@@ -259,3 +260,21 @@ def run_douban_spider(keyword, cat="1002"):
     except Exception as e:
         data["error"] = str(e)
         return data
+
+
+def run_douban_spider(keyword, cat="1002"):
+    """Cache costly Douban and model lookups by normalized search input."""
+    normalized = " ".join(str(keyword).strip().lower().split())
+    digest = hashlib.sha256(f"{cat}:{normalized}".encode("utf-8")).hexdigest()
+    cache_key = f"douban:lookup:v1:{digest}"
+
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    result = _run_douban_spider_uncached(keyword, cat)
+    # Successful metadata is stable. Briefly cache failures so temporary
+    # upstream errors do not linger while repeated clicks are still absorbed.
+    timeout = 12 * 60 * 60 if result.get("success") else 3 * 60
+    cache.set(cache_key, result, timeout=timeout)
+    return result

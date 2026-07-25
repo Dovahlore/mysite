@@ -1,0 +1,48 @@
+{% load static %}
+<section class="agent-chat-root agent-chat-{{ chat_mode }}"
+         data-agent-chat
+         data-mode="{{ chat_mode }}"
+         aria-label="Site Assistant">
+    <header class="agent-chat-header" data-agent-drag-handle>
+        <span class="agent-chat-orb-icon" aria-hidden="true">✦</span>
+        <div class="agent-chat-heading">
+            <span class="agent-chat-status-dot" aria-hidden="true"></span>
+            <div>
+                <strong>Site Assistant</strong>
+                <small><span data-agent-turn-count>0</span>/20 轮</small>
+            </div>
+        </div>
+        <div class="agent-chat-actions">
+            <button type="button" data-agent-clear title="立即清除多轮对话">清除</button>
+            {% if chat_mode == "widget" %}
+            <button type="button"
+                    data-agent-toggle
+                    title="展开或收起助手"
+                    aria-label="展开或收起助手"
+                    aria-expanded="true">−</button>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="agent-chat-body">
+        <div class="agent-chat-messages" data-agent-messages aria-live="polite"></div>
+        <form class="agent-chat-form" data-agent-form>
+            {% csrf_token %}
+            <textarea data-agent-input
+                      maxlength="2000"
+                      rows="2"
+                      autocomplete="off"
+                      placeholder="询问电影、漫画、剧集或站内数据…"
+                      required></textarea>
+            <button data-agent-send type="submit">发送</button>
+        </form>
+        <div class="agent-chat-hint">Enter 发送 · Shift+Enter 换行 · 历史仅保存在 Redis</div>
+    </div>
+    {% if chat_mode == "widget" %}
+    <span class="agent-chat-resize-handle"
+          data-agent-resize
+          role="separator"
+          aria-label="拖动调整助手窗口大小"
+          title="拖动调整窗口大小"></span>
+    {% endif %}
+</section>
