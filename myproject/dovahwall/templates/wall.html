@@ -11,7 +11,7 @@
     <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
     <link href="{% static 'viewerjs/viewer.min.css' %}" rel="stylesheet">
     <link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
-    <link href="{% static 'css/wall.css' %}?v=4" rel="stylesheet">
+    <link href="{% static 'css/wall.css' %}?v=7" rel="stylesheet">
     <link href="{% static 'css/agent_widget.css' %}?v=4" rel="stylesheet">
 
     <style>
@@ -60,7 +60,7 @@
 <div class="floating-shape"></div>
 <div class="floating-shape"></div>
 
-<nav class="navbar navbar-expand-lg" style="position:fixed;top:0;width:100%;z-index:10">
+<nav class="navbar navbar-expand-lg">
     <div class="container-fluid">
         <a class="navbar-brand" href="/">Dovahlore</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
@@ -111,13 +111,19 @@
                     class="active" aria-current="true" aria-label="Slide 1"></button>
         {% endif %}
     </div>
-    <div class="carousel-inner">
+    <div class="carousel-inner" id="carouselGallery">
         {% if carousel_photos %}
             {% for carousel_photo in carousel_photos %}
                 <div class="carousel-item {% if forloop.first %}active{% endif %}">
                     <img src="{{ carousel_photo.pic.url }}"
-                         class="d-block w-100"
-                         alt="{{ carousel_photo.title }}">
+                         data-original="{{ carousel_photo.pic.url }}"
+                         data-viewer-title="{{ carousel_photo.title }}"
+                         data-viewer-information="{{ carousel_photo.information }}"
+                         class="d-block w-100 carousel-photo"
+                         alt="{{ carousel_photo.title }}"
+                         role="button"
+                         tabindex="0"
+                         aria-label="放大查看：{{ carousel_photo.title }}">
                     <div class="carousel-caption d-none d-md-block">
                         <h1>{{ carousel_photo.title }}</h1>
                         {% if carousel_photo.information %}
@@ -241,13 +247,13 @@ document.addEventListener('pointermove', (e) => {
 
 // 可点击元素hover效果
 document.body.addEventListener('mouseover', (e) => {
-    if (e.target.closest('.fa-heart, .badge, a, button') || e.target.classList.contains('photo-box')) {
+    if (e.target.closest('.fa-heart, .badge, a, button, .carousel-photo') || e.target.classList.contains('photo-box')) {
         cursor.classList.add('hover');
     }
 });
 
 document.body.addEventListener('mouseout', (e) => {
-    if (e.target.closest('.fa-heart, .badge, a, button') || e.target.classList.contains('photo-box')) {
+    if (e.target.closest('.fa-heart, .badge, a, button, .carousel-photo') || e.target.classList.contains('photo-box')) {
         cursor.classList.remove('hover');
     }
 });
@@ -435,6 +441,44 @@ function initPhotoTimeline() {
 // ========== ViewerJS 初始化 ==========
 window.addEventListener('DOMContentLoaded', function () {
     initPhotoTimeline();
+
+    var carouselGallery = document.getElementById('carouselGallery');
+    var carouselImages = carouselGallery
+        ? Array.from(carouselGallery.querySelectorAll('.carousel-photo'))
+        : [];
+    if (carouselImages.length) {
+        var carouselElement = document.getElementById('carouselCaptions');
+        var carouselViewer = new Viewer(carouselGallery, {
+            url: 'data-original',
+            filter: function (image) {
+                return image.classList.contains('carousel-photo');
+            },
+            title: function (image, imageData) {
+                var title = image.dataset.viewerTitle || image.alt || '';
+                var information = image.dataset.viewerInformation || '';
+                var details = imageData.naturalWidth + '×' + imageData.naturalHeight;
+                return [title, information, details].filter(Boolean).join('\n');
+            },
+            shown: function () {
+                var carousel = bootstrap.Carousel.getInstance(carouselElement);
+                if (carousel) carousel.pause();
+            },
+            hidden: function () {
+                var carousel = bootstrap.Carousel.getInstance(carouselElement);
+                if (carousel) carousel.cycle();
+            },
+        });
+
+        carouselGallery.addEventListener('keydown', function (event) {
+            if (!event.target.classList.contains('carousel-photo')
+                || (event.key !== 'Enter' && event.key !== ' ')) {
+                return;
+            }
+            event.preventDefault();
+            carouselViewer.view(carouselImages.indexOf(event.target));
+        });
+    }
+
     var galley = document.getElementById('galley');
     var viewer = new Viewer(galley, {
         url: 'data-original',

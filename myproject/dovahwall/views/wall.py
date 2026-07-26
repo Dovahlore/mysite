@@ -46,7 +46,7 @@ def _build_photo_timeline(pics):
 
 def wall(request):
     pics=models.photo.objects.prefetch_related('tags').order_by('-created_at')
-    carousel_photos = random_photos(3)
+    carousel_photos = random_photos(5)
     if request.method == 'POST':
         form = filter_photo_form(request.POST)
         filters = Q()
