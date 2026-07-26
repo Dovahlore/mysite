@@ -71,6 +71,7 @@ urlpatterns = [
                 path('bike/upload/', ride.ride_upload, name='ride_upload'),
                 path('bike/manage/', ride.ride_manage, name='ride_manage'),
                 path('bike/delete/<id>/', ride.ride_delete, name='ride_delete'),
+                path('bike/sync/', ride.request_full_sync, name='ride_sync'),
 
 
               ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

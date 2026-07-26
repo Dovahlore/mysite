@@ -2,8 +2,9 @@ from django.shortcuts import render
 from django.core.cache import cache
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Sum
-from ..models import Ride
+from ..models import Ride, RideSyncRequest, RideSyncState
 from datetime import timedelta
+from django.utils import timezone
 
 def ride_wall(request):
     """展示骑行数据墙 (带分页)"""
@@ -48,8 +49,25 @@ def ride_wall(request):
         else:
             r.total_duration_str = f" {s}秒"
 
+    sync_state = RideSyncState.objects.filter(pk=1).first()
+    active_sync_request = RideSyncRequest.objects.filter(
+        status__in=[
+            RideSyncRequest.Status.PENDING,
+            RideSyncRequest.Status.RUNNING,
+        ]
+    ).first()
+    heartbeat_is_fresh = bool(
+        sync_state
+        and sync_state.heartbeat_at
+        and sync_state.heartbeat_at >= timezone.now() - timedelta(seconds=90)
+    )
+
     return render(request, 'ride_wall.html', {
         'page_obj': page_obj,  # 传递分页对象，而不是整个列表
         'total_km': round(stats["total_km"], 2),
-        'total_count': stats["total_count"]
+        'total_count': stats["total_count"],
+        'sync_state': sync_state,
+        'sync_service_healthy': heartbeat_is_fresh,
+        'active_sync_request': active_sync_request,
+        'can_manage_sync': bool(request.session.get("info")),
     })

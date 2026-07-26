@@ -10,6 +10,8 @@ GRANT SELECT ON mysite.dovahbase_movie_tag TO 'dovah_agent_ro'@'%';
 GRANT SELECT ON mysite.dovahbase_movie_tags TO 'dovah_agent_ro'@'%';
 
 GRANT SELECT ON mysite.dovahride_ride TO 'dovah_agent_ro'@'%';
+GRANT SELECT ON mysite.dovahride_ridesyncrequest TO 'dovah_agent_ro'@'%';
+GRANT SELECT ON mysite.dovahride_ridesyncstate TO 'dovah_agent_ro'@'%';
 
 GRANT SELECT ON mysite.dovahwall_admin TO 'dovah_agent_ro'@'%';
 GRANT SELECT ON mysite.dovahwall_photo TO 'dovah_agent_ro'@'%';

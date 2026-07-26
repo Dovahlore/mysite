@@ -190,11 +190,12 @@ IGPSPORT_LOOKBACK_DAYS=14
 ```bash
 docker compose ps
 docker compose logs --tail=100 scheduler
-docker compose exec -T scheduler python manage.py sync_igpsport --days 30
+docker compose exec -T scheduler python manage.py sync_igpsport --all
 ```
 
-最后一条是可选的手工补同步命令。日常任务默认只查询最近 14 天；临时需要补更早
-的数据时可增大 `--days`，已经存在的活动不会重复下载或写入。
+最后一条是可选的手工全量同步命令。日常任务默认只查询最近 14 天；Ride 页面也会
+展示 scheduler 心跳、上次成功时间和最近同步结果。登录后可点击“完整同步全部骑行”
+创建全量任务，scheduler 会在几秒内领取；已经存在的活动不会重复下载或写入。
 
 ### 网络较差时离线迁移应用镜像
 

@@ -13,6 +13,72 @@
         </p>
     </div>
 
+    <section class="sync-health-card mb-4" aria-labelledby="sync-health-title">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div class="d-flex align-items-start gap-3">
+                <span class="sync-health-light {% if sync_service_healthy %}is-healthy{% else %}is-unhealthy{% endif %}"
+                      aria-hidden="true"></span>
+                <div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <h2 id="sync-health-title" class="h5 mb-0">
+                            {% if sync_service_healthy %}同步服务健康{% else %}同步服务未连接{% endif %}
+                        </h2>
+                        {% if active_sync_request %}
+                            <span class="badge rounded-pill text-bg-warning">
+                                {% if active_sync_request.status == 'running' %}完整同步运行中{% else %}完整同步排队中{% endif %}
+                            </span>
+                        {% elif sync_state.status == 'running' %}
+                            <span class="badge rounded-pill text-bg-info">每日同步运行中</span>
+                        {% elif sync_state.status == 'failed' %}
+                            <span class="badge rounded-pill text-bg-danger">上次同步失败</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="sync-health-meta mt-2">
+                        <span>
+                            上次成功：
+                            {% if sync_state.last_success_at %}
+                                {{ sync_state.last_success_at|date:"Y-m-d H:i:s" }}
+                            {% else %}
+                                暂无记录
+                            {% endif %}
+                        </span>
+                        <span>
+                            心跳：
+                            {% if sync_state.heartbeat_at %}
+                                {{ sync_state.heartbeat_at|date:"Y-m-d H:i:s" }}
+                            {% else %}
+                                尚未收到
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {% if sync_state.last_finished_at %}
+                        <div class="small text-muted mt-2">
+                            最近结果：新增 {{ sync_state.last_imported }}，
+                            关联旧记录 {{ sync_state.last_linked }}，
+                            已存在 {{ sync_state.last_skipped }}，
+                            失败 {{ sync_state.last_failed }}
+                        </div>
+                    {% endif %}
+                    {% if sync_state.last_message %}
+                        <div class="small text-muted text-break mt-1">{{ sync_state.last_message }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if can_manage_sync %}
+                <form action="{% url 'ride_sync' %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary sync-full-button"
+                            {% if active_sync_request %}disabled{% endif %}>
+                        {% if active_sync_request %}同步任务处理中{% else %}完整同步全部骑行{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </section>
+
     <!-- 卡片列表区域 -->
     <div class="row g-4">
         <!-- 注意：这里改成了 page_obj -->
@@ -139,6 +205,41 @@
 .ride-card:hover .ride-thumbnail {
     transform: scale(1.05);
 }
+.sync-health-card {
+    padding: 1.15rem 1.25rem;
+    border: 1px solid rgba(255, 255, 255, .78);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, .76);
+    box-shadow: 0 14px 38px rgba(37, 75, 91, .1);
+    backdrop-filter: blur(13px);
+}
+.sync-health-light {
+    flex: 0 0 auto;
+    width: 13px;
+    height: 13px;
+    margin-top: .38rem;
+    border-radius: 50%;
+}
+.sync-health-light.is-healthy {
+    background: #19b978;
+    box-shadow: 0 0 0 5px rgba(25, 185, 120, .12), 0 0 16px rgba(25, 185, 120, .55);
+}
+.sync-health-light.is-unhealthy {
+    background: #dc5d62;
+    box-shadow: 0 0 0 5px rgba(220, 93, 98, .12);
+}
+.sync-health-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem 1.2rem;
+    color: #607482;
+    font-size: .88rem;
+}
+.sync-full-button {
+    min-width: 176px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
 /* 优化分页按钮样式 */
 .pagination .page-link {
     color: #333;
@@ -152,4 +253,11 @@
     color: #fff;
 }
 </style>
+{% if active_sync_request %}
+<script>
+    window.setTimeout(function () {
+        window.location.reload();
+    }, 5000);
+</script>
+{% endif %}
 {% endblock %}

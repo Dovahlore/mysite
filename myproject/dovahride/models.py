@@ -65,6 +65,54 @@ class Ride(models.Model):
         return f"{self.start_time} - {self.total_distance}km"
 
 
+class RideSyncState(models.Model):
+    class Status(models.TextChoices):
+        IDLE = "idle", "Idle"
+        RUNNING = "running", "Running"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.IDLE,
+    )
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    last_finished_at = models.DateTimeField(null=True, blank=True)
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    last_message = models.CharField(max_length=500, blank=True)
+    last_imported = models.PositiveIntegerField(default=0)
+    last_linked = models.PositiveIntegerField(default=0)
+    last_skipped = models.PositiveIntegerField(default=0)
+    last_failed = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class RideSyncRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RUNNING = "running", "Running"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    full_sync = models.BooleanField(default=True)
+    requested_by = models.CharField(max_length=150, blank=True)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    message = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ["requested_at"]
+
+
 @receiver(models.signals.post_save, sender=Ride)
 def invalidate_ride_cache_on_save(sender, instance, **kwargs):
     cache.delete("ride:stats:v1")

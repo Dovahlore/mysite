@@ -1,3 +1,4 @@
+import re
 from datetime import timezone as datetime_timezone
 
 from django.core.exceptions import ValidationError
@@ -7,10 +8,51 @@ from ..models import Ride
 from ..utils.extract import generate_track_thumbnail, parse_ride_file
 
 
+GENERATED_RIDE_TITLES = {
+    "凌晨骑行",
+    "晨间骑行",
+    "上午骑行",
+    "午后骑行",
+    "傍晚骑行",
+    "夜间骑行",
+}
+
+
 def normalize_start_time(value):
     if value and timezone.is_naive(value):
         return timezone.make_aware(value, datetime_timezone.utc)
     return value
+
+
+def suggest_ride_title(start_time, preferred_title=None):
+    preferred_title = str(preferred_title or "").strip()
+    if preferred_title:
+        return preferred_title[:100]
+
+    start_time = normalize_start_time(start_time)
+    if not start_time:
+        return "未命名骑行"
+
+    hour = timezone.localtime(start_time).hour
+    if hour < 5:
+        return "凌晨骑行"
+    if hour < 10:
+        return "晨间骑行"
+    if hour < 12:
+        return "上午骑行"
+    if hour < 17:
+        return "午后骑行"
+    if hour < 20:
+        return "傍晚骑行"
+    return "夜间骑行"
+
+
+def is_generated_ride_title(title):
+    title = str(title or "").strip()
+    return bool(
+        title in GENERATED_RIDE_TITLES
+        or re.fullmatch(r"\d{4}-\d{2}-\d{2}\s+骑行", title)
+    )
 
 
 def find_existing_ride(parsed_data):
@@ -41,6 +83,7 @@ def import_ride_file(
     source=Ride.Source.MANUAL,
     external_id=None,
     parsed_data=None,
+    preferred_title=None,
 ):
     """Persist and parse one FIT/GPX file using the website's canonical flow."""
     if external_id and Ride.objects.filter(
@@ -63,9 +106,7 @@ def import_ride_file(
         start_time = normalize_start_time(data.get("start_time"))
         if start_time:
             instance.start_time = start_time
-            instance.title = f"{timezone.localtime(start_time):%Y-%m-%d} 骑行"
-        else:
-            instance.title = "未命名骑行"
+        instance.title = suggest_ride_title(start_time, preferred_title)
 
         instance.total_distance = data.get("total_distance", 0)
         instance.total_duration = data.get("total_duration", 0)

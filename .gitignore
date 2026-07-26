@@ -13,3 +13,4 @@ __pycache__/
 /compose/nginx/cert/www.dovahwall.cn.pem.bak
 *.mp4
 *.MP4
+*.tar

@@ -61,22 +61,22 @@ class IGPSportClient:
         except (TypeError, KeyError) as exc:
             raise IGPSportError("iGPSPORT login response has no access token.") from exc
 
-    def list_activities(self, begin_date, end_date):
+    def list_activities(self, begin_date=None, end_date=None):
         if not self.token:
             self.login()
 
         page = 1
         while True:
-            params = urllib.parse.urlencode(
-                {
-                    "pageNo": page,
-                    "pageSize": 20,
-                    "reqType": 0,
-                    "sort": 1,
-                    "beginTime": begin_date.isoformat(),
-                    "endTime": end_date.isoformat(),
-                }
-            )
+            query = {
+                "pageNo": page,
+                "pageSize": 20,
+                "reqType": 0,
+                "sort": 1,
+            }
+            if begin_date and end_date:
+                query["beginTime"] = begin_date.isoformat()
+                query["endTime"] = end_date.isoformat()
+            params = urllib.parse.urlencode(query)
             data = self._request_json(
                 f"{self.BASE_URL}/web-gateway/web-analyze/activity/queryMyActivity?{params}"
             ) or {}
