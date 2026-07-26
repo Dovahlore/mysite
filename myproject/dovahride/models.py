@@ -20,6 +20,16 @@ def ride_thumb_path(instance, filename):
 
 
 class Ride(models.Model):
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Manual upload"
+        IGPSPORT = "igpsport", "iGPSPORT"
+
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.MANUAL,
+    )
+    external_id = models.CharField(max_length=100, null=True, blank=True)
     title = models.CharField("标题", max_length=100, blank=True)
 
     # 文件存储
@@ -44,6 +54,12 @@ class Ride(models.Model):
 
     class Meta:
         ordering = ['-start_time']
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "external_id"],
+                name="unique_ride_external_source_id",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.start_time} - {self.total_distance}km"

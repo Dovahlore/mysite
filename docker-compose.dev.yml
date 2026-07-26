@@ -5,3 +5,7 @@ services:
       - ./myproject:/mysite
       - media_vol:/mysite/media
       - static_vol:/mysite/collect_static
+  scheduler:
+    volumes:
+      # Reuse the same live source tree; restart the process after Python changes.
+      - ./myproject:/mysite

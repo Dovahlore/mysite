@@ -69,7 +69,6 @@ services:
     restart: always
   web:
     build: ./myproject
-    image: ${APP_IMAGE:-docker-mysite-app:latest}
     container_name: web
     working_dir: /mysite
     ports:
@@ -105,25 +104,3 @@ services:
     restart: always
     tty: true
     stdin_open: true
-  scheduler:
-    image: ${APP_IMAGE:-docker-mysite-app:latest}
-    container_name: scheduler
-    working_dir: /mysite
-    entrypoint: ["python3", "manage.py", "run_igpsport_scheduler"]
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-mysite}
-      MYSQL_USER: ${MYSQL_USER:-root}
-      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
-      MYSQL_HOST: ${MYSQL_HOST:-db}
-      MYSQL_PORT: ${MYSQL_PORT:-3306}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
-      IGPSPORT_USERNAME: ${IGPSPORT_USERNAME:?Set IGPSPORT_USERNAME in .env}
-      IGPSPORT_PASSWORD: ${IGPSPORT_PASSWORD:?Set IGPSPORT_PASSWORD in .env}
-      IGPSPORT_LOOKBACK_DAYS: ${IGPSPORT_LOOKBACK_DAYS:-14}
-    volumes:
-      - media_vol:/mysite/media
-    networks:
-      - back
-    depends_on:
-      - web
-    restart: always
