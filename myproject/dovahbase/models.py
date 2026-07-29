@@ -63,7 +63,7 @@ class movie(models.Model):
     title=models.CharField(max_length=50, verbose_name="中文标题")
     org_title = models.CharField(max_length=80, verbose_name="原始标题")
     alternate_titles = models.CharField(max_length=100, blank=True, verbose_name="译名/其它译名", default="", null=True)
-    pic = models.ImageField(upload_to='Base/episode/pic', blank=True, null=True,verbose_name="封面")
+    pic = models.ImageField(upload_to='Base/movie/pic', blank=True, null=True,verbose_name="封面")
     review = models.TextField(verbose_name="我的想法", blank=True, null=True)
     release_time = models.IntegerField(validators=[validate_year],verbose_name="上映年份")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")

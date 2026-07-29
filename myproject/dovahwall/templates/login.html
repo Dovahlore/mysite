@@ -7,7 +7,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Dovahlore - 管理登录</title>
-    <link rel="shortcut icon" href="/media/main.ico">
+    <link rel="shortcut icon" href="{% static 'icons/main.ico' %}">
     <style>
         .loginbox .container{
             background-color:#fff;            margin-top:100px;
@@ -52,14 +52,18 @@
 
     </style>
 </head>
-<body background={{bg}} style="background-position: center center;margin:0;background-repeat: no-repeat;background-size: cover;
+<body style="background-image: {% if bg %}url('{{ bg }}'){% else %}linear-gradient(135deg, #17232d, #6f604f){% endif %};
+background-position: center center;margin:0;background-repeat: no-repeat;background-size: cover;
 background-attachment: fixed;">
 <div class="header">
     <a href="/s/wall">
         <img class="hoverclear" src="{% static 'img/material/DovahWall.gif' %}" alt="">
     </a>
-    <a href="/base">
+    <a href="/s/base">
         <img class="hoverclear" src="{% static 'img/material/dovahbase.gif' %}" alt="">
+    </a>
+    <a href="/s/bike">
+        <img class="hoverclear" src="{% static 'img/material/DovahCYC.gif' %}" alt="">
     </a>
 </div>
 <div class="mask"></div>

@@ -1,0 +1,1190 @@
+{% extends 'ride_base.html' %}
+{% block title %}骑行详情 - DovahRide{% endblock %}
+{% block nav_ride_wall_active %}active{% endblock %}
+
+{% block content %}
+{% load tz %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/leaflet.css' %}">
+<link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+<link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/ride.css' %}">
+<script src="{% static 'js/leaflet.js' %}" defer></script>
+<script src="{% static 'js/ride.js' %}" defer></script>
+<style>
+
+
+
+</style>
+</head>
+<body>
+
+<div class="container-controls">
+    <h1><i class="fas fa-bicycle"></i> 骑行动态回放</h1>
+
+    <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2">
+            <label class="mb-0">加速倍数：</label>
+            <div class="speed-control-group">
+                <button class="speed-btn" id="speed-down">-</button>
+                <input type="number" id="speed" value="60" min="1" max="2000" class="form-control">
+                <button class="speed-btn" id="speed-up">+</button>
+            </div>
+        </div>
+
+        <button id="playBtn" class="btn btn-primary">
+            <i class="fas fa-play"></i> 播放
+        </button>
+    </div>
+</div>
+
+<!-- Tab导航 -->
+<ul class="nav nav-tabs" id="rideTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="map-tab" data-bs-toggle="tab" data-bs-target="#map-tab-pane" type="button" role="tab">
+            <i class="fas fa-map"></i> 地图轨迹
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data-tab-pane" type="button" role="tab">
+            <i class="fas fa-table"></i> 骑行数据
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="charts-tab" data-bs-toggle="tab" data-bs-target="#charts-tab-pane" type="button" role="tab">
+            <i class="fas fa-chart-line"></i> 数据分析
+        </button>
+    </li>
+</ul>
+
+<!-- Tab内容 -->
+<div class="tab-content" id="rideTabsContent">
+    <!-- 地图Tab -->
+    <div class="tab-pane fade show active" id="map-tab-pane" role="tabpanel">
+        <div id="map-container">
+            <div id="map"></div>
+            <div id="stats-display-container">
+                <div id="waiting-display" class="stats-display">
+                    <i class="fas fa-pause-circle"></i>
+                    <span>等待</span>
+                    <span id="waiting-time" class="stats-value">0s</span>
+                </div>
+                <div id="speed-display" class="stats-display">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>速度</span>
+                    <span id="real-speed" class="stats-value">0 km/h</span>
+                </div>
+                <div id="distance-display" class="stats-display">
+                    <i class="fas fa-road"></i>
+                    <span>里程</span>
+                    <span id="current-distance" class="stats-value">0 km</span>
+                </div>
+                <div id="time-display" class="stats-display">
+                    <i class="fas fa-clock"></i>
+                    <span>时间</span>
+                    <span id="current-time" class="stats-value">--:--:--</span>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据Tab -->
+    <div class="tab-pane fade" id="data-tab-pane" role="tabpanel">
+        <!-- 保持原有的数据展示区域 -->
+        <div class="stats-container">
+            <!-- 基本信息 -->
+            <div class="stat-card">
+                <h5><i class="fas fa-info-circle"></i> 基本信息</h5>
+                <div class="stat-row">
+                    <span class="stat-label">总里程</span>
+                    <span class="stat-value success">{{ ride_data.total_distance }} km</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">平均速度</span>
+                    <span class="stat-value">{{ ride_data.average_speed }} km/h</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">最大速度</span>
+                    <span class="stat-value highlight">{{ ride_data.max_speed|default:"N/A" }} km/h</span>
+                </div>
+                {% if ride_data.total_calories %}
+                <div class="stat-row">
+                    <span class="stat-label">消耗卡路里</span>
+                    <span class="stat-value">{{ ride_data.total_calories }} kcal</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 时间信息 -->
+            <div class="stat-card">
+                <h5><i class="fas fa-clock"></i> 时间信息</h5>
+                <div class="stat-row">
+                    <span class="stat-label">总时间</span>
+                    <span class="stat-value">{{ ride_data.total_elapsed_time_fmt|default:"N/A" }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">移动时间</span>
+                    <span class="stat-value">{{ ride_data.total_timer_time_fmt|default:"N/A" }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">开始时间</span>
+                    <span class="stat-value">{{ ride_data.start_time|localtime|date:"Y-m-d H:i:s"|default:"N/A" }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">结束时间</span>
+                    <span class="stat-value">{{ ride_data.end_time|localtime|date:"Y-m-d H:i:s"|default:"N/A" }}</span>
+                </div>
+            </div>
+
+            <!-- 爬升 & 下降 -->
+            <div class="stat-card">
+                <h5><i class="fas fa-mountain"></i> 爬升 / 下降 </h5>
+                <div class="stat-row">
+                    <span class="stat-label">总升高度</span>
+                    <span class="stat-value success">{{ ride_data.total_ascent|default:0 }} m</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">总降高度</span>
+                    <span class="stat-value">{{ ride_data.total_descent|default:0 }} m</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">平均上升速度</span>
+                    <span class="stat-value">{{ ride_data.avg_ascent_speed|default:"N/A" }} m/s</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">最大上升速度</span>
+                    <span class="stat-value highlight">{{ ride_data.max_ascent_speed|default:"N/A" }} m/s</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">平均下降速度</span>
+                    <span class="stat-value">{{ ride_data.avg_descent_speed|default:"N/A" }} m/s</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">最大下降速度</span>
+                    <span class="stat-value highlight">{{ ride_data.max_descent_speed|default:"N/A" }} m/s</span>
+                </div>
+            </div>
+
+            <!-- 坡度 -->
+            <div class="stat-card">
+                <h5><i class="fas fa-mountain"></i> 坡度 </h5>
+                <div class="stat-row">
+                    <span class="stat-label">平均上坡度</span>
+                    <span class="stat-value">{{ ride_data.avg_up_grade|default:"N/A" }} %</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">最大上坡</span>
+                    <span class="stat-value highlight">{{ ride_data.max_up_grade|default:"N/A" }} %</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">平均下坡度</span>
+                    <span class="stat-value">{{ ride_data.avg_down_grade|default:"N/A" }} %</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">最大下坡</span>
+                    <span class="stat-value">{{ ride_data.max_down_grade|default:"N/A" }} %</span>
+                </div>
+            </div>
+
+            <!-- 海拔 & 温度 -->
+            <div class="stat-card">
+                <h5><i class="fas fa-layer-group"></i> 海拔 & 温度</h5>
+                <div class="stat-row">
+                    <span class="stat-label">最低海拔</span>
+                    <span class="stat-value">{{ ride_data.min_altitude|default:0 }} m</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">平均海拔</span>
+                    <span class="stat-value">{{ ride_data.avg_altitude|default:0 }} m</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">最高海拔</span>
+                    <span class="stat-value highlight">{{ ride_data.max_altitude|default:0 }} m</span>
+                </div>
+                {% if ride_data.has_temperature %}
+                <div class="stat-row">
+                    <span class="stat-label">平均温度</span>
+                    <span class="stat-value">{{ ride_data.avg_temperature }} ℃</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">最高温度</span>
+                    <span class="stat-value highlight">{{ ride_data.max_temperature }} ℃</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 心率 / 踏频 / 功率 -->
+            {% if ride_data.has_heart_rate %}
+            <div class="stat-card">
+                <h5><i class="fas fa-heartbeat"></i> 心率</h5>
+                <div class="stat-row">
+                    <span class="stat-label">平均心率</span>
+                    <span class="stat-value">{{ ride_data.avg_heart_rate }} bpm</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">最大心率</span>
+                    <span class="stat-value highlight">{{ ride_data.max_heart_rate }} bpm</span>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if ride_data.has_cadence %}
+            <div class="stat-card">
+                <h5><i class="fas fa-sync-alt"></i> 踏频</h5>
+                <div class="stat-row">
+                    <span class="stat-label">平均踏频</span>
+                    <span class="stat-value">{{ ride_data.avg_cadence }} rpm</span>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if ride_data.has_power %}
+            <div class="stat-card">
+                <h5><i class="fas fa-bolt"></i> 功率</h5>
+                <div class="stat-row">
+                    <span class="stat-label">平均功率</span>
+                    <span class="stat-value">{{ ride_data.avg_power }} W</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 图表Tab -->
+    <div class="tab-pane fade" id="charts-tab-pane" role="tabpanel">
+        <div class="charts-container">
+            <div class="chart-card">
+                <h5><i class="fas fa-mountain"></i> 海拔曲线</h5>
+                <canvas id="altitudeChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h5><i class="fas fa-tachometer-alt"></i> 速度曲线</h5>
+                <canvas id="speedChart"></canvas>
+            </div>
+            {% if ride_data.has_temperature %}
+            <div class="chart-card">
+                <h5><i class="fas fa-thermometer-half"></i> 温度曲线</h5>
+                <canvas id="temperatureChart"></canvas>
+            </div>
+            {% endif %}
+            {% if ride_data.has_heart_rate %}
+            <div class="chart-card">
+                <h5><i class="fas fa-heartbeat"></i> 心率曲线</h5>
+                <canvas id="heartRateChart"></canvas>
+            </div>
+            {% endif %}
+            {% if ride_data.has_cadence %}
+            <div class="chart-card">
+                <h5><i class="fas fa-sync-alt"></i> 踏频曲线</h5>
+                <canvas id="cadenceChart"></canvas>
+            </div>
+            {% endif %}
+            {% if ride_data.has_power %}
+            <div class="chart-card">
+                <h5><i class="fas fa-bolt"></i> 功率曲线</h5>
+                <canvas id="powerChart"></canvas>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 引入 Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'jquery-3.7.1.min.js'%}"></script>
+<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
+<script>
+window.ridePoints = {{ ride_data.points_json|safe|default:"[]" }};
+
+document.addEventListener("DOMContentLoaded", function(){
+
+    const points = window.ridePoints;
+    const labels = points.map(p=>p.time ? new Date(p.time).toLocaleTimeString() : '');
+    const altitudeData = points.map(p=>p.ele);
+    const speedData = points.map(p=>p.speed);
+    const temperatureData = points.map(p=>p.temperature);
+    const heartRateData = points.map(p=>p.heart_rate);
+    const cadenceData = points.map(p=>p.cadence);
+    const powerData = points.map(p=>p.power);
+
+    const softColors = {
+        altitude: '#2c7d2c',
+        speed: '#e67e22',
+        temperature: '#c0392b',
+        heartRate: '#8e44ad',
+        cadence: '#2980b9',
+        power: '#16a085'
+    };
+
+    // 延迟初始化图表
+    setTimeout(() => {
+    // ==========================================
+    // 1. 数据清洗与预处理 (核心解决等待时间和X轴问题)
+    // ==========================================
+
+    // 过滤规则：由于GPS漂移，静止时可能会有微小速度。
+    // 这里保留速度大于 1km/h 的点，或者根据你需要，如果只是想去掉那8小时，
+    // 建议直接依赖 "距离" 作为X轴，这样静止的8小时在X轴上只会占一个点的宽度。
+
+    // 假设 fit 文件通常包含 distance (米)。如果没有，我们需要累加计算。
+    // 如果想要彻底去掉静止点（让曲线更平滑）：
+    const movingPoints = points.filter(p => p.speed > 1.0); // 仅保留移动中的点（可选）
+
+    // 为了保证数据对齐，我们使用处理后的数据源
+    const sourcePoints = points; // 如果你想过滤，把这里改成 movingPoints
+
+    // 生成 X 轴 Labels (推荐使用距离，格式化为 km)
+    // 如果原始数据里没有 accumulated_distance，需要自己算，这里假设 fit 解析出来有 distance 或者根据速度时间算
+    let accumulatedDist = 0;
+    const xLabels = sourcePoints.map((p, index) => {
+        // 如果数据源自带 distance 字段最好，没有的话简单估算：
+        // 这里的逻辑最好是用实际 FIT 文件里的 total_distance
+        // 这里仅作演示，假设 p.distance 存在 (单位通常是米)
+        const distKm = (p.distance || 0) / 1000;
+        return distKm.toFixed(1); // 保留1位小数，如 "10.5"
+    });
+
+    // 提取数据
+    const altitudeData = sourcePoints.map(p => p.ele);
+    const speedData = sourcePoints.map(p => p.speed);
+    const temperatureData = sourcePoints.map(p => p.temperature);
+    const heartRateData = sourcePoints.map(p => p.heart_rate);
+    const cadenceData = sourcePoints.map(p => p.cadence);
+    const powerData = sourcePoints.map(p => p.power);
+
+    // ==========================================
+    // 2. 通用图表配置 (解决鼠标交互难的问题)
+    // ==========================================
+
+    // 关键配置：mode: 'index', intersect: false
+    // 这样鼠标只要在X轴对应位置，不需要碰到线，就能显示数据
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',    // 鼠标同一垂直线上的数据都会响应
+            intersect: false, // 不需要鼠标精准碰到点才显示
+            axis: 'x'         // 锁定X轴交互
+        },
+        plugins: {
+            legend: { display: true, position: 'top' },
+            tooltip: {
+                position: 'nearest'
+            }
+        },
+        scales: {
+            x: {
+                display: true, // 显示X轴
+                title: {
+                    display: true,
+                    text: '距离 (km)' // 明确告知用户X轴是什么
+                },
+                ticks: {
+                    maxTicksLimit: 10, // 防止X轴密密麻麻，只显示约10个刻度
+                    autoSkip: true
+                },
+                grid: {
+                    display: false // 保持清爽，仅显示底线
+                }
+            }
+        },
+        elements: {
+            point: {
+                radius: 0,      // 平时看不到点
+                hitRadius: 10,  // 鼠标感应范围扩大
+                hoverRadius: 4  // 悬停时显示一个小点
+            }
+        }
+    };
+
+    // 辅助函数：创建图表
+    const createChart = (elementId, label, data, color, bgColor, unit) => {
+        const ctx = document.getElementById(elementId);
+        if (!ctx || !data || data.length === 0) return;
+
+        // 深拷贝通用配置，以免互相污染
+        const options = JSON.parse(JSON.stringify(commonOptions));
+
+        // 针对Y轴的特殊配置
+        options.scales.y = {
+            beginAtZero: unit !== 'm', // 海拔通常不从0开始
+            title: { display: true, text: `${label} (${unit})` }
+        };
+
+        // 如果不是最后一个图表，可以隐藏X轴的文字，只留刻度线，或者完全隐藏
+        // 这里演示全部显示，方便查看
+        // if (elementId !== 'powerChart') options.scales.x.display = false;
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: xLabels, // 使用距离作为X轴
+                datasets: [{
+                    label: `${label} (${unit})`,
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: bgColor,
+                    fill: true,
+                    tension: 0.25,
+                    borderWidth: 1.5 // 稍微细一点更精致
+                }]
+            },
+            options: options
+        });
+    };
+
+    // ==========================================
+    // 3. 实例化图表 (代码更简洁)
+    // ==========================================
+
+    createChart('altitudeChart', '海拔', altitudeData, softColors.altitude, 'rgba(44, 125, 44, 0.1)', 'm');
+    createChart('speedChart', '速度', speedData, softColors.speed, 'rgba(230, 126, 34, 0.1)', 'km/h');
+    createChart('temperatureChart', '温度', temperatureData, softColors.temperature, 'rgba(192, 57, 43, 0.1)', '℃');
+    createChart('heartRateChart', '心率', heartRateData, softColors.heartRate, 'rgba(142, 68, 173, 0.1)', 'bpm');
+    createChart('cadenceChart', '踏频', cadenceData, softColors.cadence, 'rgba(41, 128, 185, 0.1)', 'rpm');
+    createChart('powerChart', '功率', powerData, softColors.power, 'rgba(22, 160, 133, 0.1)', 'W');
+
+}, 100);
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+    // --- 初始化地图 ---
+    const map = L.map('map').setView([0,0], 2);
+
+    // --- 定义底图图层 ---
+    const roadLayer = L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    });
+
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}.png', {
+        attribution: '© OpenStreetMap contributors, SRTM'
+    });
+
+    // --- 默认加载路网地图 ---
+    roadLayer.addTo(map);
+
+    // --- 图层控制器 ---
+    const baseMaps = {
+        "骑行地图": roadLayer,
+        "卫星地图": satelliteLayer
+    };
+    const layerControl = L.control.layers(baseMaps).addTo(map);
+    function getConstrainedSpeedFactor() {
+    let value = parseFloat(speedInput.value);
+
+    // 如果解析失败或不是数字，返回默认值
+    if (isNaN(value)) {
+        speedInput.value = 60; // 重置为默认值
+        return 60;
+    }
+
+    // 约束在1-2000之间
+    if (value < 1) {
+        speedInput.value = 1;
+        return 1;
+    } else if (value > 2000) {
+        speedInput.value = 2000;
+        return 2000;
+    }
+
+    return value;
+}
+
+
+
+
+    // --- 创建自定义图标 ---
+    const startIcon = L.divIcon({
+        html: '<div style="position:relative;"><i class="fas fa-flag-checkered" style="font-size:28px;color:#2ecc71;text-shadow:0 0 5px rgba(46,204,113,0.7);"></i><div style="position:absolute; top:30px; left:50%; transform:translateX(-50%); background:rgba(46,204,113,0.9); color:white; padding:2px 8px; border-radius:10px; white-space:nowrap; font-size:12px;">起点</div></div>',
+        className: 'custom-div-icon',
+        iconSize: [30, 50],
+        iconAnchor: [15, 28]
+    });
+
+    const endIcon = L.divIcon({
+        html: '<div style="position:relative;"><i class="fas fa-flag" style="font-size:28px;color:#e74c3c;text-shadow:0 0 5px rgba(231,76,60,0.7);"></i><div style="position:absolute; top:30px; left:50%; transform:translateX(-50%); background:rgba(231,76,60,0.9); color:white; padding:2px 8px; border-radius:10px; white-space:nowrap; font-size:12px;">终点</div></div>',
+        className: 'custom-div-icon',
+        iconSize: [30, 50],
+        iconAnchor: [15, 28]
+    });
+
+    // 修改currentIcon：自行车图标为蓝色，脉冲点为红色并放在自行车下方
+    const currentIcon = L.divIcon({
+        html: '<div style="position:relative;"><i class="fas fa-bicycle" style="font-size:32px;color:#3498db;text-shadow:0 0 8px rgba(52,152,219,0.8);"></i><div class="pulse-dot" style="position:absolute; top:30px; left:8px; width:16px; height:16px; background:#ff0000; border-radius:50%;"></div></div>',
+        className: 'custom-div-icon',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    });
+
+    // --- 主要变量 ---
+    let points = [], animationId = null, marker = null, allSegments = [], grayLine = null;
+    let prevSpeed = null;
+    let startMarker = null, endMarker = null;
+    let isPlaying = false;
+    let routeBounds = null;
+    let currentIndex = 0;
+    let totalDistance = 0;
+
+    // 公里数标记数组
+    let kmMarkers = [];
+
+    // 等待相关变量 - 增加检测阈值
+    const MAX_WAITING_TIME = 5; // 最大等待时间（秒）- 减少到5秒
+    const WAITING_THRESHOLD = 5; // 等待阈值（秒）- 减少到5秒以检测更短的暂停
+    const MAX_TIME_GAP = 24 * 3600 * 7; // 最大允许的时间间隔（7天），超过这个间隔视为数据中断
+
+    // DOM元素
+    const speedDisplay = document.getElementById('real-speed');
+    const distanceDisplay = document.getElementById('current-distance');
+    const timeDisplay = document.getElementById('current-time');
+    const waitingDisplay = document.getElementById('waiting-display');
+    const waitingTimeElem = document.getElementById('waiting-time');
+    const playBtn = document.getElementById('playBtn');
+    const speedInput = document.getElementById('speed');
+    const speedUpBtn = document.getElementById('speed-up');
+    const speedDownBtn = document.getElementById('speed-down');
+
+    // --- 辅助函数：安全解析时间（手动添加8小时转换为北京时间）---
+    function safeParseTime(timeString) {
+        if (!timeString) return null;
+
+        try {
+            // 解析为Date对象（会自动处理UTC时间）
+            const date = new Date(timeString);
+
+            // 检查日期是否有效
+            if (isNaN(date.getTime())) {
+                console.warn('无效的时间格式:', timeString);
+                return null;
+            }
+
+            // 手动添加8小时转换为北京时间（UTC+8）
+            return new Date(date.getTime());
+        } catch (error) {
+            console.warn('时间解析失败:', timeString, error);
+            return null;
+        }
+    }
+
+    // --- 格式化时间显示 ---
+    function formatTimeDisplay(date) {
+        if (!date) return '--:--:--';
+
+        // 格式化日期和时间（已经是北京时间）
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    // --- 格式化时间显示（简洁版，包含日期）---
+    function formatShortTime(date) {
+        if (!date) return '--:--:--';
+
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+
+        return `${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    // --- 初始化地图 ---
+    function initMap(){
+        const pointsData = window.ridePoints;
+
+        console.log('原始数据数量:', pointsData.length);
+        console.log('第一个点示例:', pointsData[0]);
+
+        // 解析点数据，安全处理时间
+        points = pointsData.map((p, index) => {
+            const lat = parseFloat(p.lat);
+            const lon = parseFloat(p.lon);
+            const time = safeParseTime(p.time);
+
+            // 解析distance，处理逗号分隔的千位符
+            let distance = 0;
+            if (p.distance !== undefined && p.distance !== null) {
+                // 移除逗号并转换为浮点数
+                const distStr = String(p.distance).replace(/,/g, '');
+                distance = parseFloat(distStr) || 0;
+            }
+
+            // 解析speed
+            let speed = 0;
+            if (p.speed !== undefined && p.speed !== null) {
+                speed = parseFloat(p.speed) || 0;
+            }
+
+            return {
+                latlng: !isNaN(lat) && !isNaN(lon) ? L.latLng(lat, lon) : null,
+                time: time,
+                speed: speed, // 使用point中的speed数据（如果有）
+                ele: p.ele,
+                distance: distance, // 存储distance字段（米）
+                originalTime: p.time, // 保存原始时间字符串用于调试
+                index: index // 添加索引以便调试
+            };
+        }).filter(p => p.latlng !== null); // 过滤掉无效的坐标点
+
+        console.log('解析到的有效点数量:', points.length);
+
+        // 检查是否有speed和distance数据
+        const hasSpeedData = points.some(p => p.speed > 0);
+        const hasDistanceData = points.some(p => p.distance > 0);
+
+        console.log('数据检查 - 有速度数据:', hasSpeedData, '有距离数据:', hasDistanceData);
+
+        // 如果数据不完整，进行计算
+        if (!hasSpeedData || !hasDistanceData) {
+            console.log('数据不完整，开始计算缺失的speed和distance...');
+            calculateMissingData();
+        }
+
+        if (points.length > 0) {
+            console.log('处理后的第一个点信息:', {
+                time: formatTimeDisplay(points[0].time),
+                speed: points[0].speed,
+                distance: points[0].distance
+            });
+            console.log('处理后的最后一个点信息:', {
+                time: formatTimeDisplay(points[points.length-1].time),
+                speed: points[points.length-1].speed,
+                distance: points[points.length-1].distance
+            });
+        }
+
+        clearMap();
+        drawFullRoute();
+    }
+
+    // --- 计算缺失的speed和distance ---
+    function calculateMissingData() {
+        if (points.length < 2) return;
+
+        let totalDistance = 0;
+
+        // 第一个点处理
+        if (points[0].distance === 0) {
+            points[0].distance = 0;
+        }
+
+        // 遍历所有点，计算缺失的数据
+        for (let i = 1; i < points.length; i++) {
+            const p1 = points[i-1];
+            const p2 = points[i];
+
+            // 计算距离增量
+            let distanceIncrement = 0;
+            if (p1.latlng && p2.latlng) {
+                distanceIncrement = p1.latlng.distanceTo(p2.latlng); // Leaflet方法，返回米
+            }
+
+            // 更新累计距离（如果缺失）
+            if (p2.distance === 0 || p2.distance === undefined) {
+                totalDistance += distanceIncrement;
+                p2.distance = totalDistance;
+            } else {
+                totalDistance = p2.distance;
+            }
+
+            // 计算速度（如果缺失）
+            if ((p2.speed === 0 || p2.speed === undefined) && p1.time && p2.time) {
+                const timeDiff = (p2.time - p1.time) / 1000; // 秒
+                if (timeDiff > 0) {
+                    // m/s 转 km/h
+                    p2.speed = (distanceIncrement / timeDiff) * 3.6;
+                }
+            }
+        }
+
+        console.log('数据计算完成。总距离:', totalDistance.toFixed(2), '米');
+    }
+
+    function clearMap(){
+        // 清除所有图层
+        if(marker){ map.removeLayer(marker); marker=null; }
+        if(startMarker){ map.removeLayer(startMarker); startMarker=null; }
+        if(endMarker){ map.removeLayer(endMarker); endMarker=null; }
+
+        allSegments.forEach(seg => map.removeLayer(seg));
+        allSegments = [];
+        if(grayLine){ map.removeLayer(grayLine); grayLine=null; }
+
+        // 清除公里数标记
+        kmMarkers.forEach(m => {
+            if (map.hasLayer(m)) {
+                map.removeLayer(m);
+            }
+        });
+        kmMarkers = [];
+
+        // 清除动画定时器
+        if(animationId){
+            clearTimeout(animationId);
+            animationId=null;
+        }
+
+        prevSpeed=null;
+
+        // 重置显示
+        distanceDisplay.textContent = '0 km';
+        speedDisplay.textContent = '0 km/h';
+        timeDisplay.textContent = '--:--:--';
+        waitingTimeElem.textContent='0s';
+        waitingDisplay.style.display='none';
+
+        // 重置索引和距离
+        currentIndex = 0;
+        totalDistance = 0;
+
+        // 更新按钮状态
+        isPlaying = false;
+        playBtn.innerHTML = '<i class="fas fa-play"></i> 播放';
+    }
+
+    function drawFullRoute(){
+        if(points.length){
+            const validPoints = points.filter(p => p.latlng !== null);
+            if (validPoints.length > 0) {
+                grayLine = L.polyline(validPoints.map(p=>p.latlng), {color:'blue', weight:4, opacity:0.4}).addTo(map);
+
+                // 计算并存储路线边界
+                routeBounds = L.latLngBounds(validPoints.map(p => p.latlng));
+                map.fitBounds(routeBounds, {padding:[50,50]});
+
+                // --- 起点终点标记 ---
+                const startPoint = validPoints[0];
+                const endPoint = validPoints[validPoints.length-1];
+
+                startMarker = L.marker(startPoint.latlng, {icon: startIcon}).addTo(map)
+                    .bindPopup(`起点<br>时间: ${formatTimeDisplay(startPoint.time)}<br>距离: ${(startPoint.distance/1000).toFixed(2)}km`);
+                endMarker = L.marker(endPoint.latlng, {icon: endIcon}).addTo(map)
+                    .bindPopup(`终点<br>时间: ${formatTimeDisplay(endPoint.time)}<br>距离: ${(endPoint.distance/1000).toFixed(2)}km`);
+            }
+        }
+    }
+
+    // --- 居中路线函数 ---
+    function centerRoute() {
+        if (routeBounds) {
+            map.fitBounds(routeBounds, {padding: [50, 50]});
+        } else if (points.length > 0) {
+            const validPoints = points.filter(p => p.latlng !== null);
+            if (validPoints.length > 0) {
+                const bounds = L.latLngBounds(validPoints.map(p => p.latlng));
+                map.fitBounds(bounds, {padding: [50, 50]});
+            }
+        }
+    }
+
+    // --- 添加居中按钮到地图控件 ---
+    L.Control.CenterButton = L.Control.extend({
+        onAdd: function(map) {
+            const div = L.DomUtil.create('div', 'leaflet-control-custom');
+            div.innerHTML = '<a href="#" title="回到路线位置"><i class="fas fa-crosshairs" style="font-size:16px;"></i></a>';
+            div.onclick = function(e) {
+                e.preventDefault();
+                centerRoute();
+                return false;
+            };
+            return div;
+        },
+        onRemove: function(map) {}
+    });
+
+    L.control.centerButton = function(opts) {
+        return new L.Control.CenterButton(opts);
+    };
+
+    // 添加居中按钮到地图
+    L.control.centerButton({ position: 'topleft' }).addTo(map);
+
+    // --- 速度相关函数 ---
+    function updateSpeedDisplay(speed) {
+        // 限制最大显示速度为300km/h（避免显示异常值）
+        const displaySpeed = Math.min(speed, 300);
+        const speedValue = displaySpeed.toFixed(1);
+
+        // 使用lerpColor计算背景颜色
+        const speedColor = speedToColorStyled(displaySpeed);
+
+        // 设置速度显示文字（保持白色）
+        speedDisplay.textContent = `${speedValue} km/h`;
+        speedDisplay.style.color = '#ffffff'; // 强制文字颜色为白色
+
+        // 更新速度显示框的背景色
+        const speedDisplayDiv = document.getElementById('speed-display');
+        speedDisplayDiv.style.background = speedColor; // 直接使用计算出的颜色
+    }
+
+    function lerpColor(color1, color2, t){
+        // 确保颜色是十六进制格式
+        const c1 = color1.startsWith('#') ? color1 : `#${color1}`;
+        const c2 = color2.startsWith('#') ? color2 : `#${color2}`;
+
+        // 解析颜色值
+        const r1 = parseInt(c1.slice(1, 3), 16);
+        const g1 = parseInt(c1.slice(3, 5), 16);
+        const b1 = parseInt(c1.slice(5, 7), 16);
+
+        const r2 = parseInt(c2.slice(1, 3), 16);
+        const g2 = parseInt(c2.slice(3, 5), 16);
+        const b2 = parseInt(c2.slice(5, 7), 16);
+
+        // 线性插值
+        const r = Math.round(r1 + (r2 - r1) * t);
+        const g = Math.round(g1 + (g2 - g1) * t);
+        const b = Math.round(b1 + (b2 - b1) * t);
+
+        // 返回十六进制颜色
+        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    }
+
+
+    const colorStops = [
+    {pos: 0.0, color: "#1b3a8a"},  // 深蓝：静止
+    {pos: 0.2, color: "#4ac1e0"},  // 浅蓝：慢速
+    {pos: 0.5, color: "#ffb347"},  // 金黄色：中速（调亮一些）
+    {pos: 0.6, color: "#ff6b35"},  // 亮橙色：快速（更鲜艳突出）
+    {pos: 1.0, color: "#c0392b"}   // 深红：极速（调暗以衬托橙色）
+];
+
+    function speedToColorStyled(speed, minSpeed=0, maxSpeed=35){
+        let ratio = Math.min(Math.max((speed - minSpeed) / (maxSpeed - minSpeed), 0), 1);
+
+        // 定义速度颜色映射
+
+
+        // 找到比例所在的位置区间
+        let startIdx = 0;
+        let endIdx = 1;
+        for (let i = 0; i < colorStops.length - 1; i++) {
+            if (ratio >= colorStops[i].pos && ratio <= colorStops[i+1].pos) {
+                startIdx = i;
+                endIdx = i + 1;
+                break;
+            }
+        }
+
+        // 计算区间内的插值比例
+        const startPos = colorStops[startIdx].pos;
+        const endPos = colorStops[endIdx].pos;
+        const intervalRatio = (ratio - startPos) / (endPos - startPos);
+
+        // 使用lerpColor进行插值
+        return lerpColor(colorStops[startIdx].color, colorStops[endIdx].color, intervalRatio);
+    }
+
+    function speedToLineColor(speed, minSpeed=0, maxSpeed=50){
+        // 与speedToColorStyled相同的实现
+        let ratio = Math.min(Math.max((speed - minSpeed) / (maxSpeed - minSpeed), 0), 1);
+
+
+        let startIdx = 0;
+        let endIdx = 1;
+        for (let i = 0; i < colorStops.length - 1; i++) {
+            if (ratio >= colorStops[i].pos && ratio <= colorStops[i+1].pos) {
+                startIdx = i;
+                endIdx = i + 1;
+                break;
+            }
+        }
+
+        const startPos = colorStops[startIdx].pos;
+        const endPos = colorStops[endIdx].pos;
+        const intervalRatio = (ratio - startPos) / (endPos - startPos);
+
+        return lerpColor(colorStops[startIdx].color, colorStops[endIdx].color, intervalRatio);
+    }
+
+    function smoothSpeed(speed){
+        if(prevSpeed===null) prevSpeed=speed;
+        const smoothed=0.3*speed + 0.7*prevSpeed;
+        prevSpeed=smoothed;
+        return smoothed;
+    }
+
+    // 格式化持续时间显示
+    function formatDuration(seconds) {
+        if (seconds < 60) {
+            return `${Math.round(seconds)}秒`;
+        } else if (seconds < 3600) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.round(seconds % 60);
+            return `${minutes}分${secs}秒`;
+        } else if (seconds < 24 * 3600) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.round(seconds % 60);
+            return `${hours}小时${minutes}分${secs}秒`;
+        } else {
+            const days = Math.floor(seconds / (24 * 3600));
+            const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+            return `${days}天${hours}小时`;
+        }
+    }
+
+    // --- 动画控制函数 ---
+    function playAnimation(){
+        // 如果正在播放，先停止
+
+            clearMap();
+            drawFullRoute();
+
+
+        if(!points.length) return;
+
+        isPlaying = true;
+
+        // 更新按钮状态
+        playBtn.innerHTML = '<i class="fas fa-redo"></i> 重播';
+
+        // 重置公里数标记数组
+        kmMarkers = [];
+
+
+
+        // 使用自行车图标作为当前位置标记
+        const firstValidPoint = points.find(p => p.latlng !== null);
+        if (firstValidPoint) {
+            marker = L.marker(firstValidPoint.latlng, {icon: currentIcon}).addTo(map);
+        }
+
+        currentIndex = 0;
+        totalDistance = 0;
+
+        // 更新时间显示（包含日期）
+        if (firstValidPoint && firstValidPoint.time) {
+            timeDisplay.textContent = formatShortTime(firstValidPoint.time);
+        }
+
+        // 开始播放
+        playNextPoint();
+    }
+
+    function playNextPoint() {
+    // 寻找当前有效的点
+    while (currentIndex < points.length && (!points[currentIndex].latlng || !points[currentIndex].time)) {
+        currentIndex++;
+    }
+
+    if(currentIndex >= points.length - 1) {
+        // 动画结束
+        isPlaying = false;
+        playBtn.innerHTML = '<i class="fas fa-play"></i> 播放';
+        return;
+    }
+
+    // 寻找下一个有效的点
+    let nextIndex = currentIndex + 1;
+    while (nextIndex < points.length && (!points[nextIndex].latlng || !points[nextIndex].time)) {
+        nextIndex++;
+    }
+
+    if(nextIndex >= points.length) {
+        // 动画结束
+        isPlaying = false;
+        playBtn.innerHTML = '<i class="fas fa-play"></i> 播放';
+        return;
+    }
+
+    const p1 = points[currentIndex];
+    const p2 = points[nextIndex];
+    const currentSpeedFactor = getConstrainedSpeedFactor();
+
+    // 计算时间间隔（秒） - 安全处理
+    let dt = 1; // 默认1秒
+    if (p1.time && p2.time) {
+        const timeDiff = (p2.time - p1.time) / 1000; // 转换为秒
+
+        // 检查时间差是否合理（避免负数或异常值）
+        if (timeDiff > 0 && timeDiff < MAX_TIME_GAP) { // 最大7天
+            dt = timeDiff;
+        } else if (timeDiff >= MAX_TIME_GAP) {
+            // 如果时间间隔超过7天，视为数据中断，直接跳转到下一个点
+            console.log(`检测到长时间间隔: ${timeDiff.toFixed(1)}秒，超过${MAX_TIME_GAP}秒，直接跳转`);
+            // 直接移动到下一个点，不等待
+            moveToNextPoint(p1, p2, nextIndex, 0); // 0延迟立即播放下一个
+            return;
+        } else if (timeDiff <= 0) {
+            console.warn('负时间间隔:', timeDiff, '秒，使用默认值1秒');
+            dt = 1;
+        } else {
+            console.warn('异常时间间隔:', timeDiff, '秒，使用默认值1秒');
+            dt = 1;
+        }
+    }
+
+    // 计算距离增量：p2.distance - p1.distance，转换为公里
+    const distanceIncrement = p2.distance && p1.distance ? (p2.distance - p1.distance) / 1000 : 0;
+
+    // 检查是否需要等待（时间间隔大于阈值）
+    if (dt > WAITING_THRESHOLD && dt < MAX_TIME_GAP) {
+        // 计算实际等待时间（不超过最大等待时间）
+        const actualWaitTime = Math.min(dt / currentSpeedFactor, MAX_WAITING_TIME);
+
+        // 显示等待信息
+        waitingDisplay.style.display = 'flex';
+        waitingTimeElem.textContent = formatDuration(dt);
+        console.log(`检测到等待: ${formatDuration(dt)}，实际等待: ${actualWaitTime.toFixed(1)}秒，倍速: ${currentSpeedFactor}`);
+
+        // 暂停动画，等待一段时间后继续
+        animationId = setTimeout(() => {
+            // 等待结束后隐藏等待显示
+            waitingDisplay.style.display = 'none';
+
+            // 更新到当前等待点（p1）的显示（实际上p1已经在之前显示过了，我们只是移动到p2）
+            // 但是我们需要更新p2的信息，因为p2是下一个点
+
+
+            // 立即移动到p2点（不添加额外延迟）
+            moveToNextPoint(p1, p2, distanceIncrement);
+
+            // 设置索引为下一个点
+            currentIndex = nextIndex;
+
+            // 立即播放下一个点（不添加额外延迟，因为等待时间已经消耗了dt的时间）
+            if (isPlaying) {
+                playNextPoint();
+            }
+        }, actualWaitTime * 1000);
+    } else {
+        // 正常播放：计算延迟
+        const nextDelay = (dt * 1000) / currentSpeedFactor;
+
+        // 正常播放：先移动到下一个点，然后设置延迟播放下下一个点
+        animationId = setTimeout(() => {
+            moveToNextPoint(p1, p2, distanceIncrement);
+            currentIndex = nextIndex;
+
+            if (isPlaying) {
+                playNextPoint();
+            }
+        }, nextDelay);
+    }
+}
+
+function moveToNextPoint(p1, p2, distanceIncrement) {
+    // 使用点数据中的speed（已经在前端计算过）
+    const speed = p2.speed || 0;
+    const smooth = smoothSpeed(speed);
+
+    // 绘制当前轨迹段
+    const segment = L.polyline([p1.latlng, p2.latlng], {
+        color: speedToLineColor(smooth),
+        weight: 6
+    }).addTo(map);
+    allSegments.push(segment);
+
+    // 更新标记位置
+    marker.setLatLng(p2.latlng);
+
+    // 更新显示数据（但不包括时间，因为时间在updateDisplayForPoint中更新）
+    updateSpeedDisplay(smooth);
+    updateDisplayForPoint(p2, true); // true表示这是等待后的第一个点
+    // 更新总距离：使用累计距离（米转公里）
+    totalDistance = p2.distance ? (p2.distance / 1000) : 0;
+    distanceDisplay.textContent = `${totalDistance.toFixed(2)} km`;
+
+    // 每5公里添加一个标记（从0公里开始）
+    const currentKm = Math.floor(totalDistance);
+    const previousKm = Math.floor(totalDistance - distanceIncrement);
+
+    // 检查是否跨越了5公里的整数倍
+    if (currentKm > 0 && currentKm % 5 === 0 && currentKm !== previousKm) {
+        // 确保我们不会重复添加同一个5公里的标记
+        const kmIcon = L.divIcon({
+            html: `<div style="background:rgba(52,152,219,0.8); color:white; padding:2px 6px; border-radius:10px; font-size:11px; font-weight:bold;">${currentKm}km</div>`,
+            className: 'km-marker',
+            iconSize: [35, 18],
+            iconAnchor: [17.5, 9]
+        });
+        const kmMarker = L.marker(p2.latlng, {icon: kmIcon}).addTo(map);
+        kmMarkers.push(kmMarker); // 存储到数组
+    }
+}
+
+function updateDisplayForPoint(point, isAfterWait = false) {
+    // 更新时间显示（包含日期）
+    if (point.time) {
+        timeDisplay.textContent = formatShortTime(point.time);
+    }
+
+    // 如果是在等待后，可以添加一些特殊处理
+    if (isAfterWait) {
+        // 可以在这里添加一些特殊效果，比如闪烁一下
+        timeDisplay.style.animation = 'pulse 1s';
+        setTimeout(() => {
+            timeDisplay.style.animation = '';
+        }, 1000);
+    }
+}
+
+// 添加一个简单的pulse动画到CSS
+const style = document.createElement('style');
+style.textContent = `
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+`;
+document.head.appendChild(style);
+
+    // --- 倍速实时调整函数 ---
+    function adjustPlaybackSpeed() {
+        // 如果正在播放，当前点的延迟已经设置，所以只会影响后续点
+        // 不需要其他操作，因为每次 playNextPoint 都会读取当前速度
+        console.log(`倍速已调整为: ${parseFloat(speedInput.value) || 60}`);
+    }
+
+    // --- 倍速控制函数 ---
+    function updateSpeed(change) {
+        let currentSpeed = parseInt(speedInput.value) || 60;
+        currentSpeed += change * 10; // 每次调整10倍速
+
+        // 确保倍速在1-2000之间
+        if (currentSpeed < 1) currentSpeed = 1;
+        if (currentSpeed > 2000) currentSpeed = 2000;
+
+        speedInput.value = currentSpeed;
+
+        // 实时调整倍速，不重新播放
+        adjustPlaybackSpeed();
+    }
+
+    // --- 事件监听 ---
+    playBtn.addEventListener('click', playAnimation);
+
+    // 倍速控制按钮
+    speedUpBtn.addEventListener('click', () => updateSpeed(1));
+    speedDownBtn.addEventListener('click', () => updateSpeed(-1));
+
+    // 手动输入倍速时也支持实时调整
+    speedInput.addEventListener('change', function() {
+        let value = parseInt(this.value);
+        if (isNaN(value) || value < 1) {
+            this.value = 1;
+        } else if (value > 2000) {
+            this.value = 2000;
+        }
+
+        // 实时调整倍速，不重新播放
+        adjustPlaybackSpeed();
+    });
+
+    // --- 初始化 ---
+    initMap();
+});
+</script>
+<!-- 图表初始化脚本 -->
+
+{% endblock %}

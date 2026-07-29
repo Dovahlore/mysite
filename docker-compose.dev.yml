@@ -1,0 +1,21 @@
+services:
+  nginx:
+    # Development is HTTP-only and does not depend on production domains,
+    # certificates, DeepSeek, or Portainer.
+    ports: !override
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./compose/nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+
+  web:
+    environment:
+      DJANGO_DEBUG: "1"
+    volumes:
+      # Development only: use the host source tree for live code changes.
+      - ./myproject:/mysite
+      - media_vol:/mysite/media
+      - static_vol:/mysite/collect_static
+  scheduler:
+    volumes:
+      # Reuse the same live source tree; restart the process after Python changes.
+      - ./myproject:/mysite

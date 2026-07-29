@@ -4,91 +4,456 @@
 <head>
     <meta charset="UTF-8">
     <title>Dovahlore</title>
-    <link rel="shortcut icon" href="/media/main.ico">
+
+    <link rel="shortcut icon" href="{% static 'icons/main.ico' %}">
     <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+    <meta name="baidu-site-verification" content="codeva-Xx01CRNEHV"/>
     <style>
-         .video-background {
+        /* =========================================
+           一、全局与背景样式
+           ========================================= */
+        body, a, button {
+            cursor: none !important;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: #020a14;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .video-background {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -2;
             object-fit: cover;
         }
+
+        .mask {
+            position: fixed;
+            top: 0; left: 0; z-index: -1;
+            background: linear-gradient(180deg, rgba(4, 21, 40, 0.4) 0%, rgba(2, 10, 20, 0.9) 100%);
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        #starfield {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .content {
             position: relative;
             z-index: 1;
             color: white;
             text-align: center;
-           width:100%;
-           height:50%;
-        }
-         .mask {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 0;
-            background:linear-gradient(180deg,rgba(0,0,0,0.4),rgba(0,0,0,0.9));
+            margin-top: 120px;
             width: 100%;
-            height: 100%;
-        }
-        .avatar{
-        object-fit: cover;
-        width:200px;
-        height:200px;
-        border-radius:30%;
-        margin-bottom: 50px;
-        box-shadow: 0px 0px 220px #aaaaaa;
-        }
-        .linkpic{
-         width:100px;
-        height:100px;
-        border-radius:30%;
-        box-shadow: 0px 0px 11px #999999;
-        opacity:0.9;
-        }
-        .linkpic:hover{
-
-        opacity:1;
+            padding-bottom: 120px;
+            animation: fadeInUp 1.2s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
         }
 
+        /* =========================================
+           二、发光与动画特效
+           ========================================= */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .avatar {
+            object-fit: cover;
+            width: 180px; height: 180px;
+            border-radius: 50%;
+            margin-bottom: 30px;
+            box-shadow: 0 0 50px rgba(137, 191, 225, 0.4);
+            animation: float 5s ease-in-out infinite;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.4s ease;
+        }
+        .avatar:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 80px rgba(137, 191, 225, 0.7);
+        }
+
+        .main-title {
+            letter-spacing: 5px;
+            font-weight: 200;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 0 30px rgba(137, 191, 225, 0.4);
+        }
+
+        /* =========================================
+           三、毛玻璃胶囊（个人信息 + 服务列表）
+           ========================================= */
+
+        /* 1. 顶部小胶囊（邮箱、网易云） */
+        .info-capsule {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 20px;
+            border-radius: 30px;
+            color: rgba(255, 255, 255, 0.85) !important;
+            font-weight: 300;
+            font-size: 0.95em;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .info-capsule:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-3px);
+            border-color: rgba(137, 191, 225, 0.5);
+            box-shadow: 0 8px 25px rgba(137, 191, 225, 0.2);
+            color: white !important;
+        }
+
+        /* 2. 大型服务列表胶囊（OpenAI、DeepSeek等） */
+        .service-list {
+            margin-top: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .service-item {
+            display: flex;
+            align-items: center;
+            width: 90%;
+            max-width: 520px;
+            /* 强化毛玻璃厚重感 */
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-top: 1px solid rgba(255, 255, 255, 0.25); /* 顶部高光，增加立体感 */
+            border-radius: 50px;
+            padding: 15px 30px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            color: white !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .service-item:hover {
+            background: rgba(137, 191, 225, 0.12);
+            transform: translateX(12px) scale(1.02);
+            border-color: rgba(137, 191, 225, 0.5);
+            box-shadow: 0 10px 40px rgba(137, 191, 225, 0.25);
+        }
+
+        .service-icon {
+            width: 35px;
+            transition: transform 0.3s ease;
+        }
+        .service-item:hover .service-icon {
+            transform: rotate(15deg) scale(1.2);
+            text-shadow: 0 0 15px currentColor;
+        }
+
+        .service-name {
+            margin-left: 15px;
+            font-weight: 300;
+            letter-spacing: 1px;
+            font-size: 1.1em;
+        }
+
+        .service-url {
+            margin-left: auto;
+            font-size: 0.85em;
+            color: rgba(255,255,255,0.4);
+            font-family: 'Courier New', monospace;
+            transition: color 0.3s ease;
+        }
+        .service-item:hover .service-url {
+            color: #89bfe1;
+        }
+
+        /* =========================================
+           四、功能组件与底部卡片
+           ========================================= */
+        .glass-panel {
+            position: fixed;
+            top: 40px; right: 40px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 15px 20px;
+            border-radius: 15px;
+            z-index: 10;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+        .glass-panel:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .link-card {
+            margin: 20px 30px;
+            transition: all 0.4s ease;
+        }
+        .linkpic {
+            width: 100px; height: 100px;
+            border-radius: 25px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            transition: all 0.4s ease;
+            filter: brightness(0.9);
+        }
+        .link-card:hover .linkpic {
+            transform: translateY(-15px) rotate(3deg);
+            filter: brightness(1.1);
+            box-shadow: 0 20px 40px rgba(137, 191, 225, 0.4);
+        }
+
+        .footer {
+            position: fixed; bottom: 0; width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(5px);
+            color: #888; padding: 8px 0; font-size: 11px;
+            z-index: 2;
+        }
+
+        /* 自定义光标 */
+        .cursor-dot { width: 6px; height: 6px; background: #fff; position: fixed; top: 0; left: 0; border-radius: 50%; z-index: 10000; pointer-events: none; transform: translate3d(-100vw, -100vh, 0) translate(-50%, -50%); will-change: transform; }
+        .cursor-outline { width: 35px; height: 35px; border: 1px solid rgba(255,255,255,0.5); position: fixed; top: 0; left: 0; border-radius: 50%; z-index: 9999; pointer-events: none; transform: translate3d(-100vw, -100vh, 0) translate(-50%, -50%); will-change: transform; transition: width .18s, height .18s, background-color .18s, border-color .18s; }
     </style>
 </head>
 <body>
+
+<div class="cursor-dot" id="cursor-dot"></div>
+<div class="cursor-outline" id="cursor-outline"></div>
+
 <video class="video-background" autoplay muted loop>
     <source src="{% static 'img/bg/DJI_0294.MP4' %}" type="video/mp4">
 </video>
 <div class="mask"></div>
+
+<canvas id="starfield"></canvas>
+
+<audio id="myAudio" src="{% static 'audio/light_of_fantasy.mp3' %}" autoplay loop></audio>
+
 <div class="content">
-    <div style="margin-top:5%">
-        <img class="avatar" src="{% static 'img/material/Avatar.png' %}">
-        <h1># Dovahlore #</h1>
-        <div style="margin-top:100px;">
-            Email
-            <i class='fas fa-envelope fa-lg' style='color:#89bfe1'></i>
-            :  mayuqing11111@qq.com
+    <div class="glass-panel">
+        <div style="font-size: 0.8em; color: #89bfe1; margin-bottom: 10px; font-weight: 300;">
+            <i class="fas fa-compact-disc fa-spin"></i> <span id="musicTitle">Loading...</span>
         </div>
-        <div style="margin-top:100px;">
-            <div style="display:inline-block;margin:20px;width:400px;">
-                <a href="/s/wall" >
-                    <img class="linkpic" src="{% static 'img/material/DovahWall.gif' %}" alt="">
-                </a>
-                <h3 style="color:#aaa;margin-top:20px;"> DovahPhotoWall</h3>
-            </div>
-            <div style="display:inline-block;margin:20px;width:400px;">
-                <a href="/s/base">
-                    <img class="linkpic" src="{% static 'img/material/dovahbase.gif' %}" alt="">
-                </a>
-                <h3 style="color:#aaa;margin-top:20px;">DovahBase</h3>
-            </div>
-
-
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-light border-0" onclick="togglePlay()" id="playPauseButton"><i class="fas fa-play"></i></button>
+            <button class="btn btn-sm btn-outline-light border-0" onclick="toggleMute()"><i class="fas fa-volume-up"></i></button>
+            <button class="btn btn-sm btn-outline-light border-0" onclick="nextTrack()"><i class="fas fa-step-forward"></i></button>
         </div>
-
+        <div class="progress mt-2" style="height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px;">
+            <div id="progressBar" class="progress-bar" style="background-color: #89bfe1; width: 0%"></div>
+        </div>
     </div>
 
+    <img class="avatar" src="{% static 'img/material/Avatar.png' %}">
+    <h1 class="main-title">DOVAHLORE</h1>
+
+    <div style="margin-top:35px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
+        <a href="mailto:mayuqing@bupt.edu.cn" class="info-capsule">
+            <i class="fas fa-envelope" style="color: #89bfe1; margin-right: 8px;"></i>
+            mayuqing@bupt.edu.cn
+        </a>
+        <a href="https://music.163.com/#/artist?id=50498506" target="_blank" class="info-capsule">
+            <i class="fas fa-music" style="color: #ff4d4d; margin-right: 8px;"></i>
+            网易云音乐
+        </a>
+    </div>
+
+    <div class="service-list">
+        <a href="/s/agent" class="service-item">
+            <i class="fas fa-robot service-icon" style="color:#89bfe1;"></i>
+            <span class="service-name">Site Assistant</span>
+            <span class="service-url">query & manage</span>
+        </a>
+        <a href="http://deepseek.dovahwall.cn" class="service-item">
+            <i class="fas fa-brain service-icon" style="color:#4d90fe;"></i>
+            <span class="service-name">DeepSeek AI</span>
+            <span class="service-url">deepseek.dovahwall.cn</span>
+        </a>
+        <a href="http://portainer.dovahwall.cn" class="service-item">
+            <i class="fab fa-docker service-icon" style="color:#2496ed;"></i>
+            <span class="service-name">Portainer Management</span>
+            <span class="service-url">portainer.dovahwall.cn</span>
+        </a>
+    </div>
+
+    <div class="d-flex justify-content-center mt-5 flex-wrap">
+        <div class="link-card">
+            <a href="/s/wall"><img class="linkpic" src="{% static 'img/material/DovahWall.gif' %}"></a>
+            <div class="mt-2" style="color:#aaa; font-size: 0.9em; font-weight: 300;">PhotoWall</div>
+        </div>
+        <div class="link-card">
+            <a href="/s/base"><img class="linkpic" src="{% static 'img/material/dovahbase.gif' %}"></a>
+            <div class="mt-2" style="color:#aaa; font-size: 0.9em; font-weight: 300;">Base</div>
+        </div>
+        <div class="link-card">
+            <a href="/s/bike"><img class="linkpic" src="{% static 'img/material/DovahCYC.gif' %}"></a>
+            <div class="mt-2" style="color:#aaa; font-size: 0.9em; font-weight: 300;">BikeCycle</div>
+        </div>
+    </div>
 </div>
+
+<div class="footer" align="center">
+    <a href="http://beian.miit.gov.cn/" target="_blank" style="color: inherit;">*京ICP备2024082497号-1</a>
+</div>
+
+<script type="module" src="{% static 'js/live2d_loader.js' %}?v=3"></script>
+
+<script>
+    /* 1. 星光粒子系统实现 */
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    class Star {
+        constructor() {
+            this.init();
+        }
+        init() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2.0 + 0.2;
+            this.speedX = (Math.random() - 0.5) * 0.15;
+            this.speedY = (Math.random() - 0.5) * 0.15;
+            this.opacity = Math.random();
+            this.fadeSpeed = Math.random() * 0.015 + 0.005;
+            this.rising = Math.random() > 0.5;
+        }
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+            ctx.fill();
+        }
+        update() {
+            this.x += this.speedX;
+            this.y += this.speedY;
+            if (this.rising) {
+                this.opacity += this.fadeSpeed;
+                if (this.opacity >= 1) this.rising = false;
+            } else {
+                this.opacity -= this.fadeSpeed;
+                if (this.opacity <= 0.05) this.rising = true;
+            }
+            if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                this.init();
+            }
+        }
+    }
+
+    function initStars() {
+        stars = [];
+        const count = Math.min(220, Math.floor((canvas.width * canvas.height) / 9000));
+        for (let i = 0; i < count; i++) {
+            stars.push(new Star());
+        }
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        stars.forEach(star => {
+            star.update();
+            star.draw();
+        });
+        requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', () => { resize(); initStars(); });
+    resize();
+    initStars();
+    animate();
+
+    /* 2. 鼠标跟随逻辑 */
+    const dot = document.getElementById('cursor-dot');
+    const outline = document.getElementById('cursor-outline');
+    let targetX = innerWidth / 2;
+    let targetY = innerHeight / 2;
+    let cursorFramePending = false;
+
+    window.addEventListener('pointermove', (e) => {
+        targetX = e.clientX;
+        targetY = e.clientY;
+        if (cursorFramePending) return;
+        cursorFramePending = true;
+        requestAnimationFrame(() => {
+            const transform = `translate3d(${targetX}px, ${targetY}px, 0) translate(-50%, -50%)`;
+            dot.style.transform = transform;
+            outline.style.transform = transform;
+            cursorFramePending = false;
+        });
+    }, {passive: true});
+
+    // 悬停交互 (针对所有毛玻璃胶囊和按钮)
+    document.querySelectorAll('a, button, .link-card, .service-item, .info-capsule').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+            outline.style.width = '60px';
+            outline.style.height = '60px';
+            outline.style.backgroundColor = 'rgba(255,255,255,0.1)';
+            outline.style.borderColor = 'rgba(137, 191, 225, 0.6)';
+        });
+        el.addEventListener('mouseleave', () => {
+            outline.style.width = '35px';
+            outline.style.height = '35px';
+            outline.style.backgroundColor = 'transparent';
+            outline.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+        });
+    });
+
+    /* 3. 音乐播放逻辑 */
+    const audio = document.getElementById('myAudio');
+    const tracks = [
+        {src: "{% static 'audio/phonk.mp3' %}", title: 'Garbage'},
+        {src: "{% static 'audio/light_of_fantasy.mp3' %}", title: "Light of Fantasy"},
+        {src: "{% static 'audio/future.mp3' %}", title: "Future Dream"}
+    ];
+    let currentIdx = 1;
+
+    function loadTrack(idx) {
+        audio.src = tracks[idx].src;
+        document.getElementById('musicTitle').innerText = tracks[idx].title;
+        audio.play().catch(() => {});
+    }
+
+    function togglePlay() {
+        if (audio.paused) {
+            audio.play();
+            document.getElementById('playPauseButton').innerHTML = '<i class="fas fa-pause"></i>';
+        } else {
+            audio.pause();
+            document.getElementById('playPauseButton').innerHTML = '<i class="fas fa-play"></i>';
+        }
+    }
+
+    function toggleMute() { audio.muted = !audio.muted; }
+    function nextTrack() { currentIdx = (currentIdx + 1) % tracks.length; loadTrack(currentIdx); }
+
+    audio.addEventListener('timeupdate', () => {
+        const p = (audio.currentTime / audio.duration) * 100;
+        document.getElementById('progressBar').style.width = p + '%';
+    });
+
+    loadTrack(currentIdx);
+</script>
 </body>
 </html>

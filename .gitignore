@@ -1,0 +1,17 @@
+.env
+ai_config.yaml
+__pycache__/
+*.py[cod]
+
+.idea
+/myproject/collect_static/
+/myproject/media/Base
+/myproject/media/Ride
+/myproject/media/Wall
+/compose/nginx/cert/www.dovahwall.cn.key
+/compose/nginx/cert/www.dovahwall.cn.key.bak
+/compose/nginx/cert/www.dovahwall.cn.pem
+/compose/nginx/cert/www.dovahwall.cn.pem.bak
+*.mp4
+*.MP4
+*.tar

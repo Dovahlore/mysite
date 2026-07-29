@@ -1,0 +1,8 @@
+{% extends 'effect.html' %}
+
+{% block title %}Assistant - Dovahlore{% endblock %}
+{% block nav_agent_active %}active{% endblock %}
+
+{% block content %}
+    {% include '_agent_chat.html' with chat_mode='page' agent_is_authenticated=agent_is_authenticated %}
+{% endblock %}

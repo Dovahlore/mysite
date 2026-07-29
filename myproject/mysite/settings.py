@@ -22,8 +22,8 @@ MEDIA_URL = '/media/'
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-g6=c*wkm4u8i!#1bug1y&f*#+=5m4!l$f=kc6_c-)hnl2r(dj)"
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Local development can opt in with DJANGO_DEBUG=1.
+DEBUG = os.environ.get("DJANGO_DEBUG", "0").lower() in {"1", "true", "yes", "on"}
 
 ALLOWED_HOSTS = ['*', ]
 
@@ -37,7 +37,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "dovahwall.apps.DovahwallConfig",
-    "dovahbase.apps.DovahbaseConfig"
+    "dovahbase.apps.DovahbaseConfig",
+    "dovahride.apps.DovahrideConfig",
+
 ]
 
 MIDDLEWARE = [
@@ -76,43 +78,68 @@ WSGI_APPLICATION = "mysite.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-# develop ver
+# docker ver
 # DATABASES = {
 #     "default": {
 #         "ENGINE": "django.db.backends.mysql",
 #         "NAME": "mysite",
 #         "USER": "root",
-#         "PASSWORD": "**********",
-#         "HOST": "127.0.0.1",
-#         "PORT": 33062,
+#         "PASSWORD": "Alexmercer2000@",
+#         "HOST": "db",
+#         "PORT": 3306,
 #     }
 #
 # }
-# # docker ver
+# not docker ver
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": "mysite",
-        "USER": "root",
-        "PASSWORD": "***********",
-        "HOST": "db",
-        "PORT": 3306,
+        "NAME": os.environ.get("MYSQL_DATABASE", "mysite"),
+        "USER": os.environ.get("MYSQL_USER", "root"),
+        "PASSWORD": os.environ.get("MYSQL_PASSWORD", ""),
+        "HOST": os.environ.get("MYSQL_HOST", "127.0.0.1"),
+        "PORT": os.environ.get("MYSQL_PORT", "33062"),
     }
 
 }
-##cache
+
+# The assistant uses a separate account with SELECT-only grants. Do not fall back
+# to the application's root account when these variables are absent.
+AGENT_DB_USER = os.environ.get("AGENT_DB_USER")
+AGENT_DB_PASSWORD = os.environ.get("AGENT_DB_PASSWORD")
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+if AGENT_DB_USER and AGENT_DB_PASSWORD:
+    DATABASES["agent_readonly"] = {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.environ.get("AGENT_DB_NAME", "mysite"),
+        "USER": AGENT_DB_USER,
+        "PASSWORD": AGENT_DB_PASSWORD,
+        "HOST": os.environ.get("AGENT_DB_HOST", "db"),
+        "PORT": os.environ.get("AGENT_DB_PORT", "3306"),
+        "OPTIONS": {"init_command": "SET SESSION TRANSACTION READ ONLY"},
+    }
+#cache
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": "redis://redis:6379/1",
+        "TIMEOUT": 300,
+        "KEY_PREFIX": "dovahlore",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "CONNECTION_POOL_KWARGS": {"max_connections": 100},
+            "CONNECTION_POOL_KWARGS": {"max_connections": 20},
             "PICKLE_VERSION": -1,
-            "PASSWORD": "Alexmercer2000@",
+            "PASSWORD": REDIS_PASSWORD,
+            # Redis accelerates the site but must not become a single point of
+            # failure. Normal database/computation paths remain available.
+            "IGNORE_EXCEPTIONS": True,
         }
     }
 }
+
+# Prefer Redis for reads while retaining MySQL as the durable session store.
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+SESSION_CACHE_ALIAS = "default"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -156,3 +183,13 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'collect_static')
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# # SECURITY安全设置 - 支持http时建议开启
+# SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")   # 推荐
+# SECURE_SSL_REDIRECT = True # 将所有非SSL请求永久重定向到SSL
+# SESSION_COOKIE_SECURE = True # 仅通过https传输cookie
+# CSRF_COOKIE_SECURE = True # 仅通过https传输cookie
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True # 严格要求使用https协议传输
+# SECURE_HSTS_PRELOAD = True # HSTS为
+# SECURE_HSTS_SECONDS = 60
+# SECURE_CONTENT_TYPE_NOSNIFF = True # 防止浏览器猜测资产的内容类型

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Dovahlore{% endblock %}</title>
+    <link rel="shortcut icon" href="{% static 'icons/dovahbase.ico' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="{% static 'css/base.css' %}" rel="stylesheet">
+    <link href="{% static 'css/agent_widget.css' %}?v=5" rel="stylesheet">
+    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+
+    <style>
+        /* ================= 全局高级底色 ================= */
+        body {
+            /* 微带冷色调的渐变替代纯白底色，完美衬托毛玻璃卡片 */
+            background: linear-gradient(135deg, #f0f4f8 0%, #dce5f0 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+
+        /* ================= 特效相关 CSS ================= */
+        @media (pointer: fine) {
+            body, a, button, input, .nav-link, .show_box { cursor: none !important; }
+        }
+
+        #particles-canvas {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -2; pointer-events: none;
+        }
+
+        /* ================= 光标 CSS (开启硬件加速，干掉延迟) ================= */
+        .mouse-glow, .custom-cursor, .cursor-dot {
+            position: fixed;
+            top: 0; left: 0; /* 统一定位到左上角 */
+            pointer-events: none;
+            will-change: transform;
+            transform: translate3d(-100vw, -100vh, 0) translate(-50%, -50%);
+        }
+
+        .mouse-glow {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(74, 144, 226, 0.15) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            z-index: -1;
+            transition: opacity 0.3s;
+        }
+
+        .custom-cursor {
+            width: 30px; height: 30px;
+            border: 2px solid #4a90e2; border-radius: 50%;
+            z-index: 9999;
+            /* 注意：千万不要给 transform 加 transition，否则会有延迟 */
+            transition: width 0.15s, height 0.15s, background-color 0.15s, border-color 0.15s;
+        }
+
+        .custom-cursor.hover {
+            width: 50px; height: 50px;
+            background-color: rgba(74, 144, 226, 0.1); border-color: rgba(74, 144, 226, 0.5);
+        }
+
+        .cursor-dot {
+            width: 6px; height: 6px;
+            background: #4a90e2; border-radius: 50%;
+            z-index: 10000;
+        }
+
+        /* ================= 高级毛玻璃导航栏 (柔和胶囊版) ================= */
+        .glass-navbar {
+            font-family: 'Lato', sans-serif;
+            background: rgba(255, 255, 255, 0.3) !important;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+            transition: all 0.3s ease;
+            padding: 10px 0;
+        }
+
+        .glass-navbar .navbar-brand {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: 1.8rem;
+            color: #2c3e50 !important;
+            letter-spacing: 0.5px;
+            margin-right: 30px;
+            text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.6);
+        }
+
+        .glass-navbar .nav-link {
+            font-family: 'Lato', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            color: #4a4a4a !important;
+            margin: 0 5px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .glass-navbar .nav-link:hover,
+        .glass-navbar .nav-link.active {
+            color: #4a90e2 !important;
+            background-color: rgba(74, 144, 226, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .glass-navbar .dropdown-menu {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            padding: 8px;
+            margin-top: 8px;
+        }
+
+        .glass-navbar .dropdown-item {
+            font-family: 'Lato', sans-serif;
+            font-weight: 400;
+            color: #4a4a4a;
+            border-radius: 8px;
+            padding: 8px 20px;
+            transition: all 0.25s ease;
+        }
+
+        .glass-navbar .dropdown-item:hover {
+            background: rgba(74, 144, 226, 0.08);
+            color: #4a90e2;
+            transform: translateX(4px);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<div class="custom-cursor"></div>
+<div class="cursor-dot"></div>
+<div class="mouse-glow"></div>
+<canvas id="particles-canvas"></canvas>
+
+<nav class="navbar navbar-expand-lg glass-navbar" style="position:fixed;top:0;width:100%;z-index:1000">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Dovahlore</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                {% if request.path == '/s/agent' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/s/base">DovahBase</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/s/wall">DovahWall</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/s/bike/">DovahRide</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" href="/s/agent">Assistant</a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a class="nav-link {% block nav_base_active %}{% endblock %}" aria-current="page" href="/s/base">DovahBase</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% block nav_agent_active %}{% endblock %}" href="/s/agent">Assistant</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% block nav_episode_active %}{% endblock %}" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">Episode</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/base/episode/new">New Episode</a></li>
+                        <li><a class="dropdown-item" href="/s/base/episode">Episode List</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% block nav_movie_active %}{% endblock %}" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">Movie</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/base/movie/new">New Movie</a></li>
+                        <li><a class="dropdown-item" href="/s/base/movie">Movie List</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% block nav_manga_active %}{% endblock %}" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">Manga</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/base/manga/new">New Manga</a></li>
+                        <li><a class="dropdown-item" href="/s/base/manga">Manga List</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="main-wrapper" style="position: relative; z-index: 1;">
+    {% block content %}
+    {% endblock content %}
+</div>
+
+{% if request.path != '/s/agent' %}
+    {% include '_agent_chat.html' with chat_mode='widget' agent_is_authenticated=request.session.info %}
+{% endif %}
+
+<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+<script src="{% static 'js/agent_widget.js' %}?v=5"></script>
+
+<script type="text/javascript">
+window.collectPolishContext = function(reviewInput) {
+    const form = reviewInput && reviewInput.closest('form');
+    if (!form) return '';
+
+    return Array.from(form.querySelectorAll('input[name], select[name], textarea[name]'))
+        .filter((field) => {
+            return !['review', 'csrfmiddlewaretoken'].includes(field.name)
+                && field.type !== 'file'
+                && field.type !== 'password'
+                && field.type !== 'submit'
+                && (!['checkbox', 'radio'].includes(field.type) || field.checked);
+        })
+        .map((field) => {
+            let value;
+            if (field.tagName === 'SELECT') {
+                value = Array.from(field.selectedOptions)
+                    .map((option) => option.text.trim())
+                    .filter(Boolean)
+                    .join(', ');
+            } else {
+                value = String(field.value || '').trim();
+            }
+            if (!value) return '';
+
+            const label = field.id
+                ? document.querySelector(`label[for="${CSS.escape(field.id)}"]`)
+                : null;
+            const name = (label && label.textContent.trim()) || field.name;
+            return `${name}: ${value}`;
+        })
+        .filter(Boolean)
+        .join('\n');
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const cursor = document.querySelector('.custom-cursor');
+    const cursorDot = document.querySelector('.cursor-dot');
+    const mouseGlow = document.querySelector('.mouse-glow');
+
+    if (isMobile) {
+        document.body.style.cursor = 'auto';
+        if(cursor) cursor.style.display = 'none';
+        if(cursorDot) cursorDot.style.display = 'none';
+        if(mouseGlow) mouseGlow.style.display = 'none';
+    } else {
+        let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+        let isMoving = false;
+
+        // 使用 requestAnimationFrame 和 translate3d 开启 GPU 硬件加速，干掉一切延迟
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+
+            if (!isMoving) {
+                isMoving = true;
+                requestAnimationFrame(() => {
+                    // calc( - 50%) 用来确保光标图形的中心点完美对准鼠标针尖
+                    const transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%)`;
+                    cursorDot.style.transform = transform;
+                    cursor.style.transform = transform;
+                    mouseGlow.style.transform = transform;
+                    isMoving = false;
+                });
+            }
+        });
+
+        document.body.addEventListener('mouseover', (e) => {
+            if (e.target.closest('a, button, input, .show_box, .nav-link, .dropdown-item')) cursor.classList.add('hover');
+        });
+        document.body.addEventListener('mouseout', (e) => {
+            if (e.target.closest('a, button, input, .show_box, .nav-link, .dropdown-item')) cursor.classList.remove('hover');
+        });
+    }
+
+    const canvas = document.getElementById('particles-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2 + 1;
+            this.speedX = (Math.random() - 0.5) * 0.5; this.speedY = (Math.random() - 0.5) * 0.5;
+            this.opacity = Math.random() * 0.5 + 0.2;
+        }
+        update() {
+            this.x += this.speedX; this.y += this.speedY;
+            if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+            if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+            if (!isMobile && typeof mouseX !== 'undefined') {
+                const dx = mouseX - this.x, dy = mouseY - this.y, distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 120) {
+                    const force = (120 - distance) / 120;
+                    this.x -= dx * force * 0.02; this.y -= dy * force * 0.02;
+                }
+            }
+        }
+        draw() {
+            ctx.fillStyle = `rgba(74, 144, 226, ${this.opacity})`;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    for (let i = 0; i < 42; i++) particles.push(new Particle());
+
+    function drawConnections() {
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y, distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 100) {
+                    const opacity = (1 - distance / 100) * 0.3;
+                    ctx.strokeStyle = `rgba(74, 144, 226, ${opacity})`; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
+                }
+            }
+        }
+    }
+
+    function animateParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => { p.update(); p.draw(); });
+        drawConnections(); requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+});
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

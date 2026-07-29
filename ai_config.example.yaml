@@ -1,0 +1,13 @@
+models:
+  fast: deepseek-v4-flash
+  full: qwen3.7-max
+
+# Providers are tried from top to bottom.
+providers:
+  - name: aliyun
+    api_key: replace-with-aliyun-key
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+
+  - name: deepseek
+    api_key: replace-with-deepseek-key
+    base_url: https://api.deepseek.com

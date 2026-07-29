@@ -1,0 +1,68 @@
+{% extends 'ride_base.html' %}
+{% block title %}上传数据 - DovahRide{% endblock %}
+{% block nav_ride_upload_active %}active{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-header bg-primary text-white text-center py-4 rounded-top-4">
+                    <h3 class="mb-0">上传骑行数据</h3>
+                </div>
+
+                <div class="card-body p-5">
+                    <!-- 务必保留 enctype -->
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="mb-4 text-center">
+                            <label class="form-label text-muted mb-3">
+                                选择 GPX 或 FIT 文件
+                            </label>
+
+                            <!-- 🔥 修改这里：使用原生 HTML 标签 -->
+                            <!-- name="files" 对应 Django Form 里的字段名 -->
+                            <!-- multiple 允许选择多个文件 -->
+                            <!-- accept 限制文件类型 -->
+                            <input type="file"
+                                   name="files"
+                                   multiple
+                                   class="form-control form-control-lg"
+                                   accept=".gpx,.fit"
+                                   required>
+
+                            <div class="form-text mt-2 text-muted">
+                                按住 Ctrl 或 Shift 可多选文件
+                            </div>
+                        </div>
+
+                        <!-- 提交按钮 -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill" id="uploadBtn">
+                                <span id="btnSpinner" class="spinner-border spinner-border-sm d-none me-2" aria-hidden="true"></span>
+                                <span id="btnText">开始上传</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- 添加一点简单的 JS：点击上传后让按钮变转圈圈，防止重复点击 -->
+<script>
+    document.querySelector('form').addEventListener('submit', function(e) {
+        var btn = document.getElementById('uploadBtn');
+        var txt = document.getElementById('btnText');
+        var spinner = document.getElementById('btnSpinner');
+
+        // 禁用按钮，显示加载动画
+        btn.disabled = true;
+        txt.textContent = '正在处理中...';
+        spinner.classList.remove('d-none');
+    });
+</script>
+{% endblock %}

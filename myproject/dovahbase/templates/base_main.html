@@ -1,152 +1,212 @@
-<!DOCTYPE html>
+{% extends 'effect.html' %}
 {% load static %}
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Base</title>
-    <link rel="shortcut icon" href="/media/dovahbase.ico">
-    <link href="{% static 'css/base.css' %}" rel="stylesheet">
-    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
-    <style>
 
-         .scroll-container {
-            width: 100%;
-            overflow-x: auto;
-            white-space: nowrap;
-            border: 1px solid #ccc;
-            padding: 10px;
-        }
+{% block title %}首页 - Dovahlore{% endblock %}
 
+{% block nav_base_active %}active{% endblock %}
 
-    </style>
-</head>
-<body>
-<nav class="navbar navbar-expand-lg" style="background-color: #e3f2fd;position:fixed;top:0;width:100%;z-index:10">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">Dovahlore</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link  active" aria-current="page" href="/s/base">Base</a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle " id="navbarDropdown1" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Episode
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown1">
-                        <li><a class="dropdown-item" href="/base/episode/new">New Episode</a></li>
-                        <li><a class="dropdown-item" href="/base/episode">Episode List</a></li>
-                    </ul>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown2" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Movie
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown2">
-                        <li><a class="dropdown-item" href="/base/movie/new">New Movie</a></li>
-                        <li><a class="dropdown-item" href="/base/movie">Movie list</a></li>
-                    </ul>
-                </li>
-                <li class="nav-item dropdown ">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown3" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Manga
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown3">
-                        <li><a class="dropdown-item" href="/base/manga/new">New Manga</a></li>
-                        <li><a class="dropdown-item" href="/base/manga">Manga list</a></li>
-                    </ul>
-                </li>
-            </ul>
+{% block extra_css %}
+<style>
+    /* ========== 美化横向滚动容器 ========== */
+    .scroll-container {
+        display: flex;
+        gap: 20px;
+        overflow-x: auto;
+        padding: 20px 10px 40px 10px;
+        border: none;
+        scroll-behavior: smooth;
+    }
 
-        </div>
-    </div>
-</nav>
-<div style="margin:80px 40px;">
-    <a href="/base/movie"><h2> 本月观看看电影 </h2></a>
+    /* 隐藏原生的丑陋滚动条 (Webkit浏览器) */
+    .scroll-container::-webkit-scrollbar {
+        height: 6px;
+    }
+    .scroll-container::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 10px;
+    }
+    .scroll-container::-webkit-scrollbar-thumb {
+        background: rgba(74, 144, 226, 0.3);
+        border-radius: 10px;
+    }
+    .scroll-container::-webkit-scrollbar-thumb:hover {
+        background: rgba(74, 144, 226, 0.6);
+    }
+
+    /* ========== 现代化卡片样式 (玻璃拟态) ========== */
+    .show_box {
+        flex: 0 0 auto;
+        width: 240px;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        text-align: center;
+        text-decoration: none;
+    }
+
+    .show_box:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(74, 144, 226, 0.3);
+    }
+
+    /* ========== 图片容器与拉伸特效 ========== */
+    .box-img-wrapper {
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        overflow: hidden;
+    }
+
+    .box-img-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+
+    .show_box:hover .box-img-wrapper img {
+        transform: scale(1.08);
+    }
+
+    /* ========== 文本排版与超长截断 ========== */
+    .box-text-content {
+        padding: 15px 12px;
+    }
+
+    .box-text-content a {
+        text-decoration: none;
+    }
+
+    .box-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .box-subtitle {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 标题美化 */
+    .section-title {
+        color: #2c3e50;
+        font-weight: 700;
+        margin-left: 10px;
+        text-decoration: none;
+        display: inline-block;
+        transition: color 0.3s;
+    }
+    .section-title:hover {
+        color: #4a90e2;
+    }
+
+    /* 空状态提示样式 */
+    .empty-state {
+        color: #95a5a6;
+        font-size: 0.95rem;
+        padding: 20px 10px;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin:80px 40px 20px 40px;">
+    <a href="/s/base/movie" style="text-decoration: none;"><h2 class="section-title">🎬 本月观看电影</h2></a>
     <div class="scroll-container">
-
         {% for movie in movies %}
-        <div class="show_box" style="width:300px;">
+        <div class="show_box">
             <a href="/base/movie/edit/{{movie.id}}">
-                <h3>{{movie.title}} {{movie.org_title}}</h3>
-            </a>
-            <h5>年份：{{movie.release_time}}</h5>
-            <div>
-                <a href="/base/movie/edit/{{movie.id}}">
-                <span style="vertical-align:top;  display: flex;justify-content: center;
-            align-items: center;">
+                <div class="box-img-wrapper">
                     {% if movie.pic %}
-                    <img src="/media/{{movie.pic}}" class="show_pic" alt="">
+                    <img src="/media/{{movie.pic}}" alt="{{movie.title}}">
                     {% else %}
-                    <img src="{% static 'img/material/upload.jpg' %}" class="show_pic" alt="">
+                    <img src="{% static 'img/material/upload.jpg' %}" alt="No Image">
                     {% endif %}
-                </span>
+                </div>
+            </a>
+
+            <div class="box-text-content">
+                <a href="/base/movie/edit/{{movie.id}}">
+                    <h3 class="box-title" title="{{movie.title}} {{movie.org_title|default:''}}">
+                        {{movie.title}} {{movie.org_title|default:''}}
+                    </h3>
                 </a>
+                <h5 class="box-subtitle" title="年份：{{movie.release_time|default:'暂无'}}">年份：{{movie.release_time|default:'暂无'}}</h5>
             </div>
         </div>
+        {% empty %}
+        <div class="empty-state">暂无电影记录...</div>
         {% endfor %}
     </div>
 </div>
-<div style="margin:80px 40px;">
-    <a href="/base/manga"><h2> 漫画阅读中 </h2></a>
-    <div class="scroll-container">
 
+<div style="margin:40px 40px 20px 40px;">
+    <a href="/s/base/manga" style="text-decoration: none;"><h2 class="section-title">📚 漫画阅读中</h2></a>
+    <div class="scroll-container">
         {% for manga in mangas %}
-        <div class="show_box" style="width:300px;">
+        <div class="show_box">
             <a href="/base/manga/edit/{{manga.id}}">
-                <h3>{{manga.title}}</h3>
-            </a>
-            <h3>{{manga.author}}</h3>
-            <div>
-                <span style="vertical-align:top;  display: flex;justify-content: center;
-            align-items: center;">
-                    <a href="/base/manga/edit/{{manga.id}}">
+                <div class="box-img-wrapper">
                     {% if manga.pic %}
-                    <img src="/media/{{manga.pic}}" class="show_pic" alt="">
+                    <img src="/media/{{manga.pic}}" alt="{{manga.title}}">
                     {% else %}
-                    <img src="{% static 'img/material/upload.jpg' %}" class="show_pic" alt="">
+                    <img src="{% static 'img/material/upload.jpg' %}" alt="No Image">
                     {% endif %}
-                    </a>
-                </span>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-<div style="margin:80px 40px;">
-    <a href="/base/episode"><h2> 追剧中 </h2></a>
-    <div class="scroll-container">
-
-        {% for episode in episodes %}
-        <div class="show_box" style="width:300px;">
-            <a href="/base/episode/edit/{{episode.id}}">
-                <h3>{{episode.title}}</h3>
+                </div>
             </a>
-            <h3>{{episode.author}}</h3>
-            <div>
-                <span style="vertical-align:top;  display: flex;justify-content: center;
-            align-items: center;">
-                    <a href="/base/episode/edit/{{episode.id}}">
-                    {% if episode.pic %}
-                    <img src="/media/{{episode.pic}}" class="show_pic" alt="">
-                    {% else %}
-                    <img src="{% static 'img/material/upload.jpg' %}" class="show_pic" alt="">
-                    {% endif %}
-                    </a>
-                </span>
+
+            <div class="box-text-content">
+                <a href="/base/manga/edit/{{manga.id}}">
+                    <h3 class="box-title" title="{{manga.title}}">{{manga.title}}</h3>
+                </a>
+                <h5 class="box-subtitle" title="作者：{{manga.author|default:'暂无'}}">作者：{{manga.author|default:'暂无'}}</h5>
             </div>
         </div>
+        {% empty %}
+        <div class="empty-state">暂无漫画记录...</div>
         {% endfor %}
     </div>
 </div>
 
-<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
-</body>
-</html>
+<div style="margin:40px 40px 80px 40px;">
+    <a href="/s/base/episode" style="text-decoration: none;"><h2 class="section-title">📺 追剧中</h2></a>
+    <div class="scroll-container">
+        {% for episode in episodes %}
+        <div class="show_box">
+            <a href="/base/episode/edit/{{episode.id}}">
+                <div class="box-img-wrapper">
+                    {% if episode.pic %}
+                    <img src="/media/{{episode.pic}}" alt="{{episode.title}}">
+                    {% else %}
+                    <img src="{% static 'img/material/upload.jpg' %}" alt="No Image">
+                    {% endif %}
+                </div>
+            </a>
+
+            <div class="box-text-content">
+                <a href="/base/episode/edit/{{episode.id}}">
+                    <h3 class="box-title" title="{{episode.title}}">{{episode.title}}</h3>
+                </a>
+                <h5 class="box-subtitle" title="播出时间：{{episode.release_time|default:'暂无'}}">播出时间：{{episode.release_time|default:'暂无'}}</h5>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">暂无番剧记录...</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock content %}

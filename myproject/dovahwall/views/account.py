@@ -1,10 +1,11 @@
 from django.shortcuts import render, HttpResponse, redirect
 from django import forms
-import random
 from dovahwall.utils.encrypt import md5
+from dovahwall.utils.photos import random_photos
 import dovahwall.models as models
-from dovahwall.utils.checkcode import check_code
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
+from mysite.cache_utils import client_ip, rate_limit_allows
 
 class loginForm(forms.Form):
     user = forms.CharField(label="管理员账号", max_length=20, required=True,
@@ -26,38 +27,13 @@ class loginForm(forms.Form):
 
 
 def choose_bg():
-    x = random.choice(
-        ["bird2.jpg",
-"bird4.jpg",
-"dogdigging-1.jpg",
-"DSC_0684.jpg",
-"DSC_0697_1.jpg",
-"DSC_0762.jpg",
-"DSC_0803.jpg",
-"DSC_0826.jpg",
-"DSC_0957-已增强-降噪-1.jpg",
-"DSC_1106-已增强-降噪.jpg",
-"DSC_1109-已增强-降噪.jpg",
-"DSC_1111-已增强-降噪.jpg",
-"DSC_1119.jpg",
-"DSC_1132-已增强-降噪.jpg",
-"DSC_1140.jpg",
-"DSC_1157-已增强-降噪.jpg",
-"DSC_1168-已增强-降噪.jpg",
-"DSC_1276-已增强-降噪.jpg",
-"DSC_1280-已增强-降噪-1.jpg",
-"landscape-1.jpg",
-"mount1.jpg",
-"mouse-1.jpg",
-"operator-1.jpg",
-"peak.jpg",
-"sunsetcamp-1.jpg",
-"sunsetpolls-1.jpg",
-"threehillundershade-1.jpg",
-"石雕.jpg",
-"赛博都市.jpg",])
-    str = "/static/img/bg/" + x
-    return str
+    photos = random_photos(1)
+    if photos:
+        try:
+            return photos[0].pic.url
+        except ValueError:
+            pass
+    return ""
 
 
 def login(request):
@@ -68,8 +44,12 @@ def login(request):
         return render(request, "login.html", {"bg": choose_bg(), "form": form, "message":  message})
     elif request.method == "POST":
         form = loginForm(data=request.POST)
+        identity = f"{client_ip(request)}:{request.POST.get('user', '').strip().lower()}"
+        if not rate_limit_allows("login", identity, limit=10, period=10 * 60):
+            message = "登录尝试过于频繁，请稍后再试！"
+            return render(request, "login.html", {"bg": choose_bg(), "form": form, "message": message}, status=429)
+
         if form.is_valid():
-            print(form.cleaned_data)
             user_input_code=form.cleaned_data.pop('image_code')
             image_code=request.session.get('image_code',"")
             if image_code =="":
@@ -89,6 +69,12 @@ def login(request):
                 request.session["info"] = {'id': admin.id, 'user': admin.user}
                 request.session.set_expiry(60*24*60*30)
                 next_url = request.GET.get('next', reverse('mainpage'))
+                if not url_has_allowed_host_and_scheme(
+                    next_url,
+                    allowed_hosts={request.get_host()},
+                    require_https=request.is_secure(),
+                ):
+                    next_url = reverse('mainpage')
                 return redirect(next_url)
 
 
@@ -97,6 +83,12 @@ from io import BytesIO
 
 # 生成默认含4个字符验证码的图片
 def image_code(request):
+    # Pillow and its font stack are only needed for captcha requests.
+    from dovahwall.utils.checkcode import check_code
+
+    if not rate_limit_allows("captcha", client_ip(request), limit=30, period=60):
+        return HttpResponse("请求过于频繁，请稍后再试。", status=429)
+
     img, code = check_code()
     request.session['image_code']=code
     request.session.set_expiry(60)

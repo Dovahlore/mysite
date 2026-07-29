@@ -1,142 +1,357 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends 'effect.html' %}
 {% load static %}
-<head>
-    <meta charset="UTF-8">
-    <title>Movie Edit</title>
-    <link rel="shortcut icon" href="/media/dovahbase.ico">
-    <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
-    <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
-    <link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
-    <style>
-        .box{
-          box-shadow: 3px 3px 7px #aaa;
-            border-radius:10px;
-            margin:30px auto;
-            background-color:#f0f0f0;
+
+{% block title %}Manga Edit - Dovahlore{% endblock %}
+
+{% block nav_manga_active %}active{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
+<link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+<style>
+    /* ========== 编辑器主容器 ========== */
+    .glass-editor-container {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.9);
+        border-left: 1px solid rgba(255, 255, 255, 0.9);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        border-right: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05);
+        margin: 100px auto 50px auto;
+        padding: 40px;
+        max-width: 1200px; 
+    }
+
+    .editor-header {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #2c3e50;
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+
+    /* ========== 黄金分割双栏网格布局 ========== */
+    .editor-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr; /* 左侧表单占 1.5 份，右侧预览占 1 份 */
+        gap: 50px;
+        align-items: start;
+    }
+
+    /* 屏幕较小时自动切换为上下单列布局 */
+    @media (max-width: 900px) {
+        .editor-grid {
+            grid-template-columns: 1fr;
+            gap: 30px;
         }
-        .preview{
-            position:absolute;
-            right:5%;
-             top:5%;
-            width:40%;
-            max-width:500px;
-            max-height:900px;
+        .preview-section {
+            order: -1;
+            position: relative !important;
+            top: auto !important;
+            margin-bottom: 20px;
+        }
+        #preview_pic {
+            max-height: 400px !important;
+        }
+    }
 
- }
-#preview_pic{
-border-radius:5px;
-}
-.halfwidth{
-width:50%;
-margin-bottom:10px;
-margin-top:10px;
-}
-.marg{margin-bottom:10px;
-margin-top:10px;
-}
-    </style>
-</head>
-<body>
-<nav class="navbar navbar-expand-lg" style="background-color: #e3f2fd;position:fixed;top:0;width:100%;z-index:10">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">Dovahlore</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link" aria-current="page" href="/s/base">Base</a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown1" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Episode
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown1">
-                        <li><a class="dropdown-item" href="/base/episode/new">New Episode</a></li>
-                        <li><a class="dropdown-item" href="/base/episode">Episode List</a></li>
-                    </ul>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown2" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Movie
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown2">
-                        <li><a class="dropdown-item" href="/base/movie/new">New Movie</a></li>
-                        <li><a class="dropdown-item" href="/base/movie">Movie list</a></li>
-                    </ul>
-                </li>
-                <li class="nav-item dropdown ">
-                    <a class="nav-link dropdown-toggle active" id="navbarDropdown3" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Manga
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown3">
-                        <li><a class="dropdown-item" href="/base/manga/new">New Manga</a></li>
-                        <li><a class="dropdown-item" href="/base/manga">Manga list</a></li>
-                    </ul>
-                </li>
-            </ul>
+    /* ========== 表单字段美化 ========== */
+    .form-group {
+        margin-bottom: 20px;
+    }
 
-        </div>
-    </div>
-</nav>
-<div class="container box" style="margin-top:70px;">
-    <form method="post" enctype="multipart/form-data" style="position:relative;">
+    .form-group label {
+        font-weight: 600;
+        color: #4a4a4a;
+        margin-bottom: 8px;
+        display: block;
+        font-size: 0.95rem;
+    }
+
+    /* 针对 Django 自动生成的输入框进行美化 */
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group input[type="file"],
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 10px 15px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.7);
+        color: #333;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    /* ========== 🌟 AI 按钮与附加组件美化 ========== */
+    .spider-btn-wrapper {
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    #btn-ai-polish {
+        border-radius: 8px;
+        padding: 6px 15px;
+        font-weight: 500;
+        box-shadow: 0 4px 10px rgba(23, 162, 184, 0.15);
+        transition: all 0.2s ease;
+        border: 1px solid #17a2b8;
+        color: #17a2b8;
+        background: transparent;
+        cursor: pointer;
+    }
+    #btn-ai-polish:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(23, 162, 184, 0.3);
+        background: #17a2b8;
+        color: #fff;
+    }
+    #btn-ai-polish:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    #polish-status {
+        color: #17a2b8 !important;
+        font-weight: 500;
+    }
+
+    /* ========== 右侧封面预览区 (吸顶悬浮效果) ========== */
+    .preview-section {
+        position: sticky;
+        top: 100px;
+        background: rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 16px;
+        padding: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        text-align: center;
+    }
+
+    #preview_pic {
+        width: 100%;
+        max-height: 600px;
+        object-fit: cover;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: opacity 0.3s ease;
+    }
+
+    /* ========== 提交按钮 ========== */
+    .submit-wrapper {
+        text-align: center;
+        margin-top: 40px;
+        border-top: 1px dashed rgba(0,0,0,0.1);
+        padding-top: 30px;
+    }
+
+    .submit-wrapper .btn-submit {
+        width: 250px;
+        padding: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(74, 144, 226, 0.3);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .submit-wrapper .btn-submit:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(74, 144, 226, 0.4);
+    }
+
+    /* ========== 修复 Select2 插件在玻璃态下的样式 ========== */
+    .select2-container--default .select2-selection--multiple {
+        background-color: rgba(255, 255, 255, 0.7) !important;
+        border: 1px solid rgba(0, 0, 0, 0.1) !important;
+        border-radius: 10px !important;
+        padding: 5px !important;
+    }
+    .select2-container--default.select2-container--focus .select2-selection--multiple {
+        border-color: #4a90e2 !important;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="glass-editor-container">
+    <h2 class="editor-header"><i class="fas fa-book-open"></i> 漫画信息编辑</h2>
+
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        {% for field in form %}
-        <div class="mb-3">
-            <label for="{{field.id_for_label}}" class="form-label marg">{{field.label}}</label>
-            <div class="halfwidth">{{ field }}</div>
-            {{ field.errors }}
-        </div>
-        {% endfor %}
-        <div class="preview">
-            {% if form.pic.value %}
-                    <img id="preview_pic" style="width:100%;max-height:80%;object-fit:cover;"
-                 src="/media/{{form.pic.value}}"/>
-                    {% else %}
-                    <img src="{% static 'img/material/upload.jpg' %}" id="preview_pic" style="width:100%;max-height:80%;object-fit:cover;" alt="">
+
+        <div class="editor-grid">
+            <div class="form-section">
+                {% for field in form %}
+                <div class="form-group">
+                    <label for="{{field.id_for_label}}">{{field.label}}</label>
+                    {{ field }}
+
+                    {% if field.name == 'review' %}
+                    <div class="spider-btn-wrapper">
+                        <button type="button" id="btn-ai-polish">
+                            ✨ AI 评价润色
+                        </button>
+                        <span id="polish-status" style="display:none;">
+                            <i class="fas fa-spinner fa-spin"></i> 结合作品信息润色中...
+                        </span>
+                    </div>
                     {% endif %}
+
+                    {% if field.errors %}
+                    <div style="color: #e74c3c; font-size: 0.85em; margin-top: 5px;">
+                        {{ field.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="preview-section">
+                <h5 style="color:#555; margin-bottom: 15px; font-weight: 600;">封面预览</h5>
+                {% if form.pic.value %}
+                    <img id="preview_pic" src="/media/{{form.pic.value}}" alt="Cover Preview"/>
+                {% else %}
+                    <img id="preview_pic" src="{% static 'img/material/upload.jpg' %}" alt="Default Cover">
+                {% endif %}
+            </div>
         </div>
-        <div style="text-align:center;">
-            <input type="submit" class="btn btn-primary" style="text-align:center;margin:50px;width:200px;">
+
+        <div class="submit-wrapper">
+            <button type="submit" class="btn btn-primary btn-submit">
+                <i class="fas fa-save"></i> 保 存 记 录
+            </button>
         </div>
     </form>
 </div>
+{% endblock content %}
+
+{% block extra_js %}
 <script src="{% static 'jquery-3.7.1.min.js'%}"></script>
-<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
 <script src="{% static 'select2/dist/js/select2.min.js'%}"></script>
 <script>
-
-{#$(".js-select").select2()#}
-
 $(function(){
- $(".js-select").select2();
- $('#id_pic').on('change', function() {
-
-        var file = this.files[0];
-         var reader = new FileReader();
-         console.log(reader);
-         reader.onloadstart = function(){
-         $('#progress').show();
-         };
-         reader.onprogress = function(e){
-         $("div[role=progressbar]").width(e.loaded/e.total*100+"%");
-              };
-         reader.readAsDataURL(file);
-         reader.onload = function() {
-         var dataURL = reader.result;
-         var img = $("#preview_pic").attr('src', dataURL);
-       }
+    // 初始化 Select2
+    $(".js-select").select2({
+        width: '100%'
     });
 
-})
+    // 本地文件上传实时预览（带丝滑淡入淡出）
+    $('#id_pic').on('change', function() {
+        var file = this.files[0];
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function() {
+                $('#preview_pic').css('opacity', 0);
+                setTimeout(function(){
+                    $('#preview_pic').attr('src', reader.result).css('opacity', 1);
+                }, 150);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
 
+    // ===================== 🌟 通用 AI 润色逻辑 (流式打字机版) =====================
+    $('#btn-ai-polish').on('click', async function() {
+        var $reviewInput = $('#id_review');
+        var textContent = $reviewInput.val().trim();
+
+        // 自动获取填写的作品名称给大模型提供上下文（考虑到有可能是新建或编辑，加个判空兜底）
+        var workTitle = $('#id_title').val() ? $('#id_title').val().trim() : '该作品';
+        var workContext = window.collectPolishContext($reviewInput[0]);
+
+        if(!textContent) {
+            alert('💡 请先输入一些评价内容，AI 才能帮你润色哦！');
+            $reviewInput.focus();
+            return;
+        }
+
+        var $btn = $(this);
+        var $status = $('#polish-status');
+        var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+
+        // 1. UI 切换到“正在生成”状态
+        $btn.prop('disabled', true);
+        $btn.html('<i class="fas fa-magic"></i> 润色中...');
+        $status.fadeIn(200);
+
+        // 2. 清空输入框，开启淡蓝色高亮，为流式打字留出空间
+        $reviewInput.val('');
+        $reviewInput.css('background-color', 'rgba(23, 162, 184, 0.1)');
+
+        try {
+            // 使用 fetch API 调用通用的流式接口
+            const response = await fetch('/base/api/common_ai_polish/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ 'text': textContent, 'title': workTitle, 'context': workContext })
+            });
+
+            // 如果校验未通过，后端可能会返回普通 JSON 对象
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                const resJson = await response.json();
+                if (!resJson.success) {
+                    alert('润色失败：' + resJson.error);
+                    $reviewInput.val(textContent); // 恢复原文字
+                    return;
+                }
+            }
+
+            // 3. 流式读取并动态敲字
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                // stream: true 保证中文分包截断时不会乱码
+                const chunkText = decoder.decode(value, { stream: true });
+                $reviewInput.val($reviewInput.val() + chunkText);
+
+                // 让文本框自动向下滚动追踪打字进度
+                $reviewInput.scrollTop($reviewInput[0].scrollHeight);
+            }
+
+            // 4. 成功完成，延迟 1 秒后褪去高亮背景色
+            setTimeout(() => {
+                $reviewInput.css('background-color', 'rgba(255, 255, 255, 0.7)');
+            }, 1000);
+
+        } catch (error) {
+            console.error('请求出错:', error);
+            alert('网络或大模型接口出错，请重试！');
+            // 如果报错且被清空了，恢复原文防丢失
+            if (!$reviewInput.val()) {
+                $reviewInput.val(textContent);
+            }
+        } finally {
+            // 恢复按钮初始状态
+            $btn.prop('disabled', false);
+            $btn.html('✨ AI 评价润色');
+            $status.hide();
+        }
+    });
+});
 </script>
-</body>
-</html>
+{% endblock %}

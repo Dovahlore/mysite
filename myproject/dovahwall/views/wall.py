@@ -5,6 +5,9 @@ from django.core import serializers
 from django.db.models import F
 from django import forms
 from django.db.models import Q
+from django.views.decorators.http import require_POST
+from mysite.cache_utils import client_ip, rate_limit_allows
+from dovahwall.utils.photos import random_photos
 
 
 class filter_photo_form(forms.ModelForm):
@@ -16,8 +19,34 @@ class filter_photo_form(forms.ModelForm):
         self.fields['tags'].required = False
         self.fields["tags"].widget.attrs.update({'class': 'js-select form-control','style':"width:300px;"})
 
+
+def _build_photo_timeline(pics):
+    years = []
+    current_year = None
+    current_month = None
+
+    for pic in pics:
+        year = pic.created_at.year
+        month = pic.created_at.month
+        if current_year is None or current_year["year"] != year:
+            current_year = {"year": year, "months": []}
+            years.append(current_year)
+            current_month = None
+        if current_month is None or current_month["month"] != month:
+            current_month = {
+                "month": month,
+                "anchor": f"photos-{year}-{month:02d}",
+                "photos": [],
+            }
+            current_year["months"].append(current_month)
+        current_month["photos"].append(pic)
+
+    return years
+
+
 def wall(request):
-    pics=models.photo.objects.all().order_by('-created_at')
+    pics=models.photo.objects.prefetch_related('tags').order_by('-created_at')
+    carousel_photos = random_photos(5)
     if request.method == 'POST':
         form = filter_photo_form(request.POST)
         filters = Q()
@@ -33,11 +62,24 @@ def wall(request):
 
         
 
-            return render(request, "wall.html", {"pics": pics, "form": form,"message":message})
+            return render(request, "wall.html", {
+                "photo_timeline": _build_photo_timeline(pics),
+                "carousel_photos": carousel_photos,
+                "form": form,
+                "message": message,
+            })
     form=filter_photo_form()
-    return render(request, "wall.html",{"pics":pics,"form":form})
+    return render(request, "wall.html", {
+        "photo_timeline": _build_photo_timeline(pics),
+        "carousel_photos": carousel_photos,
+        "form": form,
+    })
 
+@require_POST
 def like(request):
+    if not rate_limit_allows("photo_like", client_ip(request), limit=60, period=60):
+        return JsonResponse({"res": "rate_limited"}, status=429)
+
     data= request.POST
     id = data.get('id')
     models.photo.objects.filter(id=id).update(like=F('like')+1)

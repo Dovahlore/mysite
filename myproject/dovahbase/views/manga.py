@@ -2,6 +2,9 @@ import dovahbase.models as models
 from django.shortcuts import render, HttpResponse, redirect
 from django import forms
 from django.db.models import Q
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.forms.models import model_to_dict
+from django.http import JsonResponse
 class upload_manga_form(forms.ModelForm):
     choices = [
         (True, 'True  已归档'),
@@ -45,32 +48,113 @@ class filter_manga_form(forms.ModelForm):
         self.fields["tags"].widget.attrs.update({'class': 'js-select form-control'})
 
 
-def manga(request):
-    mangas = models.manga.objects.all().order_by('-created_at')
-    form = filter_manga_form()
+# def manga(request):
+#     mangas = models.manga.objects.all().order_by('-created_at')
+#     form = filter_manga_form()
+#     if request.method == 'POST':
+#         form = filter_manga_form(request.POST)
+#         filters = Q()
+#         if form.is_valid():
+#             print(1, form.cleaned_data.get('finish'))
+#             if form.cleaned_data.get('title'):
+#                 title_query = form.cleaned_data['title']
+#                 filters &= Q(title__icontains=title_query) | Q(org_title__icontains=title_query) | Q(
+#                     alternate_titles__icontains=title_query)
+#             if form.cleaned_data.get('tags'):
+#                 tags = form.cleaned_data['tags']
+#                 filters &= Q(tags__in=tags)
+#             if form.cleaned_data.get('status'):
+#                 status = form.cleaned_data['status']
+#                 filters &= Q(status=status)
+#             if form.cleaned_data.get('finish') !=  'any':
+#                     filters &= Q(finish=form.cleaned_data['finish'])
+#
+#             mangas = mangas.filter(filters).distinct()
+#         message = "共%s条结果" % (len(mangas))
+#         return render(request, "manga.html", {"mangas": mangas, "form": form,"message":message})
+#     message = "共%s条结果" % (len(mangas))
+#     return render(request, "manga.html",{"mangas":mangas,"form":form,"message":message})
+def _get_filtered_mangas(request):
+    mangas = models.manga.objects.all().order_by('-created_at', '-id')
+
+    # 无论是页面加载(可能带POST筛选) 还是 API调用(POST)，都尝试获取表单数据
     if request.method == 'POST':
         form = filter_manga_form(request.POST)
-        filters = Q()
         if form.is_valid():
-            print(1, form.cleaned_data.get('finish'))
+            filters = Q()
+            # 这里的逻辑完全保留你原本的写法
             if form.cleaned_data.get('title'):
                 title_query = form.cleaned_data['title']
-                filters &= Q(title__icontains=title_query) | Q(org_title__icontains=title_query) | Q(
-                    alternate_titles__icontains=title_query)
+                filters &= Q(title__icontains=title_query) | \
+                           Q(org_title__icontains=title_query) | \
+                           Q(alternate_titles__icontains=title_query)
+
             if form.cleaned_data.get('tags'):
                 tags = form.cleaned_data['tags']
                 filters &= Q(tags__in=tags)
+
             if form.cleaned_data.get('status'):
                 status = form.cleaned_data['status']
                 filters &= Q(status=status)
-            if form.cleaned_data.get('finish') !=  'any':
-                    filters &= Q(finish=form.cleaned_data['finish'])
+
+            # 注意：finish 的 logic 是 'any' 字符串判断
+            if form.cleaned_data.get('finish') != 'any':
+                filters &= Q(finish=form.cleaned_data['finish'])
 
             mangas = mangas.filter(filters).distinct()
-        message = "共%s条结果" % (len(mangas))
-        return render(request, "manga.html", {"mangas": mangas, "form": form,"message":message})
-    message = "共%s条结果" % (len(mangas))
-    return render(request, "manga.html",{"mangas":mangas,"form":form,"message":message})
+    else:
+        form = filter_manga_form()
+
+    return mangas, form
+
+
+# --- 2. 修改主视图 (只渲染第1页 HTML) ---
+def manga(request):
+    queryset, form = _get_filtered_mangas(request)
+    queryset = queryset.prefetch_related('tags')
+    # 分页：每页 12 条
+    paginator = Paginator(queryset, 12)
+    page_obj = paginator.get_page(1)
+
+    message = "共%s条结果" % (paginator.count)
+    return render(request, "manga.html", {"mangas": page_obj, "form": form, "message": message})
+
+
+# --- 3. 新增 API 接口 (返回 JSON) ---
+def api_manga_list(request):
+    queryset, _ = _get_filtered_mangas(request)
+
+    # 预加载 Tags 优化性能
+    queryset = queryset.prefetch_related('tags')
+
+    paginator = Paginator(queryset, 12)
+    page_num = request.POST.get('page', 1)
+
+    try:
+        page_obj = paginator.page(page_num)
+    except (EmptyPage, PageNotAnInteger):
+        return JsonResponse({'success': True, 'mangas': [], 'has_next': False})
+
+    data_list = []
+    for m in page_obj:
+        # 使用 model_to_dict 自动转换
+        # 排除不需要或者需要手动处理的字段
+        d = model_to_dict(m, exclude=['pic', 'tags'])
+
+        # 手动处理图片路径
+        d['pic'] = str(m.pic) if m.pic else ""
+
+        # 手动处理 Tags (获取名字列表)
+        d['tags'] = [t.tag for t in m.tags.all()]
+        d['created_at'] = m.created_at.strftime('%Y-%m-%d %H:%M:%S') if getattr(m, 'created_at', None) else ""
+        data_list.append(d)
+
+    return JsonResponse({
+        'success': True,
+        'mangas': data_list,
+        'has_next': page_obj.has_next()
+    })
+
 def manga_edit(request,id):
     manga = models.manga.objects.get(id=id)
     print(manga.pic)
@@ -84,7 +168,7 @@ def manga_edit(request,id):
 
 
             # 处理表单提交后的逻辑，比如重定向到详情页或其他页面
-            return redirect('/base/manga')
+            return redirect('/s/base/manga')
 
 
     form = upload_manga_form(instance=manga)

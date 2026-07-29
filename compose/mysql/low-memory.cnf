@@ -1,0 +1,16 @@
+[mysqld]
+# Conservative defaults for the database on a 2 GB application host.
+innodb_buffer_pool_size=256M
+innodb_log_buffer_size=16M
+max_connections=30
+thread_cache_size=8
+table_open_cache=256
+table_definition_cache=256
+tmp_table_size=16M
+max_heap_table_size=16M
+sort_buffer_size=512K
+join_buffer_size=512K
+read_buffer_size=256K
+read_rnd_buffer_size=256K
+performance_schema=OFF
+skip_name_resolve=ON

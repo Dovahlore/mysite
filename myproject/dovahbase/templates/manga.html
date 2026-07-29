@@ -1,135 +1,442 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends 'effect.html' %}
 {% load static %}
-<link rel="shortcut icon" href="/media/dovahbase.ico">
-<link href="{% static 'css/base.css' %}" rel="stylesheet">
-<link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
+
+{% block title %}Manga List - Dovahlore{% endblock %}
+
+{% block nav_manga_active %}active{% endblock %}
+
+{% block extra_css %}
 <link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
-<head>
-    <meta charset="UTF-8">
-    <title>Manga Base</title>
+<!-- 确保引入 fontawesome 以显示小钟表图标 -->
+<link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+<style>
+    /* ========== 检索过滤面板 ========== */
+    .glass-filter-panel {
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(15px);
+        border-top: 1px solid rgba(255, 255, 255, 0.8);
+        border-left: 1px solid rgba(255, 255, 255, 0.8);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        border-right: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        padding: 25px 30px;
+        margin: 90px 40px 20px 40px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    }
 
-</head>
-<body>
-<nav class="navbar navbar-expand-lg" style="background-color: #e3f2fd;position:fixed;top:0;width:100%;z-index:10">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">Dovahlore</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link" aria-current="page" href="/s/base">Base</a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown1" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Episode
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown1">
-                        <li><a class="dropdown-item" href="/base/episode/new">New Episode</a></li>
-                        <li><a class="dropdown-item" href="/base/episode">Episode List</a></li>
-                    </ul>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown2" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Movie
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown2">
-                        <li><a class="dropdown-item" href="/base/movie/new">New Movie</a></li>
-                        <li><a class="dropdown-item" href="/base/movie">Movie list</a></li>
-                    </ul>
-                </li>
-                <li class="nav-item dropdown ">
-                    <a class="nav-link dropdown-toggle active" id="navbarDropdown3" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Manga
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown3">
-                        <li><a class="dropdown-item" href="/base/manga/new">New Manga</a></li>
-                        <li><a class="dropdown-item" aria-current="true" href="/base/manga">Manga list</a></li>
-                    </ul>
-                </li>
-            </ul>
+    .form-grid-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px 40px;
+        align-items: center;
+    }
 
-        </div>
-    </div>
-</nav>
+    .form-grid-container p {
+        display: flex;
+        align-items: center;
+        margin: 0;
+        gap: 15px;
+    }
 
-<div style="margin:10px 40px;margin-top:100px;padding:30px;box-shadow: 3px 3px 7px #aaa;">
-    <form method="post">
-        <div>
-            {% csrf_token %}
+    .form-grid-container p label {
+        white-space: nowrap;
+        flex-shrink: 0;
+        font-weight: 600;
+        color: #4a4a4a;
+        min-width: 70px;
+    }
+
+    .form-grid-container p input,
+    .form-grid-container p select {
+        flex-grow: 1;
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.7);
+        transition: all 0.3s ease;
+    }
+
+    .form-grid-container p input:focus,
+    .form-grid-container p select:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    .filter-actions {
+        margin-top: 25px;
+        text-align: right;
+        border-top: 1px dashed rgba(0,0,0,0.1);
+        padding-top: 20px;
+    }
+
+    /* ========== 标题操作区 ========== */
+    .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0 40px 20px 40px;
+    }
+    .header-message {
+        font-size: 1.2rem;
+        color: #2c3e50;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    /* ========== 横向信息卡片 (重构大卡片版) ========== */
+    #manga_wall {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 30px;
+        padding: 0 40px 40px 40px;
+        align-items: flex-start;
+    }
+
+    @media (max-width: 900px) {
+        #manga_wall { grid-template-columns: 1fr; }
+        .form-grid-container { grid-template-columns: 1fr; }
+    }
+
+    .show_box {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.9);
+        border-left: 1px solid rgba(255, 255, 255, 0.9);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        border-right: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+
+        /* ✨ 核心：统一 25px 对称内边距 */
+        padding: 25px;
+
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+        text-decoration: none !important;
+        color: inherit !important;
+        cursor: pointer;
+        align-self: flex-start;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .show_box:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        border-top: 1px solid rgba(74, 144, 226, 0.4);
+        border-left: 1px solid rgba(74, 144, 226, 0.4);
+        z-index: 10;
+    }
+
+    /* 左侧：封面区 */
+    .poster-container {
+        flex-shrink: 0;
+        width: 150px;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        margin-right: 25px;
+        align-self: flex-start;
+    }
+    .poster-container img {
+        width: 100%;
+        height: 100%;
+        aspect-ratio: 2 / 3;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+    .show_box:hover .poster-container img { transform: scale(1.05); }
+
+    /* 右侧：信息区 */
+    .info-container {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        min-width: 0;
+    }
+
+    /* ✨ 时间角标绝对定位，钉在右上角 */
+    .date-corner {
+        position: absolute;
+        top: 25px;    /* 与卡片 padding 一致 */
+        right: 25px;  /* 与卡片 padding 一致 */
+        font-size: 0.8rem;
+        color: #95a5a6;
+        font-weight: 500;
+        background: rgba(0, 0, 0, 0.04);
+        padding: 4px 10px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        z-index: 5;
+    }
+
+    /* ✨ 标题自动成为第一行，给右侧留白防重叠 */
+    .item-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-top: -2px; /* 光学微调，与海报顶部平齐 */
+        margin-bottom: 4px;
+        padding-right: 110px; /* 关键：给右上角的 Absolute 时间留出空位 */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.2s;
+        display: block;
+    }
+    .show_box:hover .item-title { color: #4a90e2; }
+
+    .item-org-title {
+        font-size: 0.95rem; color: #7f8c8d; margin-bottom: 12px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .info-line { font-size: 0.9rem; color: #555; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .info-line span.label { font-weight: 600; color: #888; margin-right: 5px;}
+    .info-line span.value { color: #333; }
+
+    /* 状态与归档的高亮颜色 */
+    .status-finish { color: #e74c3c; font-weight: 700; font-size: 0.95rem; }
+    .status-active { color: #2ecc71; font-weight: 700; font-size: 0.95rem; }
+
+    /* Tags */
+    .tags-wrapper { margin-top: 4px; margin-bottom: 6px; }
+    .badge.bg-info { background-color: rgba(74, 144, 226, 0.1) !important; color: #4a90e2 !important; border: 1px solid rgba(74, 144, 226, 0.2); font-weight: 500; }
+
+    /* 推到底部的状态栏 */
+    .status-wrapper {
+        display: flex;
+        gap: 15px;
+        margin-top: auto;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    /* ========== 🌟 自动巡航滚动评价系统 ========== */
+    .review-box {
+        position: relative;
+        font-size: 0.9rem;
+        height: 6.2em;
+        margin-top: 10px;
+        background: rgba(0, 0, 0, 0.03);
+        padding: 10px 12px;
+        border-radius: 8px;
+        border-left: 4px solid #4a90e2;
+        overflow: hidden;
+    }
+
+    .review-text {
+        display: block;
+        color: #444;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-all;
+        transform: translateY(0);
+        transition: transform 0.8s ease-in-out;
+    }
+
+    .show_box:hover .review-text {
+        transform: translateY(calc(-100% + 5em));
+        transition: transform 6s linear 0.5s;
+    }
+
+    .review-text:only-child {
+        min-height: 6.2em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="glass-filter-panel">
+    <form method="post" id="filterForm">
+        {% csrf_token %}
+        <div class="form-grid-container">
             {{form.as_p}}
-            <button type="submit" class="btn btn-primary">Filter</button>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary" style="border-radius: 8px; padding: 6px 25px;">过滤 Filter</button>
         </div>
     </form>
 </div>
-<h4 style="margin:20px 60px;">{{message}}
-    <span class="container mt-5">
-        <a href="/base/manga/new">
-            <button class="btn btn-primary">新增记录</button>
-        </a>
-    </span>
-</h4>
-<div id="manga_wall" style="display: flex;flex-wrap: wrap;">
+
+<div class="header-actions">
+    <h4 class="header-message">{{message}}</h4>
+    <a href="/base/manga/new">
+        <button class="btn btn-primary" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(74,144,226,0.3);">
+            <i class="fas fa-plus"></i> 新增记录
+        </button>
+    </a>
+</div>
+
+<div id="manga_wall">
     {% for manga in mangas %}
-    <div class="show_box">
-        <a href="manga/edit/{{manga.id}}">
-            <h1>{{manga.title}}</h1> </a>
-            <h2> {{manga.org_title}}</h2>
-
-        <h3>AUTHOR: {{manga.author}}</h3>
-        <h3 style="color:gray;">其它译名：{{manga.alternate_titles}}</h3>
-        <div>
-
-                <span style="padding-right:30px;vertical-align:top;display:inline-block;">
-                    <a href="manga/edit/{{manga.id}}">
-                    {% if manga.pic %}
-                    <img src="/media/{{manga.pic}}" class="show_pic" alt="">
-                    {% else %}
-                    <img src="{% static 'img/material/upload.jpg' %}" class="show_pic" alt="">
-                    {% endif %}
-                    </a>
-                </span>
-
-            <span style="vertical-align: top;max-width:65%;display:inline-block;">
-                <h5 style="color:gray;">• Tags:
-                    {% for tag in manga.tags.all %}
-                        <span class="badge rounded-pill bg-info">{{ tag.tag }} </span>
-                    {% endfor %}
-                </h5>
-            <h5 style="color:gray;">• Review:</h5>
-            <p style="margin-left:15px;">{{manga.review}}</p>
-            <h5 style="color:gray;">• 归档 : <span style="color:#e22;">{{manga.finish}}</span>
-                • 状态 : <span style="color:#2e2;">{{manga.status}}</span>
-
-            </h5>
-            </span>
+    <a href="/base/manga/edit/{{manga.id}}" class="show_box">
+        <div class="poster-container">
+            {% if manga.pic %}
+            <img src="/media/{{manga.pic}}" alt="{{manga.title}}">
+            {% else %}
+            <img src="{% static 'img/material/upload.jpg' %}" alt="No Image">
+            {% endif %}
         </div>
-    </div>
+
+        <div class="info-container">
+            <!-- ✨ 使用 date 过滤器截取 YYYY-MM-DD -->
+            <div class="date-corner"><i class="far fa-clock"></i> {{manga.created_at|date:"Y-m-d"}}</div>
+
+            <div class="item-title" title="{{manga.title}}">{{manga.title}}</div>
+            <div class="item-org-title" title="{{manga.org_title}}">{{manga.org_title}}</div>
+
+            <div class="info-line" title="{{manga.author}}"><span class="label">Author:</span><span class="value">{{manga.author}}</span></div>
+            <div class="info-line" title="{{manga.alternate_titles}}"><span class="label">其它译名:</span><span class="value">{{manga.alternate_titles}}</span></div>
+
+            <div class="tags-wrapper">
+                <span class="label" style="font-weight: 600; color: #888; font-size: 0.85rem; margin-right: 5px;">Tags:</span>
+                {% for tag in manga.tags.all %}
+                <span class="badge rounded-pill bg-info">{{ tag.tag }}</span>
+                {% endfor %}
+            </div>
+
+            <!-- 将归档状态推到底部，与电影卡片保持高度一致 -->
+            <div class="status-wrapper">
+                <div class="info-line" style="margin:0;"><span class="label">归档:</span><span class="status-finish">{{manga.finish}}</span></div>
+                <div class="info-line" style="margin:0;"><span class="label">状态:</span><span class="status-active">{{manga.status}}</span></div>
+            </div>
+
+            {% if manga.review %}
+            <div class="review-box">
+                <div class="review-text">{{manga.review}}</div>
+            </div>
+            {% endif %}
+        </div>
+    </a>
     {% endfor %}
 </div>
+
+<div id="loading-status" style="text-align:center; padding: 20px; display:none;">
+    <span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>
+    <span style="color:#555; margin-left: 8px;">Loading...</span>
+</div>
+<div id="no-more-status" style="text-align:center; padding: 20px; color:gray; display:none;">
+    -- No more mangas --
+</div>
+{% endblock content %}
+
+{% block extra_js %}
 <script src="{% static 'jquery-3.7.1.min.js'%}"></script>
 <script src="{% static 'select2/dist/js/select2.min.js'%}"></script>
-<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
 
 <script>
-{#$(".js-select").select2()#}
 $(function(){
- $(".js-select").select2();
+    $(".js-select").select2();
+});
 
+let currentPage = 1;
+let isLoading = false;
+let hasNext = true;
 
-})
+$(window).scroll(function() {
+    if ($(document).height() - ($(window).scrollTop() + $(window).height()) < 100) {
+        loadNextPage();
+    }
+});
 
+function loadNextPage() {
+    if (isLoading || !hasNext) return;
 
+    isLoading = true;
+    $('#loading-status').show();
+    let nextPage = currentPage + 1;
 
+    let formData = new FormData(document.getElementById('filterForm'));
+    formData.append('page', nextPage);
 
+    $.ajax({
+        url: '/s/base/manga/list',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        headers: { 'X-CSRFToken': $('input[name=csrfmiddlewaretoken]').val() },
+        success: function(res) {
+            if (res.success && res.mangas.length > 0) {
+                appendMangas(res.mangas);
+                currentPage = nextPage;
+                hasNext = res.has_next;
+            } else {
+                hasNext = false;
+                $('#no-more-status').show();
+            }
+        },
+        complete: function() {
+            isLoading = false;
+            $('#loading-status').hide();
+        }
+    });
+}
 
+function appendMangas(mangas) {
+    let html = '';
+    mangas.forEach(m => {
+        let tagsHtml = '';
+        if (m.tags && m.tags.length > 0) {
+            tagsHtml = `<span class="label" style="font-weight: 600; color: #888; font-size: 0.85rem; margin-right: 5px;">Tags:</span>`;
+            m.tags.forEach(t => {
+                tagsHtml += `<span class="badge rounded-pill bg-info" style="margin-right:4px;">${t}</span>`;
+            });
+        }
 
+        let imgHtml = m.pic
+            ? `<img src="/media/${m.pic}" alt="${m.title}">`
+            : `<img src="/static/img/material/upload.jpg" alt="No Image">`;
+
+        let reviewHtml = m.review ?
+            `<div class="review-box">
+                <div class="review-text">${m.review}</div>
+            </div>` : '';
+
+        // ✨ 修复 JS 拼接时间错误：截取短时间，去掉时分秒
+        let shortDate = m.created_at ? m.created_at.split(' ')[0].split('T')[0] : '';
+        let dateHtml = shortDate ?
+            `<div class="date-corner"><i class="far fa-clock"></i> ${shortDate}</div>` : '';
+
+        html += `
+        <a href="/base/manga/edit/${m.id}" class="show_box">
+            <div class="poster-container">
+                ${imgHtml}
+            </div>
+
+            <div class="info-container">
+                <!-- 插入渲染的时间 -->
+                ${dateHtml}
+
+                <div class="item-title" title="${m.title}">${m.title}</div>
+                <div class="item-org-title" title="${m.org_title}">${m.org_title || ''}</div>
+
+                <div class="info-line" title="${m.author}"><span class="label">Author:</span><span class="value">${m.author || ''}</span></div>
+                <div class="info-line" title="${m.alternate_titles}"><span class="label">其它译名:</span><span class="value">${m.alternate_titles || ''}</span></div>
+
+                <div class="tags-wrapper">
+                    ${tagsHtml}
+                </div>
+
+                <div class="status-wrapper">
+                    <div class="info-line" style="margin:0;"><span class="label">归档:</span><span class="status-finish">${m.finish || ''}</span></div>
+                    <div class="info-line" style="margin:0;"><span class="label">状态:</span><span class="status-active">${m.status || ''}</span></div>
+                </div>
+
+                ${reviewHtml}
+            </div>
+        </a>`;
+    });
+    $('#manga_wall').append(html);
+}
 </script>
-</body>
-</html>
+{% endblock %}

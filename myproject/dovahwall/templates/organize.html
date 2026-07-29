@@ -1,47 +1,248 @@
 <!DOCTYPE html>
-{% load static %}
 <html lang="en">
+{% load static %}
+
 <head>
     <meta charset="UTF-8">
-    <title>照片墙管理</title>
-    <link rel="shortcut icon" href="/media/favicon.ico">
+    <title>Dovahlore - Manage Photos</title>
+    <link rel="shortcut icon" href="{% static 'icons/favicon.ico' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/wall.css' %}?v=4" rel="stylesheet">
+    <link href="{% static 'css/agent_widget.css' %}?v=5" rel="stylesheet">
+
     <style>
-        .wall{
-        margin:50px;
-        padding:7px;
-        border:2px solid #aaa;
-        display: flex;
-        border-radius:10px;
-        flex-wrap: wrap;
-        }
-         .wall::after {
-        content: '';
-        flex-grow:9999;
-        }
-        .photo-cell{margin:10px;
-        height:150px;
-        width:150px;
-        flex-grow:20;
-        overflow:hidden;
-        }
-        .title{
-        text-align:center;
-        width:100%;
-        height:400px;
-        line-height: 400px;
-        color:#fff;
-        background-image:url("{% static 'img/bg/sunsetcamp-1.jpg'%}");
-        background-position: center center;
-        margin:0;
-        background-size: cover;
+        /* 管理页面特定样式 */
+        .manage-container {
+            margin-top: 80px;
+            padding: 20px;
         }
 
+        .page-header {
+            text-align: center;
+            width: 100%;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            background: linear-gradient(135deg, #1f303c, #6d5a47);
+            background-position: center center;
+            background-size: cover;
+            margin: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 照片墙容器 */
+        .photo-wall {
+            margin: 50px auto;
+            padding: 30px;
+            max-width: 1400px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(201, 169, 97, 0.2);
+            border: 1px solid rgba(201, 169, 97, 0.2);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: flex-start;
+        }
+
+        .photo-wall::after {
+            content: '';
+            flex-grow: 999999;
+            min-width: 150px;
+            height: 0;
+        }
+
+        /* 照片单元格 */
+        .photo-cell {
+            position: relative;
+            height: 200px;
+            width: 200px;
+            flex-grow: 1;
+            overflow: hidden;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .photo-cell:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(201, 169, 97, 0.3);
+            z-index: 2;
+        }
+
+        .photo-cell a {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .photo-cell img {
+            object-fit: cover;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.3s ease;
+        }
+
+        .photo-cell:hover img {
+            transform: scale(1.1);
+        }
+
+        /* 悬停遮罩 */
+        .photo-cell::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(201, 169, 97, 0.7), rgba(184, 149, 77, 0.7));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1;
+            pointer-events: none;
+            border-radius: 10px;
+        }
+
+        .photo-cell:hover::before {
+            opacity: 1;
+        }
+
+        /* 编辑图标 */
+        .photo-cell::after {
+            content: '\f044'; /* FontAwesome edit icon */
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 2rem;
+            color: #fff;
+            z-index: 2;
+            pointer-events: none;
+            transition: transform 0.3s ease;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .photo-cell:hover::after {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* 照片计数器 */
+        .photo-count {
+            text-align: center;
+            margin: 30px 0;
+            font-size: 1.2rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .photo-count i {
+            color: #c9a961;
+            margin-right: 10px;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 100px 20px;
+            color: #999;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: #c9a961;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .empty-state a {
+            color: #c9a961;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .empty-state a:hover {
+            text-decoration: underline;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .page-header h1 {
+                font-size: 2.5rem;
+            }
+
+            .photo-wall {
+                padding: 15px;
+                gap: 10px;
+            }
+
+            .photo-cell {
+                height: 150px;
+                width: 150px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .photo-cell {
+                height: 120px;
+                width: 120px;
+            }
+        }
     </style>
 </head>
+
 <body>
-<nav class="navbar navbar-expand-lg" style="background-color: #e3f2fd;position:fixed;top:0;width:100%;z-index:10">
+<!-- 自定义光标 -->
+<div class="custom-cursor"></div>
+<div class="cursor-dot"></div>
+
+<!-- 鼠标光晕 -->
+<div class="mouse-glow"></div>
+
+<!-- 背景粒子 -->
+<canvas id="particles-canvas"></canvas>
+
+<!-- 浮动装饰 -->
+<div class="floating-shape"></div>
+<div class="floating-shape"></div>
+
+<!-- 导航栏 - 与其他页面保持一致 -->
+<nav class="navbar navbar-expand-lg" style="position:fixed;top:0;width:100%;z-index:10">
     <div class="container-fluid">
         <a class="navbar-brand" href="/">Dovahlore</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
@@ -51,7 +252,10 @@
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                    <a class="nav-link" href="/s/wall">Photo Wall</a>
+                    <a class="nav-link" href="/s/wall">DovahWall</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/s/agent">Assistant</a>
                 </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle active" href="/organize" id="navbarDropdown" role="button"
@@ -60,31 +264,181 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                         <li><a class="dropdown-item" href="/upload">Upload</a></li>
-                        <li><a class="dropdown-item" aria-current="true"  href="/organize">Manage</a></li>
+                        <li><a class="dropdown-item active" aria-current="page" href="/organize">Manage</a></li>
                     </ul>
                 </li>
             </ul>
-
         </div>
     </div>
 </nav>
-<h1 class="title">
-    照片墙管理
-</h1>
-<div class="wall">
-    {% for pic in pics%}
-    <div class="photo-cell">
-        <a href="edit/item/{{pic.id}}">
-            <img class="pic" data-id="{{pic.id}}" style="object-fit:cover;width:100%;height:100%;"
-                 src="{{pic.small_pic}}"/>
-        </a>
-    </div>
 
-    {%endfor%}
+<!-- 页面标题 -->
+<div class="page-header">
+    <h1>Manage Photos</h1>
 </div>
 
+<!-- 照片计数 -->
+<div class="manage-container">
+    {% if pics %}
+    <div class="photo-count">
+        <i class="fas fa-images"></i>
+        Total: {{ pics|length }} photo{{ pics|length|pluralize }}
+    </div>
+    {% endif %}
+
+    <!-- 照片墙 -->
+    <div class="photo-wall">
+        {% if pics %}
+            {% for pic in pics %}
+            <div class="photo-cell">
+                <a href="edit/item/{{pic.id}}">
+                    <img class="pic" data-id="{{pic.id}}" src="{{pic.small_pic}}" alt="Photo {{pic.id}}"/>
+                </a>
+            </div>
+            {% endfor %}
+        {% else %}
+            <!-- 空状态 -->
+            <div class="empty-state" style="width: 100%;">
+                <i class="fas fa-image"></i>
+                <h3>No Photos Yet</h3>
+                <p>Start by <a href="/upload">uploading some photos</a></p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Scripts -->
 <script src="{% static 'jquery-3.7.1.min.js'%}"></script>
-<script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.min.js'%}"></script>
 <script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
+
+<script type="text/javascript">
+// ========== 自定义光标 ==========
+const cursor = document.querySelector('.custom-cursor');
+const cursorDot = document.querySelector('.cursor-dot');
+const mouseGlow = document.querySelector('.mouse-glow');
+let mouseX = 0, mouseY = 0;
+let cursorFramePending = false;
+
+document.addEventListener('pointermove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    if (cursorFramePending) return;
+    cursorFramePending = true;
+    requestAnimationFrame(() => {
+        const transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%)`;
+        cursor.style.transform = transform;
+        cursorDot.style.transform = transform;
+        mouseGlow.style.transform = transform;
+        cursorFramePending = false;
+    });
+}, {passive: true});
+
+// 可点击元素hover效果
+document.body.addEventListener('mouseover', (e) => {
+    if (e.target.closest('a, button, .photo-cell') ||
+        e.target.classList.contains('photo-cell')) {
+        cursor.classList.add('hover');
+    }
+});
+
+document.body.addEventListener('mouseout', (e) => {
+    if (e.target.closest('a, button, .photo-cell') ||
+        e.target.classList.contains('photo-cell')) {
+        cursor.classList.remove('hover');
+    }
+});
+
+// ========== 背景粒子系统 ==========
+const canvas = document.getElementById('particles-canvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+class Particle {
+    constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 3 + 1.5;
+        this.speedX = (Math.random() - 0.5) * 0.5;
+        this.speedY = (Math.random() - 0.5) * 0.5;
+        this.opacity = Math.random() * 0.5 + 0.3;
+    }
+
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+
+        if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+
+        const dx = mouseX - this.x;
+        const dy = mouseY - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 150) {
+            const force = (150 - distance) / 150;
+            this.x -= dx * force * 0.02;
+            this.y -= dy * force * 0.02;
+        }
+    }
+
+    draw() {
+        ctx.fillStyle = `rgba(201, 169, 97, ${this.opacity})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+for (let i = 0; i < 42; i++) {
+    particles.push(new Particle());
+}
+
+function drawConnections() {
+    for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 120) {
+                const opacity = (1 - distance / 120) * 0.4;
+                ctx.strokeStyle = `rgba(201, 169, 97, ${opacity})`;
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(particles[i].x, particles[i].y);
+                ctx.lineTo(particles[j].x, particles[j].y);
+                ctx.stroke();
+            }
+        }
+    }
+}
+
+function animateParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(particle => {
+        particle.update();
+        particle.draw();
+    });
+    drawConnections();
+    requestAnimationFrame(animateParticles);
+}
+animateParticles();
+
+// 移动端禁用自定义光标
+if ('ontouchstart' in window) {
+    document.body.style.cursor = 'auto';
+    document.querySelector('.custom-cursor').style.display = 'none';
+    document.querySelector('.cursor-dot').style.display = 'none';
+    document.querySelector('.mouse-glow').style.display = 'none';
+}
+</script>
+{% include '_agent_widget_mount.html' %}
 </body>
 </html>

@@ -1,135 +1,598 @@
 <!DOCTYPE html>
 <html lang="en">
 {% load static %}
+
 <head>
     <meta charset="UTF-8">
-    <title>编辑</title>
-    <link rel="shortcut icon" href="/media/favicon.ico">
+    <title>Dovahlore - Edit Photo</title>
+    <link rel="shortcut icon" href="{% static 'icons/favicon.ico' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
     <link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
-    <style>
-                .box{
-          box-shadow: 3px 3px 7px #aaa;
-            border-radius:10px;
-            margin:30px auto;
-            background-color:#f0f0f0;
-        }
-        .preview{
-            position:absolute;
-            right:5%;
-             top:5%;
-            width:40%;
-            max-width:400px;
-            height:80%;
-            max-height:400px;
+    <link href="{% static 'css/wall.css' %}?v=4" rel="stylesheet">
+    <link href="{% static 'css/agent_widget.css' %}?v=5" rel="stylesheet">
 
+    <style>
+        /* 页面特定样式 */
+        .edit-container {
+            margin-top: 120px;
+            margin-bottom: 60px;
+            padding: 0 20px;
         }
-        #preview_pic{
-          border-radius:5px;
+
+        .edit-box {
+            box-shadow: 0 8px 32px rgba(201, 169, 97, 0.2);
+            border-radius: 15px;
+            margin: 30px auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            max-width: 1200px;
+            position: relative;
+            border: 1px solid rgba(201, 169, 97, 0.2);
         }
-        .halfwidth{
-        width:50%;
-         margin-bottom:10px;
-        margin-top:10px;
+
+        .preview-container {
+            position: sticky;
+            top: 120px;
+            width: 100%;
+            max-width: 400px;
+            height: 400px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            background: #f8f9fa;
         }
-        .marg{margin-bottom:10px;
-        margin-top:10px;
+
+        #preview_pic {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
         }
-    .title{
-        text-align:center;
-        width:100%;
-        height:400px;
-        line-height: 400px;
-        color:#fff;
-        background-image:url("{% static 'img/bg/landscape-1.jpg'%}");
-        background-position: center center;
-        margin:0;
-        background-size: cover;
+
+        .form-section {
+            padding-right: 40px;
+        }
+
+        .page-header {
+            text-align: center;
+            width: 100%;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            background: linear-gradient(135deg, #293843, #796b5b);
+            background-position: center center;
+            background-size: cover;
+            margin: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .form-control, .form-select, select, input[type="text"], input[type="file"], textarea {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px 15px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .form-control:focus, .form-select:focus, select:focus, input:focus, textarea:focus {
+            border-color: #c9a961;
+            box-shadow: 0 0 0 0.2rem rgba(201, 169, 97, 0.25);
+            outline: none;
+        }
+
+        /* Select2 样式修复 */
+        .select2-container {
+            width: 100% !important;
+        }
+
+        .select2-container--default .select2-selection--multiple {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            min-height: 42px;
+            padding: 4px 8px;
+        }
+
+        .select2-container--default.select2-container--focus .select2-selection--multiple {
+            border-color: #c9a961;
+            box-shadow: 0 0 0 0.2rem rgba(201, 169, 97, 0.25);
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #c9a961;
+            border: 1px solid #b8954d;
+            border-radius: 4px;
+            color: #fff;
+            padding: 3px 10px 3px 26px;
+            margin: 2px;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            color: #fff;
+            position: absolute;
+            left: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            font-weight: bold;
+            border-right: 1px solid rgba(255, 255, 255, 0.3);
+            padding-right: 6px;
+            margin-right: 0;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .select2-dropdown {
+            border: 1px solid #c9a961;
+            border-radius: 8px;
+        }
+
+        .select2-container--default .select2-results__option--highlighted[aria-selected] {
+            background-color: #c9a961;
+        }
+
+        /* 按钮样式 */
+        .btn-primary {
+            background: linear-gradient(135deg, #c9a961, #b8954d);
+            border: none;
+            border-radius: 25px;
+            padding: 12px 40px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(201, 169, 97, 0.3);
+            min-width: 180px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(201, 169, 97, 0.4);
+            background: linear-gradient(135deg, #b8954d, #a88344);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            border: none;
+            border-radius: 25px;
+            padding: 12px 40px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+            min-width: 180px;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+            background: linear-gradient(135deg, #c82333, #bd2130);
+        }
+
+        .btn-secondary {
+            border-radius: 25px;
+            padding: 10px 30px;
+            font-weight: 500;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+
+        /* 模态框样式 */
+        .modal-content {
+            border-radius: 15px;
+            border: 1px solid rgba(201, 169, 97, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, rgba(201, 169, 97, 0.1), rgba(184, 149, 77, 0.1));
+            border-bottom: 1px solid rgba(201, 169, 97, 0.2);
+            border-radius: 15px 15px 0 0;
+        }
+
+        .modal-title {
+            color: #c9a961;
+            font-weight: 600;
+        }
+
+        .modal-footer {
+            border-top: 1px solid rgba(201, 169, 97, 0.2);
+            border-radius: 0 0 15px 15px;
+        }
+
+        .modal-body {
+            padding: 30px;
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        .message-alert {
+            margin: 100px auto 20px;
+            max-width: 1200px;
+            padding: 0 20px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .form-section {
+                padding-right: 0;
+            }
+
+            .preview-container {
+                position: relative;
+                top: 0;
+                margin: 20px auto;
+                max-width: 100%;
+            }
+
+            .page-header h1 {
+                font-size: 2.5rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn-primary, .btn-danger {
+                width: 100%;
+                max-width: 300px;
+            }
         }
     </style>
 </head>
+
 <body>
-<nav class="navbar navbar-expand-lg" style="background-color: #e3f2fd;position:fixed;top:0;width:100%;z-index:10">
+<!-- 自定义光标 -->
+<div class="custom-cursor"></div>
+<div class="cursor-dot"></div>
+
+<!-- 鼠标光晕 -->
+<div class="mouse-glow"></div>
+
+<!-- 背景粒子 -->
+<canvas id="particles-canvas"></canvas>
+
+<!-- 浮动装饰 -->
+<div class="floating-shape"></div>
+<div class="floating-shape"></div>
+
+<!-- 导航栏 - 与其他页面保持一致 -->
+<nav class="navbar navbar-expand-lg" style="position:fixed;top:0;width:100%;z-index:10">
     <div class="container-fluid">
         <a class="navbar-brand" href="/">Dovahlore</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
                 aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
+
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                    <a class="nav-link" href="/s/wall">Photo Wall</a>
+                    <a class="nav-link" href="/s/wall">DovahWall</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/s/agent">Assistant</a>
                 </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle active" href="/organize" id="navbarDropdown" role="button"
-                       data-bs-toggle="dropdown" aria-current="page" aria-expanded="false">
+                       data-bs-toggle="dropdown" aria-expanded="false">
                         Management
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                         <li><a class="dropdown-item" href="/upload">Upload</a></li>
-                        <li><a class="dropdown-item"  href="/organize">Manage</a></li>
+                        <li><a class="dropdown-item" href="/organize">Manage</a></li>
                     </ul>
                 </li>
             </ul>
-
         </div>
     </div>
 </nav>
-<h1 class="title">
-    修改编辑
-</h1>
-<div style="margin:100px;">{{message}}</div>
-<div class="container box">
-    <form method="post" id="form" enctype="multipart/form-data" style="position:relative;">
-        {% csrf_token %}
-        {% for field in form %}
-        <div class="mb-3">
-            <label for="{{field.id_for_label}}" class="form-label marg">{{field.label}}</label>
-            <div class="halfwidth">{{ field }}</div>
-            {{ field.errors }}
-        </div>
-        {% endfor %}
-        <div class="preview">
-            <img id="preview_pic" style="width:100%;max-height:80%;object-fit:cover;"
-                 src="/{{pic.small_pic}}"/>
-        </div>
-        <div style="text-align:center">
-            <input type="submit" class="btn btn-primary" value="更新" name="edit"
-                   style="text-align:center;margin:50px;width:200px;">
-            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#Modal"
-                    style="text-align:center;margin:50px;width:200px;">删除
-            </button>
-        </div>
-        <div class="modal fade" id="Modal" tabindex="-1" aria-labelledby="ModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h1 class="modal-title fs-5" id="ModalLabel">确认</h1>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+<!-- 页面标题 -->
+<div class="page-header">
+    <h1>Edit Photo</h1>
+</div>
+
+<!-- 消息提示 -->
+{% if message %}
+<div class="message-alert">
+    <div class="alert alert-info">{{ message }}</div>
+</div>
+{% endif %}
+
+<!-- 编辑表单 -->
+<div class="edit-container">
+    <div class="edit-box">
+        <form method="post" id="form" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row">
+                <!-- 左侧表单 -->
+                <div class="col-lg-7 form-section">
+                    {% for field in form %}
+                    <div class="mb-4">
+                        <label for="{{field.id_for_label}}" class="form-label">
+                            {{field.label}}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger mt-2">{{ field.errors }}</div>
+                        {% endif %}
                     </div>
-                    <div class="modal-body">
-                        确认删除该图片吗
+                    {% endfor %}
+
+                    <!-- 按钮组 -->
+                    <div class="button-group">
+                        <button type="submit" name="edit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            Update Photo
+                        </button>
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="fas fa-trash-alt me-2"></i>
+                            Delete Photo
+                        </button>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                        <button type="submit" name="delete" class="btn btn-primary">确认删除</button>
+                </div>
+
+                <!-- 右侧预览 -->
+                <div class="col-lg-5">
+                    <div class="preview-container">
+                        <img id="preview_pic" src="/{{pic.small_pic}}" alt="Preview"/>
                     </div>
                 </div>
             </div>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="deleteModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirm Delete
+                </h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Are you sure you want to delete this photo?</p>
+                <p class="text-muted small mt-2 mb-0">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cancel
+                </button>
+                <form method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" name="delete" class="btn btn-danger">
+                        <i class="fas fa-trash-alt me-2"></i>
+                        Confirm Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
 <script src="{% static 'jquery-3.7.1.min.js'%}"></script>
 <script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
 <script src="{% static 'select2/dist/js/select2.min.js'%}"></script>
-<script>
-{#$(".js-select").select2()#}
-$(function(){
 
-        $(".js-select").select2();
-})
+<script type="text/javascript">
+// ========== 自定义光标 ==========
+const cursor = document.querySelector('.custom-cursor');
+const cursorDot = document.querySelector('.cursor-dot');
+const mouseGlow = document.querySelector('.mouse-glow');
+let mouseX = 0, mouseY = 0;
+let cursorFramePending = false;
+
+document.addEventListener('pointermove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    if (cursorFramePending) return;
+    cursorFramePending = true;
+    requestAnimationFrame(() => {
+        const transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%)`;
+        cursor.style.transform = transform;
+        cursorDot.style.transform = transform;
+        mouseGlow.style.transform = transform;
+        cursorFramePending = false;
+    });
+}, {passive: true});
+
+// 可点击元素hover效果
+document.body.addEventListener('mouseover', (e) => {
+    if (e.target.closest('a, button, input, select, .btn, label') ||
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'SELECT' ||
+        e.target.tagName === 'BUTTON') {
+        cursor.classList.add('hover');
+    }
+});
+
+document.body.addEventListener('mouseout', (e) => {
+    if (e.target.closest('a, button, input, select, .btn, label') ||
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'SELECT' ||
+        e.target.tagName === 'BUTTON') {
+        cursor.classList.remove('hover');
+    }
+});
+
+// ========== 背景粒子系统 ==========
+const canvas = document.getElementById('particles-canvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+class Particle {
+    constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 3 + 1.5;
+        this.speedX = (Math.random() - 0.5) * 0.5;
+        this.speedY = (Math.random() - 0.5) * 0.5;
+        this.opacity = Math.random() * 0.5 + 0.3;
+    }
+
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+
+        if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+
+        const dx = mouseX - this.x;
+        const dy = mouseY - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 150) {
+            const force = (150 - distance) / 150;
+            this.x -= dx * force * 0.02;
+            this.y -= dy * force * 0.02;
+        }
+    }
+
+    draw() {
+        ctx.fillStyle = `rgba(201, 169, 97, ${this.opacity})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+for (let i = 0; i < 42; i++) {
+    particles.push(new Particle());
+}
+
+function drawConnections() {
+    for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 120) {
+                const opacity = (1 - distance / 120) * 0.4;
+                ctx.strokeStyle = `rgba(201, 169, 97, ${opacity})`;
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(particles[i].x, particles[i].y);
+                ctx.lineTo(particles[j].x, particles[j].y);
+                ctx.stroke();
+            }
+        }
+    }
+}
+
+function animateParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(particle => {
+        particle.update();
+        particle.draw();
+    });
+    drawConnections();
+    requestAnimationFrame(animateParticles);
+}
+animateParticles();
+
+// ========== jQuery 功能 ==========
+$(function(){
+    // 初始化 Select2
+    $('select, .js-select').each(function() {
+        $(this).select2({
+            placeholder: 'Select tags...',
+            allowClear: true,
+            width: '100%'
+        });
+    });
+
+    // 如果有特定ID的tags字段，确保它被初始化
+    if ($('#id_tags').length) {
+        $('#id_tags').select2({
+            placeholder: 'Select tags...',
+            allowClear: true,
+            width: '100%'
+        });
+    }
+
+    // 图片预览功能（如果支持重新上传）
+    $('#id_pic').on('change', function() {
+        var file = this.files[0];
+        if (file) {
+            var reader = new FileReader();
+
+            reader.onload = function() {
+                var dataURL = reader.result;
+                $("#preview_pic").attr('src', dataURL);
+            };
+
+            reader.readAsDataURL(file);
+        }
+    });
+});
+
+// 移动端禁用自定义光标
+if ('ontouchstart' in window) {
+    document.body.style.cursor = 'auto';
+    document.querySelector('.custom-cursor').style.display = 'none';
+    document.querySelector('.cursor-dot').style.display = 'none';
+    document.querySelector('.mouse-glow').style.display = 'none';
+}
 </script>
+{% include '_agent_widget_mount.html' %}
 </body>
 </html>
