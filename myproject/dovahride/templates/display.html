@@ -295,10 +295,11 @@
 <script src="{% static 'jquery-3.7.1.min.js'%}"></script>
 <script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
 <script>
+window.ridePoints = {{ ride_data.points_json|safe|default:"[]" }};
 
 document.addEventListener("DOMContentLoaded", function(){
 
-    const points = {{ ride_data.points_json|safe|default:"[]" }};
+    const points = window.ridePoints;
     const labels = points.map(p=>p.time ? new Date(p.time).toLocaleTimeString() : '');
     const altitudeData = points.map(p=>p.ele);
     const speedData = points.map(p=>p.speed);
@@ -597,7 +598,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     // --- 初始化地图 ---
     function initMap(){
-        const pointsData = {{ ride_data.points_json|safe|default:"[]" }};
+        const pointsData = window.ridePoints;
 
         console.log('原始数据数量:', pointsData.length);
         console.log('第一个点示例:', pointsData[0]);

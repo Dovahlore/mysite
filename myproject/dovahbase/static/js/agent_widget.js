@@ -2,6 +2,7 @@
     "use strict";
 
     const WELCOME_TEXT = "可以问我站内电影、漫画、剧集、骑行等数据，也可以继续追问上一轮内容。";
+    const GUEST_TEXT = "欢迎了解 Site Assistant。登录后可以提问，并使用仅属于你的历史对话。";
     const WIDGET_STATE_KEY = "dovahlore:agent-widget:v1";
 
     function safeJson(response) {
@@ -10,6 +11,7 @@
 
     function initAgentChat(root) {
         const mode = root.dataset.mode;
+        const isAuthenticated = root.dataset.authenticated === "true";
         const messagesNode = root.querySelector("[data-agent-messages]");
         const form = root.querySelector("[data-agent-form]");
         const input = root.querySelector("[data-agent-input]");
@@ -76,6 +78,14 @@
             input.disabled = isBusy;
         }
 
+        function showGuestPreview() {
+            messagesNode.innerHTML = "";
+            addMessage("system", GUEST_TEXT);
+            sendButton.disabled = true;
+            clearButton.disabled = true;
+            input.disabled = true;
+        }
+
         async function loadHistory() {
             messagesNode.innerHTML = "";
             addMessage("system", "正在载入 Redis 对话记录…");
@@ -110,6 +120,7 @@
         }
 
         clearButton.addEventListener("click", async () => {
+            if (!isAuthenticated) return;
             // Deliberately clear immediately: no confirmation dialog.
             clearButton.disabled = true;
             try {
@@ -133,6 +144,9 @@
         });
 
         async function submitMessage() {
+            if (!isAuthenticated) {
+                return;
+            }
             const text = input.value.trim();
             if (!text || sendButton.disabled) {
                 return;
@@ -228,7 +242,11 @@
             initWidgetMovement(root, toggleButton);
         }
 
-        loadHistory();
+        if (isAuthenticated) {
+            loadHistory();
+        } else {
+            showGuestPreview();
+        }
     }
 
     function readWidgetState() {

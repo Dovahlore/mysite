@@ -401,31 +401,59 @@
 
         .photo-timeline {
             position: fixed;
-            top: 50%;
-            right: 14px;
+            top: var(--timeline-top, 50%);
+            right: 18px;
             z-index: 1200;
-            width: 92px;
-            max-height: calc(100vh - 160px);
-            padding: 12px 12px 12px 4px;
+            width: 108px;
+            max-height: calc(100vh - 128px);
+            padding: 10px 8px 10px 10px;
             border: 1px solid rgba(201, 169, 97, .18);
-            border-radius: 18px;
+            border-radius: 20px;
             background: rgba(250, 248, 245, .76);
             box-shadow: 0 12px 34px rgba(49, 43, 35, .1);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            transform: translateY(-50%);
-            overflow-y: auto;
-            scrollbar-width: none;
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translate(18px, -50%);
+            transition:
+                opacity .2s ease,
+                transform .24s ease,
+                visibility 0s linear .24s;
         }
 
-        .photo-timeline::-webkit-scrollbar {
+        .photo-timeline.is-visible {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translate(0, -50%);
+            transition-delay: 0s;
+        }
+
+        .photo-timeline-scroll {
+            max-height: calc(100vh - 150px);
+            overflow-y: auto;
+            padding-right: 16px;
+            scrollbar-width: none;
+            overscroll-behavior: contain;
+        }
+
+        .photo-timeline-scroll::-webkit-scrollbar {
             display: none;
+        }
+
+        .photo-timeline-labels {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
         }
 
         .photo-timeline-track {
             position: absolute;
             top: 18px;
-            right: 9px;
+            right: 7px;
             bottom: 18px;
             width: 12px;
             touch-action: none;
@@ -462,18 +490,88 @@
             transition: none;
         }
 
-        .photo-timeline-labels {
+        .timeline-year-group {
             display: flex;
             flex-direction: column;
-            gap: 2px;
-            padding-right: 12px;
         }
 
-        .photo-timeline button {
-            display: grid;
-            grid-template-columns: 42px 24px;
+        .timeline-year-button {
+            display: flex;
             align-items: center;
-            min-height: 28px;
+            justify-content: flex-end;
+            gap: 8px;
+            width: 100%;
+            min-height: 30px;
+            padding: 3px 0;
+            border: 0;
+            background: transparent;
+            color: rgba(55, 52, 48, .48);
+            text-align: right;
+            transition: color .24s ease, transform .24s ease;
+        }
+
+        .timeline-year-label {
+            font-family: 'Playfair Display', serif;
+            font-size: .76rem;
+            font-weight: 600;
+            letter-spacing: .04em;
+        }
+
+        .timeline-year-marker {
+            width: 7px;
+            height: 7px;
+            border: 1px solid rgba(201, 169, 97, .55);
+            border-radius: 50%;
+            background: rgba(250, 248, 245, .92);
+            transition: background .24s ease, box-shadow .24s ease, transform .24s ease;
+        }
+
+        .timeline-year-button:hover,
+        .timeline-year-button.active {
+            color: var(--gold);
+            transform: translateX(-2px);
+        }
+
+        .timeline-year-button.active .timeline-year-marker {
+            background: var(--gold);
+            box-shadow: 0 0 0 4px rgba(201, 169, 97, .13);
+            transform: scale(1.08);
+        }
+
+        .timeline-month-list {
+            display: grid;
+            grid-template-rows: 0fr;
+            opacity: 0;
+            transition:
+                grid-template-rows .34s cubic-bezier(.22, .8, .25, 1),
+                opacity .22s ease;
+        }
+
+        .timeline-month-list-inner {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            transform: translateY(-7px);
+            transition: transform .34s cubic-bezier(.22, .8, .25, 1);
+        }
+
+        .timeline-year-group.is-active .timeline-month-list {
+            grid-template-rows: 1fr;
+            opacity: 1;
+        }
+
+        .timeline-year-group.is-active .timeline-month-list-inner {
+            transform: translateY(0);
+        }
+
+        .timeline-month-button {
+            display: grid;
+            grid-template-columns: 28px 12px;
+            align-items: center;
+            justify-content: end;
+            width: 100%;
+            min-height: 23px;
             padding: 2px 0;
             border: 0;
             background: transparent;
@@ -482,21 +580,21 @@
             transition: color .18s ease, transform .18s ease;
         }
 
-        .photo-timeline button:hover,
-        .photo-timeline button.active {
+        .timeline-month-button:hover,
+        .timeline-month-button.active {
             color: var(--gold);
             transform: translateX(-2px);
-        }
-
-        .timeline-year {
-            font-family: 'Playfair Display', serif;
-            font-size: .72rem;
         }
 
         .timeline-month {
             font-size: .72rem;
             font-weight: 700;
             letter-spacing: .06em;
+        }
+
+        .timeline-month-unit {
+            font-size: .58rem;
+            font-weight: 400;
         }
 
         .photo-box {

@@ -1,5 +1,4 @@
 import os
-from fitparse import FitFile
 from django.conf import settings
 from django.core.cache import cache
 from django.shortcuts import render
@@ -18,6 +17,8 @@ from ..models import Ride
 
 def parse_fit_file(file_path):
     """解析FIT文件，获取完整数据"""
+    from fitparse import FitFile
+
     try:
         fitfile = FitFile(file_path)
     except Exception as e:
@@ -120,7 +121,6 @@ def parse_fit_file(file_path):
     max_temperature = session_data.get('max_temperature') or (max(temperatures) if temperatures else None)
 
     return {
-        'points': points,
         'points_json': json.dumps(points),
         'total_distance': total_distance,
         'average_speed': round(avg_speed, 1),
@@ -203,7 +203,6 @@ def parse_gpx_file(file_path):
     average_speed = round(total_distance / (total_time / 3600) if total_time > 0 else 0, 2)
 
     return {
-        'points': points,
         'points_json': json.dumps(points),
         'total_distance': round(total_distance, 2),
         'total_elapsed_time': int(total_time),
@@ -231,7 +230,9 @@ def ride_display(request, id):
         # 获取绝对路径用于读取
         file_path = ride.data_file.path
 
-        cache_key = f"ride:parsed:v1:{ride.pk}"
+        # v2 omits the duplicate Python points list and keeps only the JSON
+        # representation consumed by the template.
+        cache_key = f"ride:parsed:v2:{ride.pk}"
         ride_data = cache.get(cache_key)
         if ride_data is None:
             if selected_file.lower().endswith('.fit'):

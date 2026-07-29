@@ -16,7 +16,7 @@ services:
       - --requirepass
       - ${REDIS_PASSWORD}
       - --maxmemory
-      - ${REDIS_MAXMEMORY:-256mb}
+      - ${REDIS_MAXMEMORY:-64mb}
       - --maxmemory-policy
       - allkeys-lru
     volumes:
@@ -24,6 +24,8 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
     restart: always
+    mem_limit: ${REDIS_MEMORY_LIMIT:-128m}
+    pids_limit: 64
     networks:
       - back
   db:
@@ -36,9 +38,12 @@ services:
     volumes:
       - db_vol:/var/lib/mysql:rw # 挂载数据库数据, 可读可写
       - ./compose/mysql/init:/docker-entrypoint-initdb.d
+      - ./compose/mysql/low-memory.cnf:/etc/mysql/conf.d/zz-low-memory.cnf:ro
     ports:
       - "33062:3306" # 与配置文件保持一致
     restart: always
+    mem_limit: ${MYSQL_MEMORY_LIMIT:-512m}
+    pids_limit: 128
     entrypoint: [
       "sh", "-c",
       "docker-entrypoint.sh mysqld && \
@@ -67,6 +72,8 @@ services:
     depends_on:
       - web
     restart: always
+    mem_limit: ${NGINX_MEMORY_LIMIT:-96m}
+    pids_limit: 64
   web:
     build: ./myproject
     image: ${APP_IMAGE:-docker-mysite-app:latest}
@@ -82,15 +89,15 @@ services:
       MYSQL_HOST: ${MYSQL_HOST:-db}
       MYSQL_PORT: ${MYSQL_PORT:-3306}
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      OPENAI_MODEL: ${OPENAI_MODEL:-qwen3.7-max}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      AI_CONFIG_FILE: /run/config/ai_config.yaml
       AGENT_DB_USER: ${AGENT_DB_USER:-}
       AGENT_DB_PASSWORD: ${AGENT_DB_PASSWORD:-}
       AGENT_DB_NAME: ${AGENT_DB_NAME:-mysite}
       AGENT_DB_HOST: ${AGENT_DB_HOST:-db}
       AGENT_DB_PORT: ${AGENT_DB_PORT:-3306}
     volumes:
+      - ./ai_config.yaml:/run/config/ai_config.yaml:ro
       - media_vol:/mysite/media # 以数据卷挂载容器内用户上传媒体文件
       - static_vol:/mysite/collect_static
     #  - ./compose/uwsgi:/tmp # 挂载uwsgi日志
@@ -103,6 +110,8 @@ services:
       - db
       - redis
     restart: always
+    mem_limit: ${WEB_MEMORY_LIMIT:-512m}
+    pids_limit: 128
     tty: true
     stdin_open: true
   scheduler:
@@ -120,6 +129,7 @@ services:
       IGPSPORT_USERNAME: ${IGPSPORT_USERNAME:?Set IGPSPORT_USERNAME in .env}
       IGPSPORT_PASSWORD: ${IGPSPORT_PASSWORD:?Set IGPSPORT_PASSWORD in .env}
       IGPSPORT_LOOKBACK_DAYS: ${IGPSPORT_LOOKBACK_DAYS:-14}
+      IGPSPORT_SYNC_TIMEOUT_SECONDS: ${IGPSPORT_SYNC_TIMEOUT_SECONDS:-1800}
     volumes:
       - media_vol:/mysite/media
     networks:
@@ -127,3 +137,5 @@ services:
     depends_on:
       - web
     restart: always
+    mem_limit: ${SCHEDULER_MEMORY_LIMIT:-384m}
+    pids_limit: 64

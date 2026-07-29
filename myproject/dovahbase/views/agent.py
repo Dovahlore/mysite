@@ -1,5 +1,4 @@
 import json
-import os
 import re
 import traceback
 
@@ -7,10 +6,11 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import connections
 from django.http import JsonResponse, StreamingHttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.views.decorators.http import require_GET, require_POST
+from mysite.ai_gateway import stream_chat_completion
+from mysite.ai_models import full_model_providers
 from mysite.cache_utils import client_ip, rate_limit_allows
-from openai import OpenAI
 
 TOOLS = [
     {
@@ -91,7 +91,7 @@ def _schema(connection):
     return schema
 
 
-def _validate_readonly_sql(sql, allowed_tables):
+def _validate_readonly_sql(sql, allowed_tables, allowed_schema=None):
     sql = str(sql or "").strip()
     if not sql or len(sql) > 4000:
         raise ValueError("SQL must be between 1 and 4000 characters.")
@@ -101,8 +101,20 @@ def _validate_readonly_sql(sql, allowed_tables):
         raise ValueError("Only SELECT statements are allowed.")
     if DISALLOWED_SQL.search(sql) or re.search(r"\bFOR\s+UPDATE\b", sql, re.IGNORECASE):
         raise ValueError("This query contains a disallowed SQL operation.")
-    referenced = re.findall(r"\b(?:FROM|JOIN)\s+`?([A-Za-z0-9_]+)`?", sql, re.IGNORECASE)
-    if any(table not in allowed_tables for table in referenced):
+    referenced = re.findall(
+        r"\b(?:FROM|JOIN)\s+(?:(`?[A-Za-z0-9_]+`?)\s*\.\s*)?(`?[A-Za-z0-9_]+`?)",
+        sql,
+        re.IGNORECASE,
+    )
+    normalized = [
+        (schema.strip("`") if schema else None, table.strip("`"))
+        for schema, table in referenced
+    ]
+    if any(
+        table not in allowed_tables
+        or (schema is not None and schema != allowed_schema)
+        for schema, table in normalized
+    ):
         raise ValueError("The query references a table outside the approved schema.")
     if not re.search(r"\bLIMIT\s+\d+\b", sql, re.IGNORECASE):
         sql = "%s LIMIT 100" % sql
@@ -112,7 +124,11 @@ def _validate_readonly_sql(sql, allowed_tables):
 def _run_readonly_query(sql):
     connection = _readonly_connection()
     allowed_tables = _allowed_tables(connection)
-    sql = _validate_readonly_sql(sql, allowed_tables)
+    sql = _validate_readonly_sql(
+        sql,
+        allowed_tables,
+        allowed_schema=connection.settings_dict["NAME"],
+    )
     with connection.cursor() as cursor:
         cursor.execute(sql)
         columns = [column[0] for column in cursor.description]
@@ -158,9 +174,11 @@ def _save_conversation(request, messages, transcript):
 
 
 def agent_page(request):
-    if not _is_logged_in(request):
-        return redirect("/s/login?next=/s/agent")
-    return render(request, "agent.html")
+    return render(
+        request,
+        "agent.html",
+        {"agent_is_authenticated": _is_logged_in(request)},
+    )
 
 
 def _tool_result(request, name, arguments):
@@ -216,13 +234,12 @@ def chat(request):
     if not message or len(message) > 2000:
         return JsonResponse({"error": "Message must be between 1 and 2000 characters."}, status=400)
 
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        return JsonResponse({"error": "Assistant is not configured: set OPENAI_API_KEY in the web container."},
-                            status=503)
-
-    client = OpenAI(api_key=api_key, base_url=os.environ.get("OPENAI_BASE_URL") or None)
-    model = os.environ.get("OPENAI_MODEL", "qwen3.7-max")
+    try:
+        providers = full_model_providers()
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=503)
+    if not providers:
+        return JsonResponse({"error": "Assistant provider chain is not configured."}, status=503)
 
     def event_stream():
         state = _load_conversation(request)
@@ -239,8 +256,11 @@ def chat(request):
 
         try:
             for _ in range(10):
-                response = client.chat.completions.create(
-                    model=model, messages=messages, tools=TOOLS, tool_choice="auto", stream=True
+                response = stream_chat_completion(
+                    providers,
+                    messages=messages,
+                    tools=TOOLS,
+                    tool_choice="auto",
                 )
 
                 tool_calls_dict = {}

@@ -7,15 +7,26 @@ The assistant has two distinct capabilities:
 
 ## Configure the model
 
-Set these server-side environment variables (for example in the deployment environment or a `.env` file that is not committed):
+Copy `ai_config.example.yaml` to `ai_config.yaml`. Models are declared once at
+the top, while provider keys and endpoints stay together below them:
 
-```env
-OPENAI_API_KEY=replace-me
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-5-mini
+```yaml
+models:
+  fast: deepseek-v4-flash
+  full: qwen3.7-max
+providers:
+  - name: aliyun
+    api_key: replace-with-aliyun-key
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  - name: deepseek
+    api_key: replace-with-deepseek-key
+    base_url: https://api.deepseek.com
 ```
 
-`OPENAI_BASE_URL` and `OPENAI_MODEL` may point to any OpenAI-compatible provider, but the chosen model must support function calling.
+Providers are tried from top to bottom. The same selected fast or full model is
+sent to each provider in turn; a provider that rejects or cannot serve that model
+is skipped automatically. The real `ai_config.yaml` is ignored by Git and mounted
+read-only into the web container, so its keys are not stored in the image.
 
 ## Create the database account
 

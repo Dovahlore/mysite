@@ -22,8 +22,8 @@ MEDIA_URL = '/media/'
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-g6=c*wkm4u8i!#1bug1y&f*#+=5m4!l$f=kc6_c-)hnl2r(dj)"
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Local development can opt in with DJANGO_DEBUG=1.
+DEBUG = os.environ.get("DJANGO_DEBUG", "0").lower() in {"1", "true", "yes", "on"}
 
 ALLOWED_HOSTS = ['*', ]
 
@@ -127,7 +127,7 @@ CACHES = {
         "KEY_PREFIX": "dovahlore",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "CONNECTION_POOL_KWARGS": {"max_connections": 100},
+            "CONNECTION_POOL_KWARGS": {"max_connections": 20},
             "PICKLE_VERSION": -1,
             "PASSWORD": REDIS_PASSWORD,
             # Redis accelerates the site but must not become a single point of

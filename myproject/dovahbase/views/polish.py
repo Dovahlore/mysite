@@ -1,8 +1,8 @@
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse, StreamingHttpResponse
-from openai import OpenAI
 import json
-import os
+from mysite.ai_gateway import stream_chat_completion
+from mysite.ai_models import full_model_providers
 # ====================z AI 润色配置区 =====================
 @require_POST
 def api_common_ai_polish(request):
@@ -17,16 +17,12 @@ def api_common_ai_polish(request):
         if not raw_text:
             return JsonResponse({'success': False, 'error': '评论内容不能为空哦'})
 
-        api_key = os.environ.get("OPENAI_API_KEY")
-        base_url = os.environ.get("OPENAI_BASE_URL") or None
-        model = os.environ.get("OPENAI_MODEL", "qwen3.7-max")
-        if not api_key:
+        providers = full_model_providers()
+        if not providers:
             return JsonResponse(
-                {'success': False, 'error': 'AI polish is not configured: set OPENAI_API_KEY.'},
+                {'success': False, 'error': 'AI polish provider chain is not configured.'},
                 status=503,
             )
-
-        client = OpenAI(api_key=api_key, base_url=base_url)
 
         system_prompt = (
             f"你是一个资深的影视与二次元编辑。请帮用户润色他对《{title}》的评价，并完成补充扩展，类似豆瓣影评评价，使得更加顺畅。词藻一定简练凝缩，不要浮夸的言语，也不要太高级的词语。"
@@ -48,13 +44,11 @@ def api_common_ai_polish(request):
         # 定义一个生成器函数，用来不断产出文字碎片
         def generate_stream():
             try:
-                response = client.chat.completions.create(
-                    model=model,
+                response = stream_chat_completion(
+                    providers,
                     messages=polish_messages,
                     temperature=0.6,
                     max_tokens=800,
-
-                    stream=True  # 🌟 核心：开启大模型的流式输出
                 )
 
                 for chunk in response:

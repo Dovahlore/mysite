@@ -1,16 +1,5 @@
 import os
-import json
-import gpxpy
-import fitparse  # 确保安装: pip install fitparse
-from fitparse import FitFile
-from io import BytesIO
-from datetime import datetime
 from django.utils import timezone  # 使用Django的时区工具
-
-# 引入 Pillow 用于绘图
-from PIL import Image, ImageDraw
-from django.core.files.base import ContentFile
-
 
 # =======================
 # 1. 缩略图生成器 (保持之前的 Pillow 版本不变)
@@ -19,6 +8,11 @@ def generate_track_thumbnail(points):
     """
     使用 Pillow 绘制平滑的轨迹缩略图 (透明背景)
     """
+    from io import BytesIO
+
+    from django.core.files.base import ContentFile
+    from PIL import Image, ImageDraw
+
     # 1. 过滤有效点
     track_points = [(p['lon'], p['lat']) for p in points if p.get('lat') and p.get('lon')]
 
@@ -28,7 +22,7 @@ def generate_track_thumbnail(points):
 
     # 2. 配置参数
     TARGET_SIZE = (400, 400)  # 最终输出尺寸
-    SCALE_FACTOR = 4  # 超采样 (4倍)
+    SCALE_FACTOR = 4  # Preserve the original high-quality supersampling.
     W, H = TARGET_SIZE[0] * SCALE_FACTOR, TARGET_SIZE[1] * SCALE_FACTOR
     PADDING = 40 * SCALE_FACTOR
 
@@ -62,22 +56,26 @@ def generate_track_thumbnail(points):
 
     # 6. 绘图
     # RGBA 模式，(255, 255, 255, 0) 表示完全透明背景
-    image = Image.new("RGBA", (W, H), (255, 255, 255, 0))
-    draw = ImageDraw.Draw(image)
+    image = resized_image = buffer = None
+    try:
+        image = Image.new("RGBA", (W, H), (255, 255, 255, 0))
+        draw = ImageDraw.Draw(image)
 
-    # 绘制线条：橙色 (252, 76, 2)
-    draw.line(px_points, fill=(252, 76, 2), width=20, joint='curve')
+        # 绘制线条：橙色 (252, 76, 2)
+        draw.line(px_points, fill=(252, 76, 2), width=20, joint='curve')
 
-    # 7. 缩放 (抗锯齿)
-    resized_image = image.resize(TARGET_SIZE, resample=Image.Resampling.LANCZOS)
-
-    # === 🔥 关键修正点在这里 ===
-    buffer = BytesIO()
-    # 必须先 save 到 buffer，格式为 PNG (支持透明)
-    resized_image.save(buffer, format='PNG')
-
-    # 然后从 buffer 取值
-    return ContentFile(buffer.getvalue())
+        # 7. 缩放 (抗锯齿)
+        resized_image = image.resize(TARGET_SIZE, resample=Image.Resampling.LANCZOS)
+        buffer = BytesIO()
+        resized_image.save(buffer, format='PNG')
+        return ContentFile(buffer.getvalue())
+    finally:
+        if buffer is not None:
+            buffer.close()
+        if resized_image is not None:
+            resized_image.close()
+        if image is not None:
+            image.close()
 # =======================
 # 2. FIT 解析 (基于你提供的 session 提取逻辑改造)
 # =======================
@@ -88,9 +86,11 @@ def parse_fit_file(file_path):
     2. 优先从 session 消息读取精准统计数据
     3. 遍历 record 消息获取轨迹点
     """
+    import fitparse
+    from fitparse import FitFile
+
     data = {
         'points': [],
-        'points_json': '[]',
         'start_time': timezone.now(),
         # 统一输出字段名以匹配 Model
         'total_distance': 0.0,  # km
@@ -159,7 +159,6 @@ def parse_fit_file(file_path):
                 })
 
         data['points'] = points
-        data['points_json'] = json.dumps(points)
 
     except Exception as e:
         print(f"FIT Parse Error {file_path}: {e}")
@@ -176,9 +175,10 @@ def parse_gpx_file(file_path):
     解析 GPX 文件：
     使用 gpxpy 内置方法快速获取 length_2d, duration 等
     """
+    import gpxpy
+
     data = {
         'points': [],
-        'points_json': '[]',
         'start_time': timezone.now(),
         'total_distance': 0.0,
         'total_duration': 0,
@@ -239,7 +239,6 @@ def parse_gpx_file(file_path):
                     })
 
         data['points'] = points
-        data['points_json'] = json.dumps(points)
 
     except Exception as e:
         print(f"GPX Parse Error {file_path}: {e}")

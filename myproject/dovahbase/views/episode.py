@@ -1,5 +1,4 @@
 import json
-from openai import OpenAI
 from django.views.decorators.http import require_POST
 import dovahbase.models as models
 from django.shortcuts import render, HttpResponse, redirect

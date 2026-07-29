@@ -7,7 +7,7 @@
     <link rel="shortcut icon" href="{% static 'icons/dovahbase.ico' %}">
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{% static 'css/base.css' %}" rel="stylesheet">
-    <link href="{% static 'css/agent_widget.css' %}?v=3" rel="stylesheet">
+    <link href="{% static 'css/agent_widget.css' %}?v=5" rel="stylesheet">
     <link href="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/css/bootstrap.min.css' %}" rel="stylesheet">
 
     <style>
@@ -202,14 +202,14 @@
     {% endblock content %}
 </div>
 
-{% if request.session.info and request.path != '/s/agent' %}
-    {% include '_agent_chat.html' with chat_mode='widget' %}
+{% if request.path != '/s/agent' %}
+    {% include '_agent_chat.html' with chat_mode='widget' agent_is_authenticated=request.session.info %}
 {% endif %}
 
 <script src="{% static 'bootstrap/bootstrap-5.3.0-alpha1-dist/js/bootstrap.bundle.min.js'%}"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
-<script src="{% static 'js/agent_widget.js' %}?v=3"></script>
+<script src="{% static 'js/agent_widget.js' %}?v=5"></script>
 
 <script type="text/javascript">
 window.collectPolishContext = function(reviewInput) {

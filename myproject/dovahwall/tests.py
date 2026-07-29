@@ -6,6 +6,7 @@ from django.test import RequestFactory, SimpleTestCase
 from types import SimpleNamespace
 from unittest.mock import patch
 import pickle
+import re
 
 from dovahwall.views import wall as wall_view
 
@@ -56,3 +57,39 @@ class WallCarouselTests(SimpleTestCase):
 
         self.assertEqual(html.count('class="d-block w-100 carousel-photo"'), 5)
         self.assertEqual(html.count('data-original="/media/photo-'), 5)
+
+    def test_timeline_keeps_years_visible_and_expands_one_month_group(self):
+        timeline = [
+            {
+                "year": 2026,
+                "months": [
+                    {"month": 7, "anchor": "photos-2026-07", "photos": []},
+                    {"month": 6, "anchor": "photos-2026-06", "photos": []},
+                ],
+            },
+            {
+                "year": 2025,
+                "months": [
+                    {"month": 12, "anchor": "photos-2025-12", "photos": []},
+                ],
+            },
+        ]
+
+        html = render_to_string(
+            "wall.html",
+            {
+                "carousel_photos": [],
+                "photo_timeline": timeline,
+            },
+        )
+
+        self.assertEqual(html.count("data-timeline-year-target="), 2)
+        self.assertEqual(html.count("data-timeline-target="), 3)
+        self.assertIn('data-timeline-year="2025"', html)
+        self.assertEqual(html.count("timeline-year-group is-active"), 1)
+        collapsed_years = re.findall(
+            r'data-timeline-year-target="[^"]+"[^>]*aria-expanded="false"',
+            html,
+        )
+        self.assertEqual(len(collapsed_years), 1)
+        self.assertNotIn("<select", html)

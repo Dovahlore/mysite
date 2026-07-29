@@ -3,7 +3,6 @@ from django import forms
 from dovahwall.utils.encrypt import md5
 from dovahwall.utils.photos import random_photos
 import dovahwall.models as models
-from dovahwall.utils.checkcode import check_code
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from mysite.cache_utils import client_ip, rate_limit_allows
@@ -84,6 +83,9 @@ from io import BytesIO
 
 # 生成默认含4个字符验证码的图片
 def image_code(request):
+    # Pillow and its font stack are only needed for captcha requests.
+    from dovahwall.utils.checkcode import check_code
+
     if not rate_limit_allows("captcha", client_ip(request), limit=30, period=60):
         return HttpResponse("请求过于频繁，请稍后再试。", status=429)
 

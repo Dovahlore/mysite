@@ -2,6 +2,7 @@
 <section class="agent-chat-root agent-chat-{{ chat_mode }}"
          data-agent-chat
          data-mode="{{ chat_mode }}"
+         data-authenticated="{% if agent_is_authenticated %}true{% else %}false{% endif %}"
          aria-label="Site Assistant">
     <header class="agent-chat-header" data-agent-drag-handle>
         <span class="agent-chat-orb-icon" aria-hidden="true">✦</span>
@@ -9,11 +10,20 @@
             <span class="agent-chat-status-dot" aria-hidden="true"></span>
             <div>
                 <strong>Site Assistant</strong>
-                <small><span data-agent-turn-count>0</span>/20 轮</small>
+                <small>
+                    {% if agent_is_authenticated %}
+                    <span data-agent-turn-count>0</span>/20 轮
+                    {% else %}
+                    访客预览
+                    {% endif %}
+                </small>
             </div>
         </div>
         <div class="agent-chat-actions">
-            <button type="button" data-agent-clear title="立即清除多轮对话">清除</button>
+            <button type="button"
+                    data-agent-clear
+                    title="{% if agent_is_authenticated %}立即清除多轮对话{% else %}登录后可管理对话{% endif %}"
+                    {% if not agent_is_authenticated %}disabled{% endif %}>清除</button>
             {% if chat_mode == "widget" %}
             <button type="button"
                     data-agent-toggle
@@ -26,17 +36,32 @@
 
     <div class="agent-chat-body">
         <div class="agent-chat-messages" data-agent-messages aria-live="polite"></div>
+        {% if not agent_is_authenticated %}
+        <div class="agent-chat-guest-notice" data-agent-guest-notice>
+            这是 Site Assistant 的访客预览。请先
+            <a href="/s/login?next=/s/agent">登录</a>
+            后提问、读取历史对话或清除记录。
+        </div>
+        {% endif %}
         <form class="agent-chat-form" data-agent-form>
             {% csrf_token %}
             <textarea data-agent-input
                       maxlength="2000"
                       rows="2"
                       autocomplete="off"
-                      placeholder="询问电影、漫画、剧集或站内数据…"
+                      placeholder="{% if agent_is_authenticated %}询问电影、漫画、剧集或站内数据…{% else %}登录后可向 Site Assistant 提问{% endif %}"
+                      {% if not agent_is_authenticated %}disabled{% endif %}
                       required></textarea>
-            <button data-agent-send type="submit">发送</button>
+            <button data-agent-send type="submit"
+                    {% if not agent_is_authenticated %}disabled{% endif %}>发送</button>
         </form>
-        <div class="agent-chat-hint">Enter 发送 · Shift+Enter 换行 · 历史仅保存在 Redis</div>
+        <div class="agent-chat-hint">
+            {% if agent_is_authenticated %}
+            Enter 发送 · Shift+Enter 换行 · 历史仅保存在 Redis
+            {% else %}
+            访客不能使用 Agent 功能，登录后即可开始对话
+            {% endif %}
+        </div>
     </div>
     {% if chat_mode == "widget" %}
     <span class="agent-chat-resize-handle"

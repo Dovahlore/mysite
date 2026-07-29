@@ -3,14 +3,9 @@ import re
 import hashlib
 import json
 from django.core.cache import cache
-from openai import OpenAI
 from bs4 import BeautifulSoup
-import os
-# ==================== AI 解析配置区 =====================
-ALIYUN_API_KEY = os.getenv("OPENAI_API_KEY")
-ALIYUN_BASE_URL =  os.getenv("OPENAI_BASE_URL")
+from mysite.ai_models import fast_model_providers
 
-# ====================================
 
 def calc_sol(cha, difficulty=4):
     """
@@ -78,6 +73,73 @@ def parse_sec_form(html):
     cha = form.find("input", id="cha")["value"]
     red = form.find("input", id="red")["value"]
     return tok, cha, red
+
+
+TITLE_SPLIT_SYSTEM_PROMPT = (
+    "你是一个专业的影视数据结构化引擎。请对用户提供的豆瓣标题进行精确拆分，"
+    "分离出“本地化名称”与“外文原名”。\n"
+    "操作规范：\n"
+    "1. 格式强制：仅允许输出合法的JSON对象，数据结构限定为 "
+    "{\"title\": \"本地化名称\", \"original_title\": \"外文原名\"}。\n"
+    "2. 纯净输出：严禁附加任何Markdown语法标记或解释性文字。\n"
+    "3. 缺失处理：若源标题缺乏外文原名，则两个字段均需赋值为该本地化名称。\n"
+    "4. 忠于原文：输出文本必须是原始输入的精准切片，严禁篡改、意译、增删或纠错。"
+)
+
+
+def _split_douban_title(h1_text):
+    fallback_parts = h1_text.split(" ", 1)
+    fallback_title = fallback_parts[0]
+    fallback_original = fallback_parts[1] if len(fallback_parts) > 1 else h1_text
+
+    from openai import OpenAI
+
+    try:
+        providers = fast_model_providers()
+    except ValueError as exc:
+        print(f"[fast provider configuration failed] {exc}")
+        return fallback_title, fallback_original
+
+    for provider in providers:
+        try:
+            client = OpenAI(
+                api_key=provider["api_key"],
+                base_url=provider["base_url"],
+                timeout=provider.get("timeout", 15.0),
+                max_retries=provider.get("max_retries", 0),
+            )
+            response = client.chat.completions.create(
+                model=provider["model"],
+                messages=[
+                    {"role": "system", "content": TITLE_SPLIT_SYSTEM_PROMPT},
+                    {"role": "user", "content": h1_text},
+                ],
+                temperature=0.1,
+                stream=False,
+            )
+            content = response.choices[0].message.content
+            json_match = re.search(r"\{.*\}", str(content or ""), re.DOTALL)
+            if not json_match:
+                raise ValueError("model response does not contain a JSON object")
+
+            parsed = json.loads(json_match.group(0))
+            title = parsed.get("title")
+            original_title = parsed.get("original_title")
+            if (
+                not isinstance(title, str)
+                or not title
+                or not isinstance(original_title, str)
+                or not original_title
+                or title not in h1_text
+                or original_title not in h1_text
+            ):
+                raise ValueError("model response is not an exact title substring")
+
+            return title, original_title
+        except Exception as exc:
+            print(f"[{provider['name']} title split failed] {exc}")
+
+    return fallback_title, fallback_original
 
 
 def _run_douban_spider_uncached(keyword, cat="1002"):
@@ -156,51 +218,7 @@ def _run_douban_spider_uncached(keyword, cat="1002"):
         h1_span = soup_detail.select_one('h1 span[property="v:itemreviewed"]')
         if h1_span:
             h1_text = h1_span.get_text(strip=True)
-
-            # 【兜底方案】保存你原本的解析逻辑，防止大模型接口挂掉时程序崩溃
-            fallback_parts = h1_text.split(" ", 1)
-            fallback_title = fallback_parts[0]
-            fallback_original = fallback_parts[1] if len(fallback_parts) > 1 else h1_text
-
-            try:
-                client = OpenAI(api_key=ALIYUN_API_KEY, base_url=ALIYUN_BASE_URL)
-
-                system_prompt = (
-                    "你是一个专业的影视数据结构化引擎。请对用户提供的豆瓣标题进行精确拆分，分离出“本地化名称”与“外文原名”。\n"
-                    "操作规范：\n"
-                    "1. 格式强制：仅允许输出合法的JSON对象，数据结构限定为 {\"title\": \"本地化名称\", \"original_title\": \"外文原名\"}。\n"
-                    "2. 纯净输出：严禁附加任何Markdown语法标记（如 ```json）或解释性文字。\n"
-                    "3. 缺失处理：若源标题缺乏外文原名，则两个字段均需赋值为该本地化名称。\n"
-                    "4. 忠于原文：输出的文本必须是对原始输入字符串的精准切片提取，严禁发生任何形式的字符篡改、意译、增删或自动纠错。"
-                )
-
-                # 关闭流式输出，直接拿结果
-                response = client.chat.completions.create(
-                    model="deepseek-v4-flash",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": h1_text}
-                    ],
-                    temperature=0.1,  # 低温度保证只做信息提取
-                    stream=False
-                )
-
-                res_str = response.choices[0].message.content.strip()
-
-                # 用正则把 JSON 抠出来（防大模型发癫带上 ```json 等前缀）
-                json_match = re.search(r'\{.*\}', res_str, re.DOTALL)
-                if json_match:
-                    ai_parsed = json.loads(json_match.group(0))
-                    data["title"] = ai_parsed.get("title", fallback_title)
-                    data["original_title"] = ai_parsed.get("original_title", fallback_original)
-                else:
-                    data["title"] = fallback_title
-                    data["original_title"] = fallback_original
-
-            except Exception as e:
-                print(f"[AI 解析标题超时或失败] 使用默认兜底逻辑。错误: {e}")
-                data["title"] = fallback_title
-                data["original_title"] = fallback_original
+            data["title"], data["original_title"] = _split_douban_title(h1_text)
         # ==================================================
 
         # 2. 年份

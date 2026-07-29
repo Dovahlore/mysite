@@ -11,8 +11,8 @@
     <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
     <link href="{% static 'viewerjs/viewer.min.css' %}" rel="stylesheet">
     <link href="{% static 'select2/dist/css/select2.min.css' %}" rel="stylesheet">
-    <link href="{% static 'css/wall.css' %}?v=7" rel="stylesheet">
-    <link href="{% static 'css/agent_widget.css' %}?v=4" rel="stylesheet">
+    <link href="{% static 'css/wall.css' %}?v=9" rel="stylesheet">
+    <link href="{% static 'css/agent_widget.css' %}?v=5" rel="stylesheet">
 
     <style>
         /* 修复最后一排照片过大的问题 */
@@ -200,21 +200,46 @@
 {% if photo_timeline %}
 <aside class="photo-timeline"
        data-photo-timeline
-       aria-label="Photo upload timeline">
-    <div class="photo-timeline-track" data-timeline-track>
+       aria-label="按年月快速定位照片"
+       aria-hidden="true">
+    <div class="photo-timeline-track" data-timeline-track aria-hidden="true">
         <span class="photo-timeline-thumb" data-timeline-thumb></span>
     </div>
-    <div class="photo-timeline-labels">
-        {% for year_group in photo_timeline %}
-            {% for month_group in year_group.months %}
-                <button type="button"
-                        data-timeline-target="{{ month_group.anchor }}"
-                        title="{{ year_group.year }}-{{ month_group.month|stringformat:'02d' }}">
-                    <span class="timeline-year">{% if forloop.first %}{{ year_group.year }}{% endif %}</span>
-                    <span class="timeline-month">{{ month_group.month|stringformat:"02d" }}</span>
-                </button>
+    <div class="photo-timeline-scroll" data-timeline-scroll>
+        <div class="photo-timeline-labels">
+            {% for year_group in photo_timeline %}
+                <section class="timeline-year-group{% if forloop.first %} is-active{% endif %}"
+                         data-timeline-year-group="{{ year_group.year }}">
+                    <button class="timeline-year-button"
+                            type="button"
+                            data-timeline-year-target="year-{{ year_group.year }}"
+                            aria-controls="timeline-months-{{ year_group.year }}"
+                            aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}">
+                        <span class="timeline-year-label">{{ year_group.year }}</span>
+                        <span class="timeline-year-marker" aria-hidden="true"></span>
+                    </button>
+                    <div class="timeline-month-list"
+                         id="timeline-months-{{ year_group.year }}"
+                         data-timeline-month-list
+                         aria-hidden="{% if forloop.first %}false{% else %}true{% endif %}"
+                         {% if not forloop.first %}inert{% endif %}>
+                        <div class="timeline-month-list-inner">
+                            {% for month_group in year_group.months %}
+                                <button class="timeline-month-button"
+                                        type="button"
+                                        data-timeline-year="{{ year_group.year }}"
+                                        data-timeline-target="{{ month_group.anchor }}"
+                                        title="{{ year_group.year }}-{{ month_group.month|stringformat:'02d' }}"
+                                        tabindex="{% if forloop.parentloop.first %}0{% else %}-1{% endif %}">
+                                    <span class="timeline-month">{{ month_group.month|stringformat:"02d" }}</span>
+                                    <span class="timeline-month-unit" aria-hidden="true">月</span>
+                                </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </section>
             {% endfor %}
-        {% endfor %}
+        </div>
     </div>
 </aside>
 {% endif %}
@@ -346,21 +371,85 @@ function initPhotoTimeline() {
     const timeline = document.querySelector('[data-photo-timeline]');
     if (!timeline) return;
 
+    const navbar = document.querySelector('.navbar');
+    const carousel = document.getElementById('carouselCaptions');
+    const gallery = document.getElementById('galley');
+    const scrollContainer = timeline.querySelector('[data-timeline-scroll]');
     const track = timeline.querySelector('[data-timeline-track]');
     const thumb = timeline.querySelector('[data-timeline-thumb]');
-    const buttons = Array.from(timeline.querySelectorAll('[data-timeline-target]'));
-    const targets = buttons.map((button) => document.getElementById(button.dataset.timelineTarget));
-    if (!track || !thumb || !buttons.length || targets.some((target) => !target)) return;
+    const yearGroups = Array.from(timeline.querySelectorAll('[data-timeline-year-group]'));
+    const yearButtons = Array.from(timeline.querySelectorAll('[data-timeline-year-target]'));
+    const monthButtons = Array.from(timeline.querySelectorAll('[data-timeline-target]'));
+    const yearTargets = yearButtons.map(
+        (button) => document.getElementById(button.dataset.timelineYearTarget)
+    );
+    const monthTargets = monthButtons.map(
+        (button) => document.getElementById(button.dataset.timelineTarget)
+    );
+    if (!navbar || !carousel || !gallery || !scrollContainer || !track || !thumb
+        || !yearGroups.length || !monthButtons.length
+        || yearTargets.some((target) => !target)
+        || monthTargets.some((target) => !target)) return;
 
     let activeIndex = -1;
+    let expandedYear = null;
     let dragging = false;
+    let dragTrackRect = null;
     let scrollFramePending = false;
 
-    function setActive(index) {
-        index = Math.max(0, Math.min(buttons.length - 1, index));
-        if (activeIndex === index) return;
+    function keepYearInView(year, behavior) {
+        const group = yearGroups.find(
+            (item) => item.dataset.timelineYearGroup === year
+        );
+        if (!group) return;
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const groupRect = group.getBoundingClientRect();
+        let delta = 0;
+        if (groupRect.top < containerRect.top + 6) {
+            delta = groupRect.top - containerRect.top - 6;
+        } else if (groupRect.bottom > containerRect.bottom - 6) {
+            delta = groupRect.bottom - containerRect.bottom + 6;
+        }
+        if (delta) scrollContainer.scrollBy({top: delta, behavior});
+    }
+
+    function expandYear(year, behavior) {
+        if (expandedYear === year) return;
+        expandedYear = year;
+        yearGroups.forEach((group) => {
+            const isActive = group.dataset.timelineYearGroup === year;
+            const yearButton = group.querySelector('[data-timeline-year-target]');
+            const monthList = group.querySelector('[data-timeline-month-list]');
+            const groupMonthButtons = group.querySelectorAll('[data-timeline-target]');
+            group.classList.toggle('is-active', isActive);
+            yearButton.classList.toggle('active', isActive);
+            yearButton.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+            if (isActive) {
+                yearButton.setAttribute('aria-current', 'true');
+                monthList.removeAttribute('inert');
+            } else {
+                yearButton.removeAttribute('aria-current');
+                monthList.setAttribute('inert', '');
+            }
+            monthList.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+            groupMonthButtons.forEach((button) => {
+                button.tabIndex = isActive ? 0 : -1;
+            });
+        });
+
+        requestAnimationFrame(() => keepYearInView(year, behavior));
+        window.setTimeout(() => {
+            if (expandedYear === year) keepYearInView(year, behavior);
+        }, 360);
+    }
+
+    function setActive(index, force) {
+        index = Math.max(0, Math.min(monthButtons.length - 1, index));
+        if (!force && activeIndex === index) return;
         activeIndex = index;
-        buttons.forEach((button, buttonIndex) => {
+        const activeYear = monthButtons[index].dataset.timelineYear;
+        expandYear(activeYear, force || dragging ? 'auto' : 'smooth');
+        monthButtons.forEach((button, buttonIndex) => {
             button.classList.toggle('active', buttonIndex === index);
             if (buttonIndex === index) {
                 button.setAttribute('aria-current', 'true');
@@ -368,43 +457,68 @@ function initPhotoTimeline() {
                 button.removeAttribute('aria-current');
             }
         });
-        const position = buttons.length === 1 ? 0 : (index / (buttons.length - 1)) * 100;
+        const position = monthButtons.length === 1
+            ? 0
+            : (index / (monthButtons.length - 1)) * 100;
         thumb.style.top = `${position}%`;
     }
 
-    function jumpTo(index, behavior) {
+    function jumpToMonth(index, behavior) {
         setActive(index);
-        const top = targets[index].getBoundingClientRect().top + window.scrollY - 88;
+        const top = monthTargets[index].getBoundingClientRect().top + window.scrollY - 88;
+        window.scrollTo({top, behavior});
+    }
+
+    function jumpToYear(year, behavior) {
+        const yearIndex = yearButtons.findIndex(
+            (button) => button.dataset.timelineYearTarget === `year-${year}`
+        );
+        const monthIndex = monthButtons.findIndex(
+            (button) => button.dataset.timelineYear === year
+        );
+        if (yearIndex < 0 || monthIndex < 0) return;
+        setActive(monthIndex);
+        const top = yearTargets[yearIndex].getBoundingClientRect().top
+            + window.scrollY - 88;
         window.scrollTo({top, behavior});
     }
 
     function indexFromPointer(clientY) {
-        const rect = track.getBoundingClientRect();
+        const rect = dragTrackRect || track.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-        return Math.round(ratio * (buttons.length - 1));
+        return Math.round(ratio * (monthButtons.length - 1));
     }
 
-    buttons.forEach((button, index) => {
-        button.addEventListener('click', () => jumpTo(index, 'smooth'));
+    monthButtons.forEach((button, index) => {
+        button.addEventListener('click', () => jumpToMonth(index, 'smooth'));
+    });
+
+    yearButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const year = button.dataset.timelineYearTarget.replace('year-', '');
+            jumpToYear(year, 'smooth');
+        });
     });
 
     track.addEventListener('pointerdown', (event) => {
         dragging = true;
+        dragTrackRect = track.getBoundingClientRect();
         timeline.classList.add('is-dragging');
         track.setPointerCapture(event.pointerId);
-        jumpTo(indexFromPointer(event.clientY), 'auto');
+        jumpToMonth(indexFromPointer(event.clientY), 'auto');
         event.preventDefault();
     });
 
     track.addEventListener('pointermove', (event) => {
         if (!dragging) return;
-        jumpTo(indexFromPointer(event.clientY), 'auto');
+        jumpToMonth(indexFromPointer(event.clientY), 'auto');
         event.preventDefault();
     });
 
     function stopDragging(event) {
         if (!dragging) return;
         dragging = false;
+        dragTrackRect = null;
         timeline.classList.remove('is-dragging');
         if (track.hasPointerCapture(event.pointerId)) {
             track.releasePointerCapture(event.pointerId);
@@ -414,27 +528,71 @@ function initPhotoTimeline() {
     track.addEventListener('pointerup', stopDragging);
     track.addEventListener('pointercancel', stopDragging);
 
-    function syncTimelineToScroll() {
-        scrollFramePending = false;
-        if (dragging) return;
-        let index = 0;
-        for (let targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
-            if (targets[targetIndex].getBoundingClientRect().top <= 150) {
-                index = targetIndex;
-            } else {
-                break;
-            }
+    function positionTimeline() {
+        const gap = 24;
+        const carouselBottom = carousel.getBoundingClientRect().bottom;
+        const navbarBottom = navbar.getBoundingClientRect().bottom;
+        const galleryRect = gallery.getBoundingClientRect();
+        const timelineHeight = timeline.offsetHeight;
+        const halfHeight = timelineHeight / 2;
+        const protectedBottom = Math.max(carouselBottom, navbarBottom);
+        const minimumCenter = protectedBottom + gap + halfHeight;
+        const preferredCenter = window.innerHeight / 2;
+        const maximumCenter = window.innerHeight - gap - halfHeight;
+        const galleryIsVisible = galleryRect.top < window.innerHeight - gap
+            && galleryRect.bottom > gap;
+        const hasRoomBelowCarousel = minimumCenter <= maximumCenter;
+        const isVisible = galleryIsVisible && hasRoomBelowCarousel;
+
+        timeline.classList.toggle('is-visible', isVisible);
+        timeline.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+        if (isVisible) {
+            const center = Math.max(preferredCenter, minimumCenter);
+            timeline.style.setProperty('--timeline-top', `${center}px`);
         }
-        setActive(index);
     }
 
-    window.addEventListener('scroll', () => {
+    function syncTimelineToScroll() {
+        scrollFramePending = false;
+        positionTimeline();
+        if (!dragging) {
+            let activeYearIndex = 0;
+            for (let index = 0; index < yearTargets.length; index += 1) {
+                if (yearTargets[index].getBoundingClientRect().top <= 150) {
+                    activeYearIndex = index;
+                } else {
+                    break;
+                }
+            }
+            const activeYear = yearGroups[activeYearIndex].dataset.timelineYearGroup;
+            let monthIndex = monthButtons.findIndex(
+                (button) => button.dataset.timelineYear === activeYear
+            );
+            for (let index = monthIndex; index < monthButtons.length; index += 1) {
+                if (monthButtons[index].dataset.timelineYear !== activeYear) break;
+                if (monthTargets[index].getBoundingClientRect().top <= 150) {
+                    monthIndex = index;
+                } else {
+                    break;
+                }
+            }
+            setActive(monthIndex);
+        }
+    }
+
+    function scheduleSync() {
         if (scrollFramePending) return;
         scrollFramePending = true;
         requestAnimationFrame(syncTimelineToScroll);
-    }, {passive: true});
+    }
 
-    setActive(0);
+    window.addEventListener('scroll', scheduleSync, {passive: true});
+    window.addEventListener('resize', scheduleSync, {passive: true});
+    if ('ResizeObserver' in window) {
+        new ResizeObserver(scheduleSync).observe(timeline);
+    }
+
+    setActive(0, true);
     syncTimelineToScroll();
 }
 

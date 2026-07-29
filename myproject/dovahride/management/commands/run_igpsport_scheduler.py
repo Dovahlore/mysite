@@ -1,9 +1,11 @@
+import os
+import subprocess
+import sys
 import time
 from datetime import datetime, time as datetime_time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -92,7 +94,18 @@ class Command(BaseCommand):
 
     def _execute_sync(self, *, full_sync, request=None):
         try:
-            call_command("sync_igpsport", full_sync=full_sync)
+            command = [
+                sys.executable,
+                str(settings.BASE_DIR / "manage.py"),
+                "sync_igpsport",
+            ]
+            if full_sync:
+                command.append("--all")
+            subprocess.run(
+                command,
+                check=True,
+                timeout=int(os.environ.get("IGPSPORT_SYNC_TIMEOUT_SECONDS", "1800")),
+            )
         except Exception as exc:
             if request:
                 request.status = RideSyncRequest.Status.FAILED

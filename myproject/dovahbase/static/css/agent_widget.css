@@ -182,6 +182,29 @@
     font-size: .82rem;
 }
 
+.agent-chat-guest-notice {
+    margin: 10px 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(116, 87, 245, .2);
+    border-radius: 12px;
+    color: #596b7c;
+    background: rgba(245, 242, 255, .82);
+    font-size: .82rem;
+    line-height: 1.55;
+}
+
+.agent-chat-guest-notice a {
+    color: var(--agent-primary);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.agent-chat-root button:disabled,
+.agent-chat-root textarea:disabled {
+    cursor: not-allowed;
+    opacity: .58;
+}
+
 .agent-chat-message p:last-child {
     margin-bottom: 0;
 }

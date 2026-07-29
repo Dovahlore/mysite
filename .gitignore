@@ -1,4 +1,5 @@
 .env
+ai_config.yaml
 __pycache__/
 *.py[cod]
 
