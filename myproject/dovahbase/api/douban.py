@@ -78,6 +78,7 @@ def parse_sec_form(html):
 TITLE_SPLIT_SYSTEM_PROMPT = (
     "你是一个专业的影视数据结构化引擎。请对用户提供的豆瓣标题进行精确拆分，"
     "分离出“本地化名称”与“外文原名”。\n"
+    "两种标题的排列顺序不固定，不能简单按第一个空格切分；外文原名本身也可能包含空格。\n"
     "操作规范：\n"
     "1. 格式强制：仅允许输出合法的JSON对象，数据结构限定为 "
     "{\"title\": \"本地化名称\", \"original_title\": \"外文原名\"}。\n"
@@ -87,7 +88,7 @@ TITLE_SPLIT_SYSTEM_PROMPT = (
 )
 
 
-def _split_douban_title(h1_text):
+def _split_douban_title_with_source(h1_text):
     fallback_parts = h1_text.split(" ", 1)
     fallback_title = fallback_parts[0]
     fallback_original = fallback_parts[1] if len(fallback_parts) > 1 else h1_text
@@ -98,7 +99,7 @@ def _split_douban_title(h1_text):
         providers = fast_model_providers()
     except ValueError as exc:
         print(f"[fast provider configuration failed] {exc}")
-        return fallback_title, fallback_original
+        return fallback_title, fallback_original, False
 
     for provider in providers:
         try:
@@ -135,11 +136,17 @@ def _split_douban_title(h1_text):
             ):
                 raise ValueError("model response is not an exact title substring")
 
-            return title, original_title
+            return title, original_title, True
         except Exception as exc:
             print(f"[{provider['name']} title split failed] {exc}")
 
-    return fallback_title, fallback_original
+    return fallback_title, fallback_original, False
+
+
+def _split_douban_title(h1_text):
+    """Return the two public title fields while keeping cache policy internal."""
+    title, original_title, _ = _split_douban_title_with_source(h1_text)
+    return title, original_title
 
 
 def _run_douban_spider_uncached(keyword, cat="1002"):
@@ -218,7 +225,12 @@ def _run_douban_spider_uncached(keyword, cat="1002"):
         h1_span = soup_detail.select_one('h1 span[property="v:itemreviewed"]')
         if h1_span:
             h1_text = h1_span.get_text(strip=True)
-            data["title"], data["original_title"] = _split_douban_title(h1_text)
+            (
+                data["title"],
+                data["original_title"],
+                model_split_succeeded,
+            ) = _split_douban_title_with_source(h1_text)
+            data["_title_split_used_fallback"] = not model_split_succeeded
         # ==================================================
 
         # 2. 年份
@@ -284,15 +296,22 @@ def run_douban_spider(keyword, cat="1002"):
     """Cache costly Douban and model lookups by normalized search input."""
     normalized = " ".join(str(keyword).strip().lower().split())
     digest = hashlib.sha256(f"{cat}:{normalized}".encode("utf-8")).hexdigest()
-    cache_key = f"douban:lookup:v1:{digest}"
+    cache_key = f"douban:lookup:v2:{digest}"
 
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
     result = _run_douban_spider_uncached(keyword, cat)
+    title_split_used_fallback = result.pop("_title_split_used_fallback", False)
     # Successful metadata is stable. Briefly cache failures so temporary
-    # upstream errors do not linger while repeated clicks are still absorbed.
-    timeout = 12 * 60 * 60 if result.get("success") else 3 * 60
+    # upstream/model errors do not linger while repeated clicks are absorbed.
+    # In particular, do not keep the local title fallback for 12 hours after a
+    # transient model outage: retry the model on a later click instead.
+    timeout = (
+        12 * 60 * 60
+        if result.get("success") and not title_split_used_fallback
+        else 3 * 60
+    )
     cache.set(cache_key, result, timeout=timeout)
     return result
