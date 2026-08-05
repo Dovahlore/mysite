@@ -26,7 +26,13 @@ providers:
 Providers are tried from top to bottom. The same selected fast or full model is
 sent to each provider in turn; a provider that rejects or cannot serve that model
 is skipped automatically. The real `ai_config.yaml` is ignored by Git and mounted
-read-only into the web container, so its keys are not stored in the image.
+only into the web container, so its keys are not stored in the image. After the
+first login, models and providers can also be managed from `/settings`; existing
+keys are never sent back to the browser, and leaving a key blank keeps its value.
+New providers, changed credentials/endpoints, and re-enabled providers call the
+OpenAI-compatible model-list endpoint before the file is updated. This verifies
+the base URL and API key without invoking or billing a model. Model-only changes
+and unchanged credentials do not make validation requests.
 
 ## Create the database account
 

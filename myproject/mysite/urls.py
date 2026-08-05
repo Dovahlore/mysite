@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.conf import settings
-from dovahwall.views import account, wall, upload, organize, main
+from dovahwall.views import account, wall, upload, organize, main, site_settings
 from dovahbase.views import main as base_main
 from dovahbase.views import manga, episode, movie,polish,agent
 from dovahride import views as ride
@@ -26,7 +26,9 @@ from django.views.generic.base import RedirectView
 from dovahwall import tests
 
 urlpatterns = [
-                path("s/login", account.login),
+                path("s/login", account.login, name="login"),
+                path("settings", site_settings.settings_page, name="site_settings"),
+                path("logout", site_settings.logout, name="logout"),
                 path("s/check/code", account.image_code),
                 path("s/wall", wall.wall),
                 path("organize", organize.organize),

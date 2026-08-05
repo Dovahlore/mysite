@@ -202,6 +202,38 @@
             transform: translateY(-2px);
         }
 
+        .site-settings-button {
+            position: fixed;
+            top: 40px;
+            left: 40px;
+            z-index: 10;
+            width: 44px;
+            height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: rgba(255,255,255,.82) !important;
+            background: rgba(255,255,255,.07);
+            border: 1px solid rgba(255,255,255,.15);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 8px 28px rgba(0,0,0,.28);
+            transition: all .25s ease;
+        }
+        .site-settings-button:hover {
+            color: white !important;
+            background: rgba(137,191,225,.18);
+            border-color: rgba(137,191,225,.55);
+            transform: translateY(-2px) rotate(8deg);
+            box-shadow: 0 10px 32px rgba(74,145,190,.25);
+        }
+
+        @media (max-width: 640px) {
+            .site-settings-button { top: 18px; left: 18px; }
+            .glass-panel { top: 18px; right: 18px; }
+        }
+
         .link-card {
             margin: 20px 30px;
             transition: all 0.4s ease;
@@ -245,6 +277,16 @@
 <canvas id="starfield"></canvas>
 
 <audio id="myAudio" src="{% static 'audio/light_of_fantasy.mp3' %}" autoplay loop></audio>
+
+{% if request.session.info %}
+    <a class="site-settings-button" href="{% url 'site_settings' %}" aria-label="Site settings" title="Site settings">
+        <i class="fas fa-cog" aria-hidden="true"></i>
+    </a>
+{% else %}
+    <a class="site-settings-button" href="{% url 'login' %}?next={% url 'site_settings' %}" aria-label="Sign in to site settings" title="Sign in">
+        <i class="fas fa-user" aria-hidden="true"></i>
+    </a>
+{% endif %}
 
 <div class="content">
     <div class="glass-panel">

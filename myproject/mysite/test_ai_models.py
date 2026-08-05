@@ -1,3 +1,6 @@
+import os
+import tempfile
+from pathlib import Path
 from unittest.mock import mock_open, patch
 
 from django.test import SimpleTestCase
@@ -7,6 +10,9 @@ from mysite.ai_models import (
     fast_model_providers,
     full_model,
     full_model_providers,
+    load_config,
+    save_config,
+    validate_provider_credentials,
 )
 
 
@@ -78,3 +84,81 @@ providers:
     def test_missing_file_reports_its_path(self, _mock_file):
         with self.assertRaisesRegex(ValueError, "does not exist"):
             fast_model_providers()
+
+
+class AiConfigPersistenceTests(SimpleTestCase):
+    def test_saved_config_is_immediately_available_to_model_routing(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            config_file = Path(temporary_directory) / "ai_config.yaml"
+            config = {
+                "models": {"fast": "fast-live", "full": "full-live"},
+                "providers": [
+                    {
+                        "name": "new-provider",
+                        "api_key": "new-secret",
+                        "base_url": "https://api.example.com/v1",
+                    }
+                ],
+            }
+            with patch.dict(os.environ, {"AI_CONFIG_FILE": str(config_file)}):
+                save_config(config)
+
+                self.assertEqual(load_config(), config)
+                self.assertEqual(fast_model(), "fast-live")
+                self.assertEqual(full_model_providers()[0]["api_key"], "new-secret")
+
+    @patch("openai.OpenAI")
+    def test_provider_authentication_uses_timeout_and_retries(self, openai_mock):
+        provider = {
+            "name": "test",
+            "api_key": "secret",
+            "base_url": "https://api.example.com/v1",
+            "timeout": 12.5,
+            "max_retries": 3,
+        }
+
+        validate_provider_credentials(provider)
+
+        openai_mock.assert_called_once_with(
+            api_key="secret",
+            base_url="https://api.example.com/v1",
+            timeout=12.5,
+            max_retries=3,
+        )
+        openai_mock.return_value.models.list.assert_called_once_with()
+        openai_mock.return_value.chat.completions.create.assert_not_called()
+
+    @patch("openai.OpenAI")
+    def test_provider_authentication_failure_redacts_the_key(self, openai_mock):
+        client = openai_mock.return_value
+        client.models.list.side_effect = ValueError("bad credential: secret-key-123")
+        provider = {
+            "name": "test",
+            "api_key": "secret-key-123",
+            "base_url": "https://api.example.com/v1",
+            "timeout": 10,
+            "max_retries": 0,
+        }
+
+        with self.assertRaisesRegex(ValueError, "bad credential: \\[redacted\\]"):
+            validate_provider_credentials(provider)
+
+        client.models.list.assert_called_once_with()
+
+    @patch("openai.OpenAI")
+    def test_rejected_key_has_a_concise_error(self, openai_mock):
+        class AuthenticationFailure(Exception):
+            status_code = 401
+
+        client = openai_mock.return_value
+        client.models.list.side_effect = AuthenticationFailure("large response body")
+        provider = {
+            "name": "test",
+            "api_key": "invalid",
+            "base_url": "https://api.example.com/v1",
+            "timeout": 10,
+            "max_retries": 0,
+        }
+
+        with self.assertRaisesRegex(ValueError, "API key was rejected \\(HTTP 401\\)"):
+            validate_provider_credentials(provider)

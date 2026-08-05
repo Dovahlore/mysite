@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Site Settings · Dovahlore</title>
+    <link rel="shortcut icon" href="{% static 'icons/main.ico' %}">
+    <link href="{% static 'fontawesome/fontawesome-free-5.15.4-web/css/all.min.css' %}" rel="stylesheet">
+    <style>
+        :root {
+            color-scheme: dark;
+            --ink: #f4f8fb;
+            --muted: #9badbc;
+            --accent: #89bfe1;
+            --accent-strong: #b9e2fb;
+            --danger: #ff8e99;
+            --panel: rgba(11, 27, 43, .74);
+            --border: rgba(180, 220, 245, .18);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 12% 8%, rgba(50, 122, 163, .26), transparent 33rem),
+                radial-gradient(circle at 90% 40%, rgba(39, 77, 127, .22), transparent 35rem),
+                #020a14;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: .18;
+            background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+            background-size: 42px 42px;
+        }
+        button, input { font: inherit; }
+        a { color: inherit; text-decoration: none; }
+        .page-shell { width: min(1040px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; position: relative; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 54px; }
+        .back-link, .logout-button, .secondary-button, .remove-provider {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            min-height: 42px;
+            padding: 0 16px;
+            color: var(--ink);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: rgba(255,255,255,.055);
+            transition: .2s ease;
+        }
+        .back-link:hover, .logout-button:hover, .secondary-button:hover { border-color: rgba(137,191,225,.65); background: rgba(137,191,225,.13); transform: translateY(-1px); }
+        .account { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; }
+        .logout-button { cursor: pointer; }
+        .hero { margin-bottom: 36px; }
+        .eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+        h1 { margin: 9px 0 12px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(38px, 7vw, 66px); font-weight: 400; letter-spacing: -.035em; }
+        .hero p { max-width: 650px; margin: 0; color: var(--muted); line-height: 1.7; }
+        .notice { margin: 0 0 22px; padding: 14px 17px; border-radius: 14px; border: 1px solid rgba(122, 218, 173, .28); background: rgba(45, 133, 93, .14); color: #bff0d2; }
+        .notice--error { border-color: rgba(255, 120, 133, .35); background: rgba(133, 37, 50, .18); color: #ffc3ca; }
+        .settings-section, .provider-card {
+            position: relative;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            box-shadow: 0 24px 70px rgba(0,0,0,.26);
+            backdrop-filter: blur(18px);
+        }
+        .settings-section { padding: clamp(22px, 4vw, 36px); border-radius: 24px; margin-bottom: 24px; }
+        .section-header { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 25px; }
+        .section-header h2, .provider-card h2 { margin: 5px 0 0; font-size: 24px; font-weight: 500; }
+        .section-header p { margin: 0; color: var(--muted); font-size: 13px; }
+        .model-grid, .provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+        .field { display: flex; flex-direction: column; gap: 8px; color: #dce8f0; font-size: 13px; }
+        .field--wide { grid-column: 1 / -1; }
+        .settings-input {
+            width: 100%;
+            min-height: 48px;
+            border: 1px solid rgba(181, 218, 242, .2);
+            border-radius: 12px;
+            padding: 11px 14px;
+            outline: none;
+            color: var(--ink);
+            background: rgba(0, 7, 15, .48);
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .settings-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(137,191,225,.12); }
+        .field-hint { color: var(--muted); line-height: 1.5; }
+        .field-error, .errorlist { display: block; margin: 2px 0 0; padding: 0; color: #ffadb6; font-size: 12px; list-style: none; }
+        .configured-key { margin-left: 8px; padding: 3px 8px; border-radius: 999px; color: #aee8c8; background: rgba(75, 179, 124, .14); font-size: 10px; font-style: normal; text-transform: uppercase; letter-spacing: .08em; }
+        .providers { display: grid; gap: 18px; }
+        .provider-card { padding: 24px; border-radius: 20px; }
+        .provider-card__header { display: flex; justify-content: space-between; align-items: start; gap: 18px; margin-bottom: 22px; }
+        .remove-provider { min-height: 36px; color: #ffc0c7; border-color: rgba(255,142,153,.2); cursor: pointer; font-size: 12px; }
+        .remove-provider:hover { background: rgba(255, 95, 112, .12); border-color: rgba(255,142,153,.48); }
+        .provider-card.is-removed { display: none; }
+        .enabled-toggle { display: inline-flex; align-items: center; gap: 10px; align-self: end; min-height: 48px; cursor: pointer; color: #dce8f0; font-size: 13px; }
+        .enabled-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+        .toggle-track { width: 42px; height: 24px; padding: 3px; border-radius: 999px; background: #40505c; transition: .2s; }
+        .toggle-track span { display: block; width: 18px; height: 18px; border-radius: 50%; background: white; transition: .2s; }
+        .enabled-toggle input:checked + .toggle-track { background: #3d9b72; }
+        .enabled-toggle input:checked + .toggle-track span { transform: translateX(18px); }
+        .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 28px; }
+        .secondary-button { cursor: pointer; }
+        .save-button { min-height: 48px; padding: 0 24px; border: 0; border-radius: 999px; color: #06131d; background: linear-gradient(135deg, var(--accent-strong), var(--accent)); font-weight: 700; cursor: pointer; box-shadow: 0 12px 32px rgba(77,153,199,.25); transition: .2s; }
+        .save-button:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(77,153,199,.34); }
+        .save-button:disabled { cursor: wait; opacity: .72; transform: none; }
+        @media (max-width: 680px) {
+            .page-shell { width: min(100% - 22px, 1040px); padding-top: 18px; }
+            .topbar { align-items: flex-start; margin-bottom: 40px; }
+            .account { flex-direction: column; align-items: flex-end; gap: 7px; }
+            .model-grid, .provider-grid { grid-template-columns: 1fr; }
+            .field--wide { grid-column: auto; }
+            .provider-card { padding: 19px; }
+            .provider-card__header, .form-actions, .section-header { align-items: flex-start; }
+            .form-actions { flex-direction: column; }
+            .form-actions > * { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<main class="page-shell">
+    <nav class="topbar" aria-label="Settings navigation">
+        <a class="back-link" href="{% url 'mainpage' %}"><i class="fas fa-arrow-left" aria-hidden="true"></i> Dovahlore</a>
+        <div class="account">
+            {% if current_user %}<span>Signed in as {{ current_user }}</span>{% endif %}
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button class="logout-button" type="submit"><i class="fas fa-sign-out-alt" aria-hidden="true"></i> Log out</button>
+            </form>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <span class="eyebrow">Control room</span>
+        <h1>Site Settings</h1>
+        <p>Choose the models used across the site and manage OpenAI-compatible providers. New or changed credentials must pass API authentication before anything is saved; no model is invoked for this check.</p>
+    </header>
+
+    {% if saved %}<div class="notice" role="status"><i class="fas fa-check-circle" aria-hidden="true"></i> Settings saved. New AI requests will use them immediately.</div>{% endif %}
+    {% if config_error %}<div class="notice notice--error" role="alert">{{ config_error }}</div>{% endif %}
+
+    <form method="post" action="{% url 'site_settings' %}" novalidate id="settings-form">
+        {% csrf_token %}
+        <section class="settings-section">
+            <div class="section-header">
+                <div><span class="eyebrow">Models</span><h2>Routing</h2></div>
+                <p>Fast handles lightweight work; Full handles deeper generation.</p>
+            </div>
+            {% if model_form.non_field_errors %}<div class="field-error">{{ model_form.non_field_errors }}</div>{% endif %}
+            <div class="model-grid">
+                <label class="field"><span>{{ model_form.fast_model.label }}</span>{{ model_form.fast_model }}{% for error in model_form.fast_model.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+                <label class="field"><span>{{ model_form.full_model.label }}</span>{{ model_form.full_model }}{% for error in model_form.full_model.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+            </div>
+        </section>
+
+        <section class="settings-section">
+            <div class="section-header">
+                <div><span class="eyebrow">Credentials</span><h2>Providers</h2></div>
+                <p>API keys remain server-side and are never rendered into this page.</p>
+            </div>
+            {{ provider_formset.management_form }}
+            {% for error in provider_formset.non_form_errors %}<div class="notice notice--error">{{ error }}</div>{% endfor %}
+            <div class="providers" id="provider-list">
+                {% for form in provider_formset %}
+                    {% include "_provider_settings_fields.html" with form=form %}
+                {% endfor %}
+            </div>
+            <div class="form-actions">
+                <button class="secondary-button" type="button" id="add-provider"><i class="fas fa-plus" aria-hidden="true"></i> Add provider</button>
+                <button class="save-button" type="submit" id="save-settings">Save settings</button>
+            </div>
+        </section>
+    </form>
+</main>
+
+<template id="empty-provider-template">
+    {% include "_provider_settings_fields.html" with form=provider_formset.empty_form %}
+</template>
+<script>
+    (() => {
+        const list = document.getElementById('provider-list');
+        const totalForms = document.getElementById('id_providers-TOTAL_FORMS');
+        const template = document.getElementById('empty-provider-template');
+
+        function bindCard(card) {
+            const nameInput = card.querySelector('input[name$="-name"]');
+            const title = card.querySelector('[data-provider-title]');
+            const deleteInput = card.querySelector('input[name$="-DELETE"]');
+            card.querySelector('[data-remove-provider]').addEventListener('click', () => {
+                deleteInput.value = 'on';
+                card.classList.add('is-removed');
+            });
+            nameInput.addEventListener('input', () => {
+                title.textContent = nameInput.value.trim() || 'New provider';
+            });
+        }
+
+        list.querySelectorAll('[data-provider-card]').forEach(bindCard);
+        document.getElementById('add-provider').addEventListener('click', () => {
+            const index = Number(totalForms.value);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = template.innerHTML.replaceAll('__prefix__', index).trim();
+            const card = wrapper.firstElementChild;
+            list.appendChild(card);
+            totalForms.value = index + 1;
+            bindCard(card);
+            card.querySelector('input[name$="-name"]').focus();
+        });
+
+        document.getElementById('settings-form').addEventListener('submit', () => {
+            const saveButton = document.getElementById('save-settings');
+            saveButton.disabled = true;
+            saveButton.textContent = 'Validating changes…';
+        });
+    })();
+</script>
+</body>
+</html>

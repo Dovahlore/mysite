@@ -1,0 +1,63 @@
+<article class="provider-card" data-provider-card>
+    {{ form.original_index }}
+    <input type="hidden" name="{{ form.DELETE.html_name }}" id="{{ form.DELETE.id_for_label }}" value="">
+    <div class="provider-card__header">
+        <div>
+            <span class="eyebrow">Provider</span>
+            <h2 data-provider-title>{{ form.name.value|default:"New provider" }}</h2>
+        </div>
+        <button class="remove-provider" type="button" data-remove-provider>
+            <i class="fas fa-trash-alt" aria-hidden="true"></i>
+            Remove
+        </button>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="field-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for hidden_error in form.original_index.errors %}
+        <div class="field-error">{{ hidden_error }}</div>
+    {% endfor %}
+
+    <div class="provider-grid">
+        <label class="field field--wide">
+            <span>{{ form.name.label }}</span>
+            {{ form.name }}
+            {% for error in form.name.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+        </label>
+
+        <label class="field field--wide">
+            <span>
+                {{ form.api_key.label }}
+                {% if form.key_is_configured %}<em class="configured-key">Key configured</em>{% endif %}
+            </span>
+            {{ form.api_key }}
+            <small class="field-hint">Keys are never sent back to the browser. Leave this blank to keep the saved key.</small>
+            {% for error in form.api_key.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+        </label>
+
+        <label class="field field--wide">
+            <span>{{ form.base_url.label }}</span>
+            {{ form.base_url }}
+            {% for error in form.base_url.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+        </label>
+
+        <label class="field">
+            <span>{{ form.timeout.label }}</span>
+            {{ form.timeout }}
+            {% for error in form.timeout.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+        </label>
+
+        <label class="field">
+            <span>{{ form.max_retries.label }}</span>
+            {{ form.max_retries }}
+            {% for error in form.max_retries.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+        </label>
+
+        <label class="enabled-toggle">
+            {{ form.enabled }}
+            <span class="toggle-track" aria-hidden="true"><span></span></span>
+            <span>Enabled</span>
+        </label>
+    </div>
+</article>
