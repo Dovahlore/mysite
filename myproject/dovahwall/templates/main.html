@@ -100,10 +100,11 @@
         .info-capsule {
             display: inline-flex;
             align-items: center;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(16px) saturate(150%);
+            -webkit-backdrop-filter: blur(16px) saturate(150%);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-top: 1px solid rgba(255, 255, 255, 0.30);
             padding: 8px 20px;
             border-radius: 30px;
             color: rgba(255, 255, 255, 0.85) !important;
@@ -139,7 +140,7 @@
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             border: 1px solid rgba(255, 255, 255, 0.12);
-            border-top: 1px solid rgba(255, 255, 255, 0.25); /* 顶部高光，增加立体感 */
+            border-top: 1px solid rgba(255, 255, 255, 0.30); /* 顶部高光，增加立体感 */
             border-radius: 50px;
             padding: 15px 30px;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -179,6 +180,59 @@
         }
         .service-item:hover .service-url {
             color: #89bfe1;
+        }
+
+        /* 工具墙：小卡片密排，auto-fill 适配更多小工具 */
+        .tools-label {
+            margin: 46px auto 0; width: 90%; max-width: 900px;
+            font-size: 0.72em; letter-spacing: 3px; color: rgba(255,255,255,.35);
+            font-family: 'Courier New', monospace; text-transform: uppercase;
+        }
+        .tools-board {
+            margin: 12px auto 0;
+            width: 90%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, 160px);
+            justify-content: center;
+            gap: 14px;
+        }
+        .tool-card {
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(18px) saturate(150%);
+            -webkit-backdrop-filter: blur(18px) saturate(150%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-top: 1px solid rgba(255, 255, 255, 0.30);
+            border-radius: 14px;
+            padding: 18px 10px 14px;
+            color: white !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .tool-card:hover {
+            background: rgba(137, 191, 225, 0.12);
+            transform: translateY(-4px) scale(1.03);
+            border-color: rgba(137, 191, 225, 0.5);
+            box-shadow: 0 12px 32px rgba(137, 191, 225, 0.25);
+        }
+        .tool-icon {
+            width: 40px; height: 40px; font-size: 20px;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: transform 0.3s ease, text-shadow 0.3s ease;
+        }
+        .tool-card:hover .tool-icon { transform: rotate(8deg) scale(1.12); text-shadow: 0 0 15px currentColor; }
+a.tool-card, a.tool-card:hover { text-decoration: none; }
+.tool-card .tool-name, .tool-card .tool-desc { text-decoration: underline; }
+        .tool-icon-img img { width: 26px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 8px rgba(212,169,78,.5)); }
+        .tool-name { margin-top: 10px; font-weight: 300; letter-spacing: 1px; font-size: 0.95em; }
+        .tool-desc {
+            margin-top: 4px; font-size: 0.7em; color: rgba(255,255,255,0.45);
+            font-family: 'Courier New', monospace;
+            max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
 
         /* =========================================
@@ -315,23 +369,33 @@
             <i class="fas fa-music" style="color: #ff4d4d; margin-right: 8px;"></i>
             网易云音乐
         </a>
+        <a href="https://github.com/Dovahlore" target="_blank" class="info-capsule">
+            <i class="fab fa-github" style="color: #89bfe1; margin-right: 8px;"></i>
+            GitHub
+        </a>
     </div>
 
-    <div class="service-list">
-        <a href="/s/agent" class="service-item">
-            <i class="fas fa-robot service-icon" style="color:#89bfe1;"></i>
-            <span class="service-name">Site Assistant</span>
-            <span class="service-url">query & manage</span>
+    <div class="tools-label">Tools Wall</div>
+    <div class="tools-board">
+        <a href="/s/agent" class="tool-card">
+            <span class="tool-icon" style="color:#89bfe1;"><i class="fas fa-robot" aria-hidden="true"></i></span>
+            <span class="tool-name">Site Assistant</span>
+            <span class="tool-desc">站内数据问答助手</span>
         </a>
-        <a href="http://deepseek.dovahwall.cn" class="service-item">
-            <i class="fas fa-brain service-icon" style="color:#4d90fe;"></i>
-            <span class="service-name">DeepSeek AI</span>
-            <span class="service-url">deepseek.dovahwall.cn</span>
+        <a href="/s/ime" class="tool-card">
+            <span class="tool-icon tool-icon-img"><img src="{% static 'ime/img/skyrim_logo_light.png' %}" alt="龙语输入法图标"></span>
+            <span class="tool-name">龙语输入法</span>
+            <span class="tool-desc">dovahzul ime · 中↔龙语</span>
         </a>
-        <a href="http://portainer.dovahwall.cn" class="service-item">
-            <i class="fab fa-docker service-icon" style="color:#2496ed;"></i>
-            <span class="service-name">Portainer Management</span>
-            <span class="service-url">portainer.dovahwall.cn</span>
+        <a href="http://deepseek.dovahwall.cn" class="tool-card">
+            <span class="tool-icon" style="color:#4d90fe;"><i class="fas fa-brain" aria-hidden="true"></i></span>
+            <span class="tool-name">DeepSeek AI</span>
+            <span class="tool-desc">deepseek.dovahwall.cn</span>
+        </a>
+        <a href="http://portainer.dovahwall.cn" class="tool-card">
+            <span class="tool-icon" style="color:#2496ed;"><i class="fab fa-docker" aria-hidden="true"></i></span>
+            <span class="tool-name">Portainer</span>
+            <span class="tool-desc">portainer.dovahwall.cn</span>
         </a>
     </div>
 

@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "dovahwall.apps.DovahwallConfig",
     "dovahbase.apps.DovahbaseConfig",
     "dovahride.apps.DovahrideConfig",
+    "dovime.apps.DovimeConfig",
 
 ]
 
