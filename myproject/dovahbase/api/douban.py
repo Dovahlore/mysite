@@ -35,7 +35,7 @@ def build_session():
 def fetch_with_sec(url):
     s = build_session()
 
-    r = s.get(url, allow_redirects=False, timeout=10)
+    r = s.get(url, allow_redirects=False, timeout=30)
 
     # ---- 没触发风控 ----
     if r.status_code == 200:
@@ -47,14 +47,14 @@ def fetch_with_sec(url):
         if not sec_url.startswith("http"):
             sec_url = "https://sec.douban.com" + sec_url
 
-        sec_page = s.get(sec_url, timeout=10)
+        sec_page = s.get(sec_url, timeout=30)
 
         # --- 替换解析 ---
         tok, cha, red = parse_sec_form(sec_page.text)
         sol = calc_sol(cha)
         payload = {"tok": tok, "cha": cha, "sol": sol, "red": red}
-        r2 = s.post("https://sec.douban.com/c", data=payload, timeout=10)
-        final = s.get(red, timeout=10)
+        r2 = s.post("https://sec.douban.com/c", data=payload, timeout=30)
+        final = s.get(red, timeout=30)
         return final.text
 
     raise Exception(f"unexpected status {r.status_code}")
@@ -183,7 +183,7 @@ def _run_douban_spider_uncached(keyword, cat="1002"):
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                               "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             },
-            timeout=15
+            timeout=30
         )
 
         if resp.status_code != 200:
@@ -293,10 +293,10 @@ def _run_douban_spider_uncached(keyword, cat="1002"):
 
 
 def run_douban_spider(keyword, cat="1002"):
-    """Cache costly Douban and model lookups by normalized search input."""
+    """Cache successful Douban and model lookups by normalized search input."""
     normalized = " ".join(str(keyword).strip().lower().split())
     digest = hashlib.sha256(f"{cat}:{normalized}".encode("utf-8")).hexdigest()
-    cache_key = f"douban:lookup:v2:{digest}"
+    cache_key = f"douban:lookup:v3:{digest}"
 
     cached = cache.get(cache_key)
     if cached is not None:
@@ -304,13 +304,16 @@ def run_douban_spider(keyword, cat="1002"):
 
     result = _run_douban_spider_uncached(keyword, cat)
     title_split_used_fallback = result.pop("_title_split_used_fallback", False)
-    # Successful metadata is stable. Briefly cache failures so temporary
-    # upstream/model errors do not linger while repeated clicks are absorbed.
-    # In particular, do not keep the local title fallback for 12 hours after a
-    # transient model outage: retry the model on a later click instead.
+
+    if not result.get("success"):
+        return result
+
+    # Successful metadata is stable. Briefly cache successful results that used
+    # the local title fallback so a later click can retry the model after a
+    # transient outage.
     timeout = (
         12 * 60 * 60
-        if result.get("success") and not title_split_used_fallback
+        if not title_split_used_fallback
         else 3 * 60
     )
     cache.set(cache_key, result, timeout=timeout)

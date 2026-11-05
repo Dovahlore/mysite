@@ -73,7 +73,18 @@ class DoubanTitleSplitTests(SimpleTestCase):
 
         self.assertNotIn("_title_split_used_fallback", result)
         self.assertEqual(title_cache.set.call_args.kwargs["timeout"], 3 * 60)
-        self.assertIn("douban:lookup:v2:", title_cache.set.call_args.args[0])
+        self.assertIn("douban:lookup:v3:", title_cache.set.call_args.args[0])
+
+    @patch("dovahbase.api.douban.cache")
+    @patch("dovahbase.api.douban._run_douban_spider_uncached")
+    def test_failed_lookup_is_not_cached(self, spider, title_cache):
+        title_cache.get.return_value = None
+        spider.return_value = {"success": False, "error": "搜索页面返回状态 403"}
+
+        result = run_douban_spider("Léon")
+
+        self.assertFalse(result["success"])
+        title_cache.set.assert_not_called()
 
     @patch("dovahbase.api.douban.fast_model_providers")
     @patch("openai.OpenAI")

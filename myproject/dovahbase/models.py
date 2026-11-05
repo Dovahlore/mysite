@@ -40,18 +40,25 @@ def validate_year(value):
             ('年份必须在1800到2100之间'),
             code='invalid_year'
         )
+class EpisodeType(models.TextChoices):
+    ANIME = '动画番剧', '动画番剧'
+    CHINESE_DRAMA = '国产剧', '国产剧'
+    JAPANESE_KOREAN_DRAMA = '日韩剧', '日韩剧'
+    WESTERN_DRAMA = '欧美剧集', '欧美剧集'
+    DOCUMENTARY = '纪录片', '纪录片'
+    OTHER = '其他', '其他'
+
+
 class episode(models.Model):
     title=models.CharField(max_length=50, verbose_name="中文标题")
     org_title = models.CharField(max_length=80, verbose_name="原始标题")
     alternate_titles = models.CharField(max_length=100, blank=True, verbose_name="译名/其它译名", default="", null=True)
-    TYPE_CHOICES = [
-        ('动画番剧', '动画番剧'),
-        ('国产剧', '国产剧'),
-        ('欧美剧集', '欧美剧集'),
-        ('纪录片', '纪录片'),
-        ('其他', '其他')
-    ]
-    type = models.CharField(max_length=4, choices=TYPE_CHOICES, default='动画番剧', verbose_name="剧集类型")
+    type = models.CharField(
+        max_length=4,
+        choices=EpisodeType.choices,
+        default=EpisodeType.ANIME,
+        verbose_name="剧集类型",
+    )
     pic = models.ImageField(upload_to='Base/episode/pic', blank=True, null=True,verbose_name="封面")
     finish = models.BooleanField(default=False, verbose_name="完成观看")
     review = models.TextField(verbose_name="我的想法", blank=True, null=True)
