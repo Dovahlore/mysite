@@ -587,22 +587,59 @@
   // ==== DOV_QUIZ:BEGIN (pure, node 可测) ====
   window.DOV_QUIZ = (function () {
     'use strict';
-    // 句子题库：人工编写（龙语词均可在词库查到，中文为规范译法）
+    // 句子题库：人工编写（龙语词均可在词库查到，中文为规范译法）；另有 buildGenSentences 用词库动态扩展
     const SENTENCES = [
       ["Zu'u los dovahkiin.", '我是龙裔。'],
       ['Los hi dovahkiin?', '你是龙裔吗？'],
-      ['Dovah los sahrot.', '龙是强大的。'],
+      ['Rok los dovahkiin.', '他是龙裔。'],
+      ['Los rok dovahkiin?', '他是龙裔吗？'],
+      ['Geh, rok los dovahkiin.', '是的，他是龙裔。'],
       ["Zu'u los dovah.", '我是一条龙。'],
+      ['Hi los dii zeymah.', '你是我的兄弟。'],
+      ['Rok los dii zeymah.', '他是我的兄弟。'],
+      ['Hi los dii kiim.', '你是我的妻子。'],
+      ['Wo los hin bormah?', '谁是你的父亲？'],
+      ['Wo los hin monah?', '谁是你的母亲？'],
+      ['Bormah los pruzah.', '父亲是好的。'],
+      ['Monah los pruzah.', '母亲是好的。'],
+      ['Dovah los sahrot.', '龙是强大的。'],
       ['Krein los sahrot.', '太阳是强大的。'],
+      ["Su'um los sahrot.", '气息是强大的。'],
+      ["Thu'um los sahrot.", '龙吼是强大的。'],
+      ['Jun los sahrot.', '王是强大的。'],
+      ['Thur los sahrot.', '霸主是强大的。'],
+      ['Vokun los sahrot.', '暗影是强大的。'],
+      ['Mu los kril.', '我们是勇敢的。'],
+      ['Nust los kril.', '他们是勇敢的。'],
+      ['Grohiik los kril.', '狼是勇敢的。'],
+      ["Zu'u los sahlo.", '我是弱小的。'],
+      ['Los hi sahlo?', '你弱小吗？'],
+      ['Laas los pruzah.', '生命是好的。'],
       ['Yol ahrk iiz.', '火与冰。'],
       ['Vulon ahrk krein.', '夜与日。'],
-      ['Drem yol lok.', '你好（字面：和平·火·天空）。'],
-      ['Mu los kril.', '我们是勇敢的。'],
+      ['Dovah ahrk dovahkiin.', '龙与龙裔。'],
+      ['Bormah ahrk monah.', '父与母。'],
+      ['Wo los hin zeymah?', '谁是你的兄弟？'],
+      ["Su'um ahrk morah.", '气息与智慧。', '灰胡子修行语'],
+      ['Geh ahrk nid.', '是与非。'],
+      ['Drem yol lok.', '你好。', '字面：和平·火·天空'],
+      ['Zeymah, drem yol lok.', '兄弟，你好。'],
+      ['Nox, zeymah.', '谢谢你，兄弟。'],
+      ['Ful nii los.', '就是这样。'],
+      ['Rinik pruzah.', '很好。'],
       ["Zu'u dreh ni mindok.", '我不知道。'],
-      ['Wo los hin bormah?', '谁是你的父亲？'],
-      ['Hi los dii zeymah.', '你是我的兄弟。'],
-      ["Su'um ahrk morah.", '气息与智慧（灰胡子修行语）。'],
-      ['Zeymah, drem yol lok.', '兄弟，你好。']
+      ["Krosis, zu'u ni mindok.", '抱歉，我不知道。'],
+      ["Nid, zu'u ni drey tinvaak.", '不，我没有说话。'],
+      ["Zu'u koraav dovah.", '我看见龙。'],
+      ["Zu'u fen koraav dovah.", '我将看见龙。'],
+      ["Zu'u koraav vokun.", '我看见暗影。'],
+      ["Zu'u lost mindok.", '我已经知道了。'],
+      ['Hi lost mindok?', '你已经知道了吗？'],
+      ["Zu'u drey naak.", '我吃过东西了。'],
+      ['Mu drey naak.', '我们吃过东西了。'],
+      ['Mu drey kren.', '我们战斗过。'],
+      ['Dovah drey bo.', '龙曾到来。'],
+      ['Vulon los dii.', '夜是我的。']
     ];
     function shuffle(arr, rnd) {
       const a = arr.slice();
@@ -621,7 +658,7 @@
       return out;
     }
     function buildBasicPool(alphabet) {
-      return (alphabet || []).map(a => ({ name: a[0], key: a[1], digraph: /[0-9]/.test(a[1]) }));
+      return (alphabet || []).map(a => ({ name: a[0], key: a[1], hint: a[2], digraph: /[0-9]/.test(a[1]) }));
     }
     function buildWordPool(lexCount, lexGet, zhFor) {
       const POS = { noun: 1, verb: 1, adjective: 1 };
@@ -635,6 +672,55 @@
       }
       return pool;
     }
+    // 用词库动态生成简单句（六种模板：名+形 / 名与名 / 我看见 / 你看见 / 我们看见 / 否定句），中文由词义拼装
+    function buildGenSentences(wordPool, n, rnd) {
+      const R = rnd || Math.random;
+      const nouns = wordPool.filter(w => w.pos === 'noun');
+      const adjs = wordPool.filter(w => w.pos === 'adjective');
+      const out = [];
+      const used = new Set();
+      let guard = 0;
+      const want = n || 200;
+      while (out.length < want && guard++ < want * 30) {
+        let dov = null, zh = null;
+        const t = R();
+        if (t < 0.30 && nouns.length && adjs.length) {
+          const nn = nouns[Math.floor(R() * nouns.length)];
+          const aa = adjs[Math.floor(R() * adjs.length)];
+          if (nn.dov === aa.dov) continue;
+          dov = nn.dov + ' los ' + aa.dov + '.';
+          zh = nn.zh + '是' + aa.zh + '的。';
+        } else if (t < 0.44 && nouns.length && adjs.length) {
+          const nn = nouns[Math.floor(R() * nouns.length)];
+          const aa = adjs[Math.floor(R() * adjs.length)];
+          if (nn.dov === aa.dov) continue;
+          dov = nn.dov + ' ni los ' + aa.dov + '.';
+          zh = nn.zh + '不是' + aa.zh + '的。';
+        } else if (t < 0.64 && nouns.length >= 2) {
+          const n1 = nouns[Math.floor(R() * nouns.length)];
+          const n2 = nouns[Math.floor(R() * nouns.length)];
+          if (n1.dov === n2.dov || n1.zh === n2.zh) continue;
+          dov = n1.dov + ' ahrk ' + n2.dov + '.';
+          zh = n1.zh + '与' + n2.zh + '。';
+        } else if (t < 0.76 && nouns.length) {
+          const nn = nouns[Math.floor(R() * nouns.length)];
+          dov = "Zu'u koraav " + nn.dov + '.';
+          zh = '我看见' + nn.zh + '。';
+        } else if (t < 0.88 && nouns.length) {
+          const nn = nouns[Math.floor(R() * nouns.length)];
+          dov = 'Hi koraav ' + nn.dov + '.';
+          zh = '你看见' + nn.zh + '。';
+        } else if (nouns.length) {
+          const nn = nouns[Math.floor(R() * nouns.length)];
+          dov = 'Mu koraav ' + nn.dov + '.';
+          zh = '我们看见' + nn.zh + '。';
+        } else continue;
+        if (used.has(dov) || used.has(zh)) continue;
+        used.add(dov); used.add(zh);
+        out.push([dov, zh]);
+      }
+      return out;
+    }
     function makeQuestion(tier, deps, rnd) {
       const R = rnd || Math.random;
       if (tier === 'basic') {
@@ -646,10 +732,10 @@
         if (dis.length < 3) return null;
         if (R() < 0.5) {
           const opts = shuffle([{ label: item.key, display: 'rune' }].concat(dis.map(d => ({ label: d.key, display: 'rune' }))), R);
-          return { tier: tier, kind: 'l2r', prompt: { text: item.name, sub: '对应的符文是？' }, options: opts, answer: opts.findIndex(o => o.label === item.key) };
+          return { tier: tier, kind: 'l2r', key: 'alpha|' + item.name, explain: item.name + ' = 键位 ' + item.key + (item.hint ? ' · ' + item.hint : ''), prompt: { text: item.name, sub: '对应的符文是？' }, options: opts, answer: opts.findIndex(o => o.label === item.key) };
         }
         const opts = shuffle([{ label: item.name, display: 'text' }].concat(dis.map(d => ({ label: d.name, display: 'text' }))), R);
-        return { tier: tier, kind: 'r2l', prompt: { rune: item.key, sub: '这个符文是？' }, options: opts, answer: opts.findIndex(o => o.label === item.name) };
+        return { tier: tier, kind: 'r2l', key: 'alpha|' + item.name, explain: item.name + ' = 键位 ' + item.key + (item.hint ? ' · ' + item.hint : ''), prompt: { rune: item.key, sub: '这个符文是？' }, options: opts, answer: opts.findIndex(o => o.label === item.name) };
       }
       if (tier === 'word') {
         if (R() < 0.22 && deps.shouts && deps.shouts.length >= 4) {
@@ -657,21 +743,24 @@
           const dis = pickDistractors(deps.shouts.filter(x => x.n !== s.n), s.cn, c => c.cn, 3, R);
           if (dis.length >= 3) {
             const opts = shuffle([{ label: s.cn, display: 'text' }].concat(dis.map(d => ({ label: d.cn, display: 'text' }))), R);
-            return { tier: tier, kind: 'shout', prompt: { rune: s.w.map(w => deps.toRuneKeys(w[0])).join(' '), text: s.w.map(w => w[0]).join(' '), sub: '这条龙吼是？' }, options: opts, answer: opts.findIndex(o => o.label === s.cn) };
+            return { tier: tier, kind: 'shout', key: 'shout|' + s.n, explain: s.n + '：' + s.w.map(x => x[0] + '=' + x[1]).join(' · '), prompt: { rune: s.w.map(w => deps.toRuneKeys(w[0])).join(' '), text: s.w.map(w => w[0]).join(' '), sub: '这条龙吼是？' }, options: opts, answer: opts.findIndex(o => o.label === s.cn) };
           }
         }
         const p = deps.wordPool;
         if (p.length < 8) return null;
         const w = p[Math.floor(R() * p.length)];
-        const cand = p.filter(x => x.pos === w.pos);
+        // 干扰项过滤：排除中文近义（包含关系）与英文释义相同的词，避免「两个选项都像对的」
+        const cand = p.filter(x => x.pos === w.pos
+          && x.zh !== w.zh && !x.zh.includes(w.zh) && !w.zh.includes(x.zh)
+          && x.gloss.toLowerCase() !== w.gloss.toLowerCase());
         const dis = pickDistractors(cand, w.zh, c => c.zh, 3, R);
         if (dis.length < 3) return null;
         if (R() < 0.5) {
           const opts = shuffle([{ label: w.zh, display: 'text' }].concat(dis.map(d => ({ label: d.zh, display: 'text' }))), R);
-          return { tier: tier, kind: 'w2z', prompt: { rune: deps.toRuneKeys(w.dov), text: w.dov, sub: '这个词的意思是？' }, options: opts, answer: opts.findIndex(o => o.label === w.zh) };
+          return { tier: tier, kind: 'w2z', key: 'word|' + w.dov, explain: w.dov + ' — ' + w.gloss + '（' + w.zh + '）', prompt: { rune: deps.toRuneKeys(w.dov), text: w.dov, sub: '这个词的意思是？' }, options: opts, answer: opts.findIndex(o => o.label === w.zh) };
         }
         const opts = shuffle([{ label: w.dov, display: 'dov' }].concat(dis.map(d => ({ label: d.dov, display: 'dov' }))), R);
-        return { tier: tier, kind: 'z2w', prompt: { text: w.zh, sub: '表示这个意思的龙语词是？' }, options: opts, answer: opts.findIndex(o => o.label === w.dov) };
+        return { tier: tier, kind: 'z2w', key: 'word|' + w.dov, explain: w.dov + ' — ' + w.gloss + '（' + w.zh + '）', prompt: { text: w.zh, sub: '表示这个意思的龙语词是？（英文提示：' + w.gloss.split(/[,;]/)[0].trim() + '）' }, options: opts, answer: opts.findIndex(o => o.label === w.dov) };
       }
       if (tier === 'sent') {
         const bank = deps.sentences;
@@ -681,16 +770,16 @@
           const dis = pickDistractors(bank.filter(x => x !== s), s[1], c => c[1], 3, R);
           if (dis.length < 3) return null;
           const opts = shuffle([{ label: s[1], display: 'text' }].concat(dis.map(d => ({ label: d[1], display: 'text' }))), R);
-          return { tier: tier, kind: 's2z', prompt: { rune: deps.toRuneKeys(s[0]), text: s[0], sub: '这句龙语的含义是？' }, options: opts, answer: opts.findIndex(o => o.label === s[1]) };
+          return { tier: tier, kind: 's2z', key: 'sent|' + s[0], explain: s[0] + ' — ' + s[1] + (s[2] ? '（注：' + s[2] + '）' : ''), prompt: { rune: deps.toRuneKeys(s[0]), text: s[0], sub: '这句龙语的含义是？' }, options: opts, answer: opts.findIndex(o => o.label === s[1]) };
         }
         const dis = pickDistractors(bank.filter(x => x !== s), s[0], c => c[0], 3, R);
         if (dis.length < 3) return null;
         const opts = shuffle([{ label: s[0], display: 'dov' }].concat(dis.map(d => ({ label: d[0], display: 'dov' }))), R);
-        return { tier: tier, kind: 'z2s', prompt: { text: s[1], sub: '表示这个意思的龙语句是？' }, options: opts, answer: opts.findIndex(o => o.label === s[0]) };
+        return { tier: tier, kind: 'z2s', key: 'sent|' + s[0], explain: s[0] + ' — ' + s[1] + (s[2] ? '（注：' + s[2] + '）' : ''), prompt: { text: s[1], sub: '表示这个意思的龙语句是？' }, options: opts, answer: opts.findIndex(o => o.label === s[0]) };
       }
       return null;
     }
-    return { SENTENCES: SENTENCES, buildBasicPool: buildBasicPool, buildWordPool: buildWordPool, makeQuestion: makeQuestion };
+    return { SENTENCES: SENTENCES, buildBasicPool: buildBasicPool, buildWordPool: buildWordPool, buildGenSentences: buildGenSentences, makeQuestion: makeQuestion };
   })();
   // ==== DOV_QUIZ:END ====
 
@@ -703,7 +792,7 @@
       alphabet: window.DOV_QUIZ.buildBasicPool(window.DOV_ALPHABET),
       wordPool: window.DOV_QUIZ.buildWordPool(E.lexCount(), E.lexGet, zhSensesFor),
       shouts: window.DOV_SHOUTS.filter(s => s.src !== 'npc'),
-      sentences: window.DOV_QUIZ.SENTENCES,
+      sentences: window.DOV_QUIZ.SENTENCES.concat(window.DOV_QUIZ.buildGenSentences(window.DOV_QUIZ.buildWordPool(E.lexCount(), E.lexGet, zhSensesFor), 800)),
       toRuneKeys: C.toRuneKeys
     };
     const tierBtns = $$('#quiz-tier button');
@@ -741,7 +830,7 @@
       while (qs.length < 10 && guard++ < 200) {
         const q = window.DOV_QUIZ.makeQuestion(tier, deps);
         if (!q) continue;
-        const sig = q.kind + '|' + (q.prompt.rune || '') + '|' + (q.prompt.text || '');
+        const sig = q.key || (q.kind + '|' + (q.prompt.rune || '') + '|' + (q.prompt.text || ''));
         if (seen.has(sig)) continue;
         seen.add(sig);
         qs.push(q);
@@ -779,6 +868,12 @@
         btn.classList.add('is-wrong');
         btns[q.answer].classList.add('is-right');
         round.streak = 0;
+      }
+      if (q.explain) {
+        const ex = document.createElement('div');
+        ex.className = 'quiz-explain';
+        ex.textContent = (right ? '✓ ' : '正确答案：') + q.explain;
+        stage.querySelector('.quiz-opts').insertAdjacentElement('afterend', ex);
       }
       setTimeout(() => {
         round.i++;

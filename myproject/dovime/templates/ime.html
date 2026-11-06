@@ -306,6 +306,7 @@
   .quiz-sum { text-align: center; padding: 28px 0 10px; }
   .quiz-sum .score { font-family: var(--font-display); font-size: 44px; color: var(--accent); }
   .quiz-sum p { color: var(--muted); margin: 6px 0 16px; }
+  .quiz-explain { text-align: center; font-size: 13.5px; color: var(--fg); opacity: .85; margin-top: 16px; min-height: 20px; overflow-wrap: anywhere; }
 
   footer { border-top: 1px solid var(--border); position: relative; z-index: 1; }
   .foot-in { max-width: 1120px; margin: 0 auto; padding: 18px 32px 30px; font-size: 12px; color: var(--muted); }
@@ -571,7 +572,7 @@
 <script src="{% static 'ime/js/ref.js' %}?v=1"></script>
 <script src="{% static 'ime/js/core.js' %}?v=1"></script>
 <script>window.DOV_AI_ENDPOINT = "{% url 'dovime_ai' %}";</script>
-<script src="{% static 'ime/js/app.js' %}?v=3"></script>
+<script src="{% static 'ime/js/app.js' %}?v=4"></script>
 <script>
 /* ── 站点继承特效：自定义光标 + 星火背景（与主页 main.html 同款逻辑，龙金暖色） ── */
 (function () {
