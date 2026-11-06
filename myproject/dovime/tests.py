@@ -60,6 +60,8 @@ class PageTests(SimpleTestCase):
         self.assertNotContains(response, 'id="kbd-buttons"')  # 旧三块已移除
         self.assertNotContains(response, 'id="latin-in"')
         self.assertNotContains(response, 'id="alpha-grid"')
+        self.assertContains(response, 'data-panel="quiz"')   # 学习 tab
+        self.assertContains(response, 'id="quiz-stage"')
 
     def test_static_assets_exist(self):
         for rel in (

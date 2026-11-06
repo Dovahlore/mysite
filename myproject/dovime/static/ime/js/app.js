@@ -583,6 +583,227 @@
     render();
   })();
 
+  // ---------- 学习面板：三档小测（纯出题逻辑，node 可测） ----------
+  // ==== DOV_QUIZ:BEGIN (pure, node 可测) ====
+  window.DOV_QUIZ = (function () {
+    'use strict';
+    // 句子题库：人工编写（龙语词均可在词库查到，中文为规范译法）
+    const SENTENCES = [
+      ["Zu'u los dovahkiin.", '我是龙裔。'],
+      ['Los hi dovahkiin?', '你是龙裔吗？'],
+      ['Dovah los sahrot.', '龙是强大的。'],
+      ["Zu'u los dovah.", '我是一条龙。'],
+      ['Krein los sahrot.', '太阳是强大的。'],
+      ['Yol ahrk iiz.', '火与冰。'],
+      ['Vulon ahrk krein.', '夜与日。'],
+      ['Drem yol lok.', '你好（字面：和平·火·天空）。'],
+      ['Mu los kril.', '我们是勇敢的。'],
+      ["Zu'u dreh ni mindok.", '我不知道。'],
+      ['Wo los hin bormah?', '谁是你的父亲？'],
+      ['Hi los dii zeymah.', '你是我的兄弟。'],
+      ["Su'um ahrk morah.", '气息与智慧（灰胡子修行语）。'],
+      ['Zeymah, drem yol lok.', '兄弟，你好。']
+    ];
+    function shuffle(arr, rnd) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) { const j = Math.floor((rnd ? rnd() : Math.random()) * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+      return a;
+    }
+    function pickDistractors(all, correctVal, labelOf, n, rnd) {
+      const seen = new Set([correctVal]);
+      const out = [];
+      for (const c of shuffle(all, rnd)) {
+        if (out.length >= n) break;
+        const lb = labelOf(c);
+        if (seen.has(lb)) continue;
+        seen.add(lb); out.push(c);
+      }
+      return out;
+    }
+    function buildBasicPool(alphabet) {
+      return (alphabet || []).map(a => ({ name: a[0], key: a[1], digraph: /[0-9]/.test(a[1]) }));
+    }
+    function buildWordPool(lexCount, lexGet, zhFor) {
+      const POS = { noun: 1, verb: 1, adjective: 1 };
+      const pool = [];
+      for (let i = 0; i < lexCount; i++) {
+        const e = lexGet(i);
+        if (e[2] !== 2 || !POS[e[3]]) continue;
+        const zh = zhFor(e[1]);
+        if (!zh) continue;
+        pool.push({ dov: e[0], gloss: e[1].split(';')[0].trim(), zh: zh.split(' · ')[0], pos: e[3] });
+      }
+      return pool;
+    }
+    function makeQuestion(tier, deps, rnd) {
+      const R = rnd || Math.random;
+      if (tier === 'basic') {
+        const p = deps.alphabet;
+        if (!p.length) return null;
+        const item = p[Math.floor(R() * p.length)];
+        const cat = p.filter(x => x.digraph === item.digraph && x.name !== item.name);
+        const dis = pickDistractors(cat, item.name, c => c.name, 3, R);
+        if (dis.length < 3) return null;
+        if (R() < 0.5) {
+          const opts = shuffle([{ label: item.key, display: 'rune' }].concat(dis.map(d => ({ label: d.key, display: 'rune' }))), R);
+          return { tier: tier, kind: 'l2r', prompt: { text: item.name, sub: '对应的符文是？' }, options: opts, answer: opts.findIndex(o => o.label === item.key) };
+        }
+        const opts = shuffle([{ label: item.name, display: 'text' }].concat(dis.map(d => ({ label: d.name, display: 'text' }))), R);
+        return { tier: tier, kind: 'r2l', prompt: { rune: item.key, sub: '这个符文是？' }, options: opts, answer: opts.findIndex(o => o.label === item.name) };
+      }
+      if (tier === 'word') {
+        if (R() < 0.22 && deps.shouts && deps.shouts.length >= 4) {
+          const s = deps.shouts[Math.floor(R() * deps.shouts.length)];
+          const dis = pickDistractors(deps.shouts.filter(x => x.n !== s.n), s.cn, c => c.cn, 3, R);
+          if (dis.length >= 3) {
+            const opts = shuffle([{ label: s.cn, display: 'text' }].concat(dis.map(d => ({ label: d.cn, display: 'text' }))), R);
+            return { tier: tier, kind: 'shout', prompt: { rune: s.w.map(w => deps.toRuneKeys(w[0])).join(' '), text: s.w.map(w => w[0]).join(' '), sub: '这条龙吼是？' }, options: opts, answer: opts.findIndex(o => o.label === s.cn) };
+          }
+        }
+        const p = deps.wordPool;
+        if (p.length < 8) return null;
+        const w = p[Math.floor(R() * p.length)];
+        const cand = p.filter(x => x.pos === w.pos);
+        const dis = pickDistractors(cand, w.zh, c => c.zh, 3, R);
+        if (dis.length < 3) return null;
+        if (R() < 0.5) {
+          const opts = shuffle([{ label: w.zh, display: 'text' }].concat(dis.map(d => ({ label: d.zh, display: 'text' }))), R);
+          return { tier: tier, kind: 'w2z', prompt: { rune: deps.toRuneKeys(w.dov), text: w.dov, sub: '这个词的意思是？' }, options: opts, answer: opts.findIndex(o => o.label === w.zh) };
+        }
+        const opts = shuffle([{ label: w.dov, display: 'dov' }].concat(dis.map(d => ({ label: d.dov, display: 'dov' }))), R);
+        return { tier: tier, kind: 'z2w', prompt: { text: w.zh, sub: '表示这个意思的龙语词是？' }, options: opts, answer: opts.findIndex(o => o.label === w.dov) };
+      }
+      if (tier === 'sent') {
+        const bank = deps.sentences;
+        if (bank.length < 4) return null;
+        const s = bank[Math.floor(R() * bank.length)];
+        if (R() < 0.5) {
+          const dis = pickDistractors(bank.filter(x => x !== s), s[1], c => c[1], 3, R);
+          if (dis.length < 3) return null;
+          const opts = shuffle([{ label: s[1], display: 'text' }].concat(dis.map(d => ({ label: d[1], display: 'text' }))), R);
+          return { tier: tier, kind: 's2z', prompt: { rune: deps.toRuneKeys(s[0]), text: s[0], sub: '这句龙语的含义是？' }, options: opts, answer: opts.findIndex(o => o.label === s[1]) };
+        }
+        const dis = pickDistractors(bank.filter(x => x !== s), s[0], c => c[0], 3, R);
+        if (dis.length < 3) return null;
+        const opts = shuffle([{ label: s[0], display: 'dov' }].concat(dis.map(d => ({ label: d[0], display: 'dov' }))), R);
+        return { tier: tier, kind: 'z2s', prompt: { text: s[1], sub: '表示这个意思的龙语句是？' }, options: opts, answer: opts.findIndex(o => o.label === s[0]) };
+      }
+      return null;
+    }
+    return { SENTENCES: SENTENCES, buildBasicPool: buildBasicPool, buildWordPool: buildWordPool, makeQuestion: makeQuestion };
+  })();
+  // ==== DOV_QUIZ:END ====
+
+  // ---------- 学习面板：闯关 DOM（无任何系统弹窗，全部页内反馈） ----------
+  (function initQuizPanel() {
+    const stage = $('#quiz-stage');
+    if (!stage) return;
+    const BEST_KEY = 'dovime_quiz_best_v1';
+    const deps = {
+      alphabet: window.DOV_QUIZ.buildBasicPool(window.DOV_ALPHABET),
+      wordPool: window.DOV_QUIZ.buildWordPool(E.lexCount(), E.lexGet, zhSensesFor),
+      shouts: window.DOV_SHOUTS.filter(s => s.src !== 'npc'),
+      sentences: window.DOV_QUIZ.SENTENCES,
+      toRuneKeys: C.toRuneKeys
+    };
+    const tierBtns = $$('#quiz-tier button');
+    let tier = 'basic';
+    let best = {};
+    try { best = JSON.parse(localStorage.getItem(BEST_KEY)) || {}; } catch (e) {}
+    let round = null, lock = false;
+    tierBtns.forEach(b => b.addEventListener('click', () => {
+      tierBtns.forEach(x => x.setAttribute('aria-pressed', x === b));
+      tier = b.getAttribute('data-t');
+      round = null;
+      showStart();
+    }));
+    function tierName(t) { return { basic: '基础 · 字母', word: '词组 · 词义', sent: '句子 · 翻译' }[t] || t; }
+    function optHtml(o) {
+      if (o.display === 'rune') return '<span class="rune" aria-hidden="true">' + esc(o.label) + '</span>';
+      if (o.display === 'dov') return '<span class="rune" aria-hidden="true">' + esc(C.toRuneKeys(o.label)) + '</span><span class="opt-sub">' + esc(o.label) + '</span>';
+      return '<span>' + esc(o.label) + '</span>';
+    }
+    function showStart() {
+      lock = false;
+      $('#quiz-best').textContent = best[tier] != null ? '本档最佳 ' + best[tier] + '/10' : '还没有本档纪录';
+      stage.innerHTML =
+        '<div class="quiz-sum" style="padding-top:34px">' +
+        '<div class="rune" style="font-size:44px;color:var(--accent)">DR2M YOL LOK</div>' +
+        '<p>每组 10 题；答错当场亮出正确答案。三档难度随时切换，成绩只存在本浏览器。</p>' +
+        '<div class="copy-row" style="justify-content:center"><button class="btn" id="quiz-go">开始答题</button></div>' +
+        '</div>';
+      $('#quiz-go').addEventListener('click', startRound);
+    }
+    function startRound() {
+      const qs = [];
+      const seen = new Set();
+      let guard = 0;
+      while (qs.length < 10 && guard++ < 200) {
+        const q = window.DOV_QUIZ.makeQuestion(tier, deps);
+        if (!q) continue;
+        const sig = q.kind + '|' + (q.prompt.rune || '') + '|' + (q.prompt.text || '');
+        if (seen.has(sig)) continue;
+        seen.add(sig);
+        qs.push(q);
+      }
+      if (qs.length < 10) { toast('这个难度题量不足，换一档试试'); return; }
+      round = { qs: qs, i: 0, ok: 0, streak: 0, maxStreak: 0 };
+      showQuestion();
+    }
+    function showQuestion() {
+      lock = false;
+      const q = round.qs[round.i];
+      const promptHtml =
+        (q.prompt.rune ? '<div class="big-rune rune">' + esc(q.prompt.rune) + '</div>' : '') +
+        (q.prompt.text ? '<div class="big-text">' + esc(q.prompt.text) + '</div>' : '') +
+        (q.prompt.sub ? '<div class="sub">' + esc(q.prompt.sub) + '</div>' : '');
+      stage.innerHTML =
+        '<div class="quiz-meta"><span>第 ' + (round.i + 1) + '/10 题 · ' + tierName(tier) + '</span><span>连对 ' + round.streak + (round.streak >= 3 ? ' 🔥' : '') + '</span></div>' +
+        '<div class="quiz-bar"><i style="width:' + (round.i * 10) + '%"></i></div>' +
+        '<div class="quiz-prompt">' + promptHtml + '</div>' +
+        '<div class="quiz-opts">' + q.options.map((o, i) => '<button class="quiz-opt" type="button" data-i="' + i + '">' + optHtml(o) + '</button>').join('') + '</div>';
+      stage.querySelectorAll('.quiz-opt').forEach(b => b.addEventListener('click', () => answer(+b.getAttribute('data-i'), b)));
+    }
+    function answer(i, btn) {
+      if (lock || !round) return;
+      lock = true;
+      const q = round.qs[round.i];
+      const right = i === q.answer;
+      const btns = stage.querySelectorAll('.quiz-opt');
+      btns.forEach(b => { b.disabled = true; });
+      if (right) {
+        btn.classList.add('is-right');
+        round.ok++; round.streak++;
+        round.maxStreak = Math.max(round.maxStreak, round.streak);
+      } else {
+        btn.classList.add('is-wrong');
+        btns[q.answer].classList.add('is-right');
+        round.streak = 0;
+      }
+      setTimeout(() => {
+        round.i++;
+        if (round.i >= round.qs.length) showSummary();
+        else showQuestion();
+      }, right ? 850 : 1600);
+    }
+    function showSummary() {
+      const isNewBest = best[tier] == null || round.ok > best[tier];
+      if (isNewBest) { best[tier] = round.ok; try { localStorage.setItem(BEST_KEY, JSON.stringify(best)); } catch (e) {} }
+      $('#quiz-best').textContent = '本档最佳 ' + best[tier] + '/10';
+      stage.innerHTML =
+        '<div class="quiz-sum">' +
+        '<div class="score">' + round.ok + '/10</div>' +
+        '<p>' + (round.ok === 10 ? '满分！Dovahkiin 名不虚传。' : round.ok >= 7 ? 'Pruzah！相当不错。' : '多刷几组，词墙刻得更快。') + '最高连对 ' + round.maxStreak + (isNewBest ? ' · 新纪录' : '') + '</p>' +
+        '<div class="copy-row" style="justify-content:center">' +
+        '<button class="btn" id="quiz-again">再来一组</button>' +
+        '<button class="btn" id="quiz-back">返回</button>' +
+        '</div></div>';
+      $('#quiz-again').addEventListener('click', startRound);
+      $('#quiz-back').addEventListener('click', showStart);
+    }
+    showStart();
+  })();
+
   // ---------- 启动 ----------
   setDir('fwd');
   renderDict();
