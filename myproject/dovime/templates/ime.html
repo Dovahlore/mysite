@@ -42,7 +42,7 @@
   h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
 
   /* ── 站点继承：自定义光标（Dovahlore 全站同款，龙金配色） ── */
-  body, a, button, input, textarea, label, summary, .tk, .ex-chip, .cand, .kbd-key, .seg button {
+  body, a, button, input, textarea, label, summary, .tk, .ex-chip, .cand, .tw-key, .seg button {
     cursor: none !important;
   }
   .cursor-dot {
@@ -257,27 +257,27 @@
   .phrase-row { display: flex; gap: 14px; padding: 8px 0; border-top: 1px solid var(--border); align-items: baseline; flex-wrap: wrap; }
   .phrase-row b { font-family: var(--font-mono); font-size: 13.5px; letter-spacing: .03em; }
 
-  /* ── 符文 ── */
-  .alpha-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; margin: 14px 0 30px; }
-  .alpha { border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; background: var(--surface); display: flex; flex-direction: column; gap: 2px; }
-  .alpha-rune { font-size: 26px; }
-  .alpha b { letter-spacing: .06em; }
-  .alpha-key { font-size: 11px; }
-  .alpha-tip { font-size: 11.5px; color: var(--muted); }
-  .kbd { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); padding: 18px; }
-  .kbd h3 { font-size: 16px; }
-  #kbd-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
-  .kbd-key {
-    display: inline-flex; flex-direction: column; align-items: center; gap: 1px; min-width: 52px;
-    border: 1px solid var(--border); border-radius: 4px; padding: 7px 8px; background: var(--surface-2);
+  /* ── 符文打字机 ── */
+  #tw-in {
+    font-family: var(--font-rune); font-size: 30px; line-height: 1.9; letter-spacing: .14em;
+    min-height: 128px; color: var(--fg); caret-color: var(--accent);
   }
-  .kbd-key .rune { font-size: 20px; }
-  .kbd-key:hover { border-color: var(--fg); }
-  .kbd-sub { font-size: 10px; color: var(--muted); letter-spacing: .06em; }
-  .kbd-out { border: 1px dashed var(--border); border-radius: 4px; padding: 12px 14px; margin-top: 8px; }
-  #kbd-rune { font-size: 26px; display: block; min-height: 38px; }
-  #kbd-latin { font-size: 13px; }
-  .latin-io { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 26px; }
+  #tw-in::placeholder { font-family: var(--font-body); font-size: 14px; letter-spacing: .02em; color: var(--muted); }
+  .tw-readout { display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 14px; border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 4px; align-items: start; }
+  .tw-label { display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  #tw-zh { font-family: var(--font-display); font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; }
+  .tw-en { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+  #tw-latin { font-size: 16px; color: var(--accent); overflow-wrap: anywhere; }
+  #tw-keys { font-size: 13px; overflow-wrap: anywhere; }
+  #tw-strip { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0 10px; }
+  .tw-key {
+    width: 54px; padding: 7px 0 5px; display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+    border: 1px solid var(--border); border-radius: 4px; background: var(--surface-2);
+    transition: border-color .16s ease, transform .16s ease;
+  }
+  .tw-key:hover { border-color: var(--fg); transform: translateY(-2px); }
+  .tw-key .rune { font-size: 22px; }
+  .tw-key span:last-child { font-size: 10px; color: var(--muted); letter-spacing: .06em; }
 
   footer { border-top: 1px solid var(--border); position: relative; z-index: 1; }
   .foot-in { max-width: 1120px; margin: 0 auto; padding: 18px 32px 30px; font-size: 12px; color: var(--muted); }
@@ -289,7 +289,8 @@
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   @media (max-width: 920px) {
-    .ime-grid, .gram-grid, .latin-io { grid-template-columns: 1fr; }
+    .ime-grid, .gram-grid { grid-template-columns: 1fr; }
+    .tw-readout { grid-template-columns: 1fr; }
     .topbar-in, main, .foot-in { padding-left: 18px; padding-right: 18px; }
     .dict-rune { min-width: 64px; font-size: 20px; }
     .home-btn { width: 32px; height: 32px; }
@@ -306,9 +307,6 @@
 <div class="cursor-outline" id="cursor-outline"></div>
 
 <!-- 站点继承：星火背景 -->
-<canvas id="starfield" aria-hidden="true"></canvas>
-
-<!-- 星火背景（返回首页按钮在顶栏内） -->
 <canvas id="starfield" aria-hidden="true"></canvas>
 
 <header class="topbar">
@@ -483,35 +481,35 @@
     </div>
   </section>
 
-  <!-- ══ 符文 ══ -->
+  <!-- ══ 符文（打字机整合版：替换原 键盘 / 拉丁输入 / 字母表 三块） ══ -->
   <section class="panel" id="rune" role="tabpanel" aria-label="符文" hidden>
-    <h2>符文键盘与字母表</h2>
-    <p class="lead">34 个符文一键敲击；数字键位 1–9 对应九个双元音符文（与内嵌 dragon_alphabet 字体一致）。</p>
-    <div class="kbd">
-      <h3>符文键盘</h3>
-      <div id="kbd-buttons"></div>
-      <div class="kbd-out">
-        <span id="kbd-rune" class="rune" aria-live="polite"></span>
-        <span id="kbd-latin" class="num dim"></span>
+    <h2>符文打字机</h2>
+    <p class="lead">直接打拉丁字母，框内即时出符文：aa/ah/ei/ey/ii/ir/oo/uu/ur 自动合成单符文（键位 1–9）、C→K、撇号忽略、退格一次删一个符文；也可点击下方任一符文精确插入；右侧即时给出逐词中文。</p>
+    <div class="card">
+      <div class="ex-row" aria-label="示例" style="margin-top:0">
+        <button class="ex-chip" data-tw="Dovahkiin">Dovahkiin</button>
+        <button class="ex-chip" data-tw="FUS RO DAH">FUS RO DAH</button>
+        <button class="ex-chip" data-tw="thu'um">thu'um</button>
+        <button class="ex-chip" data-tw="Drem Yol Lok">Drem Yol Lok</button>
       </div>
-      <p><button class="btn" id="kbd-copy">复制拉丁转写</button></p>
-    </div>
-    <div class="latin-io">
-      <div class="card">
-        <h3 style="font-size:16px">拉丁 → 符文</h3>
-        <div class="field">
-          <label for="latin-in">输入任意拉丁文本（自动 C→K、忽略撇号）</label>
-          <input id="latin-in" value="Dovahkiin" style="width:100%;padding:10px 12px;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;font:inherit" />
-        </div>
-        <p id="latin-out" class="rune" style="font-size:30px;min-height:44px;margin:8px 0"></p>
-        <p class="hint">近似音译：<span id="latin-dov" class="num"></span></p>
+      <textarea id="tw-in" rows="3" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="直接打字试试：Dovahkiin、FUS RO DAH、thu'um …（打什么，出什么符文）"></textarea>
+      <div class="tw-readout" aria-live="polite">
+        <div><span class="tw-label">中文（即时逐词）</span><span id="tw-zh">—</span><span id="tw-en" class="tw-en"></span></div>
+        <div><span class="tw-label">罗马转写</span><span id="tw-latin">—</span></div>
+        <div><span class="tw-label">符文键位</span><span id="tw-keys" class="num dim">—</span></div>
+        <div><span class="tw-label">统计</span><span id="tw-count" class="dim">0 个符文</span></div>
       </div>
-      <div class="card">
-        <h3 style="font-size:16px">字母表</h3>
-        <p class="hint" style="margin-bottom:0">刻在词墙上的 34 符。</p>
+      <div class="copy-row">
+        <button class="btn" id="tw-copy-latin">复制转写</button>
+        <button class="btn" id="tw-ai">AI 润成通顺中文</button>
+        <button class="btn" id="tw-clear">清空</button>
       </div>
     </div>
-    <div class="alpha-grid" id="alpha-grid"></div>
+    <div class="card" style="margin-top:18px">
+      <h3 style="font-size:16px">字母对照 · 点击插入符文</h3>
+      <div id="tw-strip"></div>
+      <p class="hint">34 个符文刻于词墙：25 个辅元字母 + 9 个双元音（键位 1–9，悬停看发音提示）；龙文无大小写、无数字符文。字体：thuum.org《Dragon Alphabet》。</p>
+    </div>
   </section>
 </main>
 
@@ -527,7 +525,7 @@
 <script src="{% static 'ime/js/ref.js' %}?v=1"></script>
 <script src="{% static 'ime/js/core.js' %}?v=1"></script>
 <script>window.DOV_AI_ENDPOINT = "{% url 'dovime_ai' %}";</script>
-<script src="{% static 'ime/js/app.js' %}?v=1"></script>
+<script src="{% static 'ime/js/app.js' %}?v=2"></script>
 <script>
 /* ── 站点继承特效：自定义光标 + 星火背景（与主页 main.html 同款逻辑，龙金暖色） ── */
 (function () {
@@ -547,7 +545,7 @@
       pend = false;
     });
   }, { passive: true });
-  var hoverSel = 'a, button, input, textarea, summary, label, .tk, .ex-chip, .cand, .kbd-key, .seg button';
+  var hoverSel = 'a, button, input, textarea, summary, label, .tk, .ex-chip, .cand, .tw-key, .seg button';
   document.querySelectorAll(hoverSel).forEach(function (el) {
     el.addEventListener('mouseenter', function () {
       outline.style.width = '60px'; outline.style.height = '60px';

@@ -54,6 +54,12 @@ class PageTests(SimpleTestCase):
         self.assertContains(response, 'id="cursor-dot"')   # 继承的光标特效
         self.assertContains(response, 'id="starfield"')    # 继承的背景特效
         self.assertContains(response, "csrfmiddlewaretoken")
+        self.assertContains(response, 'id="tw-in"')          # 符文打字机
+        self.assertContains(response, 'id="tw-strip"')
+        self.assertContains(response, 'id="tw-zh"')
+        self.assertNotContains(response, 'id="kbd-buttons"')  # 旧三块已移除
+        self.assertNotContains(response, 'id="latin-in"')
+        self.assertNotContains(response, 'id="alpha-grid"')
 
     def test_static_assets_exist(self):
         for rel in (

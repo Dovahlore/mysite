@@ -507,46 +507,81 @@
   infIn.addEventListener('input', renderInf);
   renderInf();
 
-  // ---------- 符文面板 ----------
-  (function renderAlphabet() {
-    $('#alpha-grid').innerHTML = window.DOV_ALPHABET.map(a =>
-      '<div class="alpha"><span class="rune alpha-rune" aria-hidden="true">' + a[1] + '</span><b>' + a[0] + '</b>' +
-      '<span class="alpha-key dim num">键 ' + (a[1].length === 1 && /[0-9]/.test(a[1]) ? a[1] : a[1]) + '</span><span class="alpha-tip">' + esc(a[2]) + '</span></div>').join('');
+  // ---------- 符文面板：IPA 双元音表 ----------
+  (function renderIpa() {
     $('#ipa-table').innerHTML = '<table class="ds-table"><thead><tr><th>双元音</th><th>IPA</th><th>示例</th></tr></thead><tbody>' +
       window.DOV_DIGRAPH_IPA.map(r => '<tr><td><b>' + r[0] + '</b></td><td class="num">' + r[1] + '</td><td class="dim">' + esc(r[2]) + '</td></tr>').join('') + '</tbody></table>';
   })();
 
-  const kbdState = { keys: '' };
-  function renderKbd() {
-    const latin = C.runeKeysToLatin(kbdState.keys);
-    $('#kbd-rune').textContent = kbdState.keys || '​';
-    $('#kbd-latin').textContent = latin ? latin.toLowerCase() : '—';
-  }
-  $('#kbd-buttons').innerHTML = window.DOV_ALPHABET.map(a =>
-    '<button class="kbd-key" data-k="' + a[1] + '" aria-label="符文 ' + a[0] + '"><span class="rune" aria-hidden="true">' + a[1] + '</span><span class="kbd-sub">' + a[0] + '</span></button>').join('') +
-    '<button class="kbd-key kbd-space" data-k=" " aria-label="空格"><span class="kbd-sub">空格</span></button>' +
-    '<button class="kbd-key kbd-bk" data-k="bk" aria-label="退格"><span class="kbd-sub">退格</span></button>' +
-    '<button class="kbd-key kbd-clr" data-k="clr" aria-label="清空"><span class="kbd-sub">清空</span></button>';
-  $('#kbd-buttons').addEventListener('click', e => {
-    const b = e.target.closest('.kbd-key');
-    if (!b) return;
-    const k = b.getAttribute('data-k');
-    if (k === 'bk') kbdState.keys = kbdState.keys.slice(0, -1);
-    else if (k === 'clr') kbdState.keys = '';
-    else kbdState.keys += k;
-    renderKbd();
-  });
-  $('#kbd-copy').addEventListener('click', () => copyText(C.runeKeysToLatin(kbdState.keys).toLowerCase(), '键盘拉丁'));
-  renderKbd();
-
-  const ltIn = $('#latin-in');
-  function renderLatin() {
-    const v = ltIn.value.trim();
-    $('#latin-out').textContent = v ? C.toRuneKeys(v) : '—';
-    $('#latin-dov').textContent = v ? C.translitForeign(v) : '—';
-  }
-  ltIn.addEventListener('input', renderLatin);
-  renderLatin();
+  // ---------- 符文面板：符文打字机（打字即符文 + 对照条插入 + 即时逐词中文） ----------
+  (function initTypewriter() {
+    const ta = $('#tw-in');
+    if (!ta) return;
+    function normalizeCaret(s, caret) {
+      const text = C.toRuneKeys(s);
+      const len = (s || '').length;
+      const c = (typeof caret === 'number' && caret >= 0) ? Math.min(caret, len) : len;
+      return { text: text, caret: C.toRuneKeys(s.slice(0, c)).length };
+    }
+    let composing = false;
+    ta.addEventListener('compositionstart', () => { composing = true; });
+    ta.addEventListener('compositionend', () => { composing = false; ta.dispatchEvent(new Event('input')); });
+    function render() {
+      const k = ta.value;
+      const latin = C.runeKeysToLatin(k).toLowerCase();
+      $('#tw-latin').textContent = k ? latin : '—';
+      $('#tw-keys').textContent = k || '—';
+      $('#tw-count').textContent = (k.match(/[^ ]/g) || []).length + ' 个符文';
+      if (k.trim()) {
+        const rc = E.convertReverse(latin);
+        $('#tw-zh').textContent = rc.zhSentence || '—';
+        $('#tw-en').textContent = rc.enLine || '';
+      } else { $('#tw-zh').textContent = '—'; $('#tw-en').textContent = ''; }
+      ta.style.height = 'auto';
+      ta.style.height = (ta.scrollHeight + 4) + 'px';
+    }
+    ta.addEventListener('input', () => {
+      if (composing) { render(); return; }
+      const v = ta.value;
+      if (v !== C.toRuneKeys(v)) {
+        const r = normalizeCaret(v, ta.selectionStart);
+        ta.value = r.text;
+        try { ta.setSelectionRange(r.caret, r.caret); } catch (e) {}
+      }
+      render();
+    });
+    $$('.ex-chip[data-tw]').forEach(b => b.addEventListener('click', () => {
+      ta.value = C.toRuneKeys(b.getAttribute('data-tw'));
+      render();
+      const L = ta.value.length;
+      try { ta.setSelectionRange(L, L); } catch (e) {}
+    }));
+    $('#tw-strip').innerHTML = window.DOV_ALPHABET.map(a =>
+      '<button class="tw-key" type="button" data-k="' + a[1] + '" aria-label="插入符文 ' + a[0] + '" title="' + esc(a[0] + ' — ' + a[2]) + '">' +
+      '<span class="rune" aria-hidden="true">' + esc(a[1]) + '</span><span>' + esc(a[0]) + '</span></button>').join('');
+    $('#tw-strip').addEventListener('click', e => {
+      const b = e.target.closest('.tw-key');
+      if (!b) return;
+      const k = b.getAttribute('data-k');
+      const s = ta.selectionStart, en = ta.selectionEnd;
+      if (s == null) ta.value += k;
+      else ta.setRangeText(k, s, en, 'end');
+      render();
+      ta.focus();
+    });
+    $('#tw-copy-latin').addEventListener('click', () => { if (ta.value) copyText(C.runeKeysToLatin(ta.value).toLowerCase(), '转写'); });
+    $('#tw-ai').addEventListener('click', () => {
+      const latin = C.runeKeysToLatin(ta.value).toLowerCase();
+      if (!latin.trim()) { toast('先打点龙语，再 AI 翻译'); return; }
+      aiThinkText = '';
+      state.inputs.rev = latin;
+      activateTab(tabs.find(x => x.getAttribute('data-panel') === 'ime') || tabs[0]);
+      setDir('rev');
+      runAI(false);
+    });
+    $('#tw-clear').addEventListener('click', () => { ta.value = ''; render(); ta.focus(); });
+    render();
+  })();
 
   // ---------- 启动 ----------
   setDir('fwd');
