@@ -265,7 +265,7 @@
   const histClear = $('#hist-clear');
   if (histClear) histClear.addEventListener('click', () => {
     if (!loadHistory().length) { toast('记录已是空的'); return; }
-    if (confirm('清空全部 AI 翻译记录？')) { saveHistoryList([]); renderHistory(); toast('已清空'); }
+    saveHistoryList([]); renderHistory(); toast('已清空');
   });
   if (histPrivate) histPrivate.addEventListener('change', () => {
     const from = histPrivate.checked ? localStorage : getStore();
