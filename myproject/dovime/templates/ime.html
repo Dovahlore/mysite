@@ -181,6 +181,7 @@
   .ai-think-body { white-space: pre-wrap; max-height: 160px; overflow-y: auto; margin-top: 6px; }
   #ime.ai-busy textarea { opacity: .6; }
   #ime.ai-busy .dir-row, #ime.ai-busy .ex-row, #ime.ai-busy .fix-toggle { pointer-events: none; opacity: .5; }
+  .hist-wrap { margin-top: 30px; border-top: 1px solid var(--border); padding-top: 16px; }
   .hist-row { display: flex; gap: 14px; padding: 13px 2px; border-top: 1px solid var(--border); align-items: flex-start; }
   .hist-main { flex: 1; min-width: 0; }
   .hist-meta { display: flex; gap: 10px; align-items: baseline; }
@@ -328,7 +329,6 @@
       <button class="tab" role="tab" data-panel="shout" aria-selected="false" tabindex="-1">龙吼</button>
       <button class="tab" role="tab" data-panel="gram" aria-selected="false" tabindex="-1">语法</button>
       <button class="tab" role="tab" data-panel="rune" aria-selected="false" tabindex="-1">符文</button>
-      <button class="tab" role="tab" data-panel="hist" aria-selected="false" tabindex="-1">记录</button>
     </nav>
   </div>
 </header>
@@ -353,8 +353,7 @@
         </div>
         <p id="ai-err" class="ai-err" role="alert"></p>
         <form hidden aria-hidden="true">{% csrf_token %}</form>
-        <label class="fix-toggle"><input type="checkbox" id="fix-toggle" checked /> 语法修正</label>
-        <label class="fix-toggle"><input type="checkbox" id="auto-toggle" checked /> 自动 AI（停顿约 1 秒自动翻译）</label>
+        <label class="fix-toggle"><input type="checkbox" id="auto-toggle" checked /> 自动 AI（停顿约 3 秒自动翻译）</label>
         <div class="ex-row" aria-label="示例">
           <button class="ex-chip" data-ex="我是龙裔">我是龙裔</button>
           <button class="ex-chip" data-ex="你好">你好</button>
@@ -364,6 +363,20 @@
         </div>
       </div>
       <div class="card" id="ime-out" aria-live="polite"></div>
+    </div>
+
+    <div id="ai-think-slot"></div>
+
+    <div class="hist-wrap" id="hist">
+      <div class="out-head">
+        <h3 style="font-size:16px">AI 翻译记录</h3>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span id="hist-count" class="dim"></span>
+          <label class="fix-toggle" style="margin:0"><input type="checkbox" id="hist-private" /> 无痕（关标签页自动清）</label>
+          <button class="btn" id="hist-clear">清空</button>
+        </div>
+      </div>
+      <div id="hist-list"></div>
     </div>
   </section>
 
@@ -499,18 +512,6 @@
       </div>
     </div>
     <div class="alpha-grid" id="alpha-grid"></div>
-  </section>
-
-  <!-- ══ 记录 ══ -->
-  <section class="panel" id="hist" role="tabpanel" aria-label="AI 翻译记录" hidden>
-    <h2>AI 翻译记录</h2>
-    <p class="lead">AI 翻译结果自动保存在你当前使用的浏览器里：刷新不丢、不上传服务器，别人访问网站看不到你的记录；公用电脑可开无痕模式。</p>
-    <div class="dict-tools">
-      <span id="hist-count" class="dim"></span>
-      <label class="fix-toggle" style="margin:0 0 0 auto"><input type="checkbox" id="hist-private" /> 无痕模式（关标签页自动清）</label>
-      <button class="btn" id="hist-clear">清空记录</button>
-    </div>
-    <div id="hist-list"></div>
   </section>
 </main>
 
