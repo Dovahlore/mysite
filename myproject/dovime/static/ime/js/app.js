@@ -75,7 +75,7 @@
     const fluent = state.aiZh != null && state.aiZhSource === text ? state.aiZh : null;
     $('#ime-out').innerHTML =
       (fluent ? '<div class="zh-main">' + esc(fluent) + '<span class="tag">AI 通顺</span></div>' : '') +
-      '<div class="zh-line">' + esc(rconv.zhSentence) + '<span class="tag">逐词</span></div>' +
+      '<div class="zh-line">' + esc(rconv.zhSentence) + '<span class="tag">逐词（未收录词显原文）</span></div>' +
       '<div class="mid-line dim num">英文释义（辅助）：' + esc(rconv.enLine) + '</div>' +
       '<div class="rune-hero" aria-hidden="true" style="font-size:28px;min-height:40px">' + esc(C.toRuneKeys(text)) + '</div>' +
       '<div class="tk-flow">' + chips + '</div>' +
@@ -176,7 +176,7 @@
       '<p class="dim">输入即译（离线）；点「AI 翻译」用 AI 译文。</p></div>';
   }
   let deb;
-  input.addEventListener('input', () => { state.inputs[state.dir] = input.value; clearTimeout(deb); deb = setTimeout(renderConvert, 120); });
+  input.addEventListener('input', () => { state.inputs[state.dir] = input.value; clearTimeout(deb); deb = setTimeout(renderConvert, 120); clearTimeout(autoTimer); autoTimer = setTimeout(maybeAutoAI, 1200); });
   fixToggle.addEventListener('change', renderConvert);
 
   // ---------- AI（站点模式=统一接口无需 Key；单文件模式=OpenAI 兼容自备配置；正向=中→龙中间英文，反向=润成通顺中文） ----------
@@ -190,6 +190,79 @@
     return m ? decodeURIComponent(m[1]) : '';
   }
   function dropThink(s) { return s.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<\/?think>/g, ''); }
+  // ---------- AI 记录（本机存储，不上传服务器；无痕模式用 sessionStorage 关标签即清） ----------
+  const HKEY = 'dovime_ai_history_v1';
+  const histPrivate = $('#hist-private');
+  function getStore() {
+    const priv = histPrivate ? histPrivate.checked : false;
+    return priv ? (typeof sessionStorage !== 'undefined' ? sessionStorage : localStorage) : localStorage;
+  }
+  function loadHistory() { try { const v = JSON.parse(getStore().getItem(HKEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function saveHistoryList(list) { try { getStore().setItem(HKEY, JSON.stringify(list.slice(0, 50))); } catch (e) {} }
+  function pushHistory(rec) { const list = loadHistory(); list.unshift(rec); saveHistoryList(list); renderHistory(); }
+
+  function fmtTime(t) {
+    const d = new Date(t), q = n => (n < 10 ? '0' + n : '' + n);
+    return (d.getMonth() + 1) + '-' + q(d.getDate()) + ' ' + q(d.getHours()) + ':' + q(d.getMinutes());
+  }
+  function renderHistory() {
+    const box = $('#hist-list'); if (!box) return;
+    const list = loadHistory();
+    const cnt = $('#hist-count');
+    if (cnt) cnt.textContent = list.length ? '共 ' + list.length + ' 条 · 只存本浏览器，不上传' : '';
+    if (!list.length) {
+      box.innerHTML = '<div class="empty"><div class="rune-hero" aria-hidden="true">DR2M YOL LOK</div><p>还没有 AI 翻译记录。</p><p class="dim">点「AI 翻译」（或开启自动翻译）完成后会自动记录在这里；记录只存本浏览器，别人看不到。</p></div>';
+      return;
+    }
+    box.innerHTML = list.map((r, i) => {
+      const fwd = r.dir === 'fwd';
+      const main = fwd ? (r.dov || r.en || '') : (r.zh || '');
+      const rune = fwd && r.dov ? '<div class="rune hist-rune" aria-hidden="true">' + esc(C.toRuneKeys(r.dov)) + '</div>' : '';
+      return '<div class="hist-row">' +
+        '<div class="hist-main">' +
+        '<div class="hist-meta"><span class="tag">' + (fwd ? '中 → 龙' : '龙 → 中') + '</span><span class="num dim">' + fmtTime(r.t) + '</span></div>' +
+        '<div class="hist-in dim">' + esc(r.input) + '</div>' +
+        '<div class="hist-out">' + esc(main) + '</div>' + rune +
+        '</div>' +
+        '<div class="hist-ops">' +
+        '<button class="btn" data-hact="load" data-i="' + i + '">载入</button>' +
+        '<button class="btn" data-hact="copy" data-i="' + i + '">复制</button>' +
+        '<button class="btn" data-hact="del" data-i="' + i + '">删</button>' +
+        '</div></div>';
+    }).join('');
+  }
+  const histList = $('#hist-list');
+  if (histList) histList.addEventListener('click', e => {
+    const b = e.target.closest('button[data-hact]'); if (!b) return;
+    const i = +b.getAttribute('data-i');
+    const list = loadHistory(); const r = list[i]; if (!r) return;
+    const act = b.getAttribute('data-hact');
+    if (act === 'del') { list.splice(i, 1); saveHistoryList(list); renderHistory(); toast('已删除该条记录'); return; }
+    if (act === 'copy') { copyText(r.dir === 'fwd' ? (r.dov || r.en || '') : (r.zh || ''), '译文'); return; }
+    if (act === 'load') {
+      state.inputs[r.dir] = r.input;
+      if (r.dir === 'fwd') { state.aiEnglish = r.en || null; state.aiSource = r.en ? r.input : ''; }
+      else { state.aiZh = r.zh || null; state.aiZhSource = r.zh ? r.input : ''; }
+      activateTab(tabs.find(x => x.getAttribute('data-panel') === 'ime') || tabs[0]);
+      setDir(r.dir);
+      toast('已载入记录');
+    }
+  });
+  const histClear = $('#hist-clear');
+  if (histClear) histClear.addEventListener('click', () => {
+    if (!loadHistory().length) { toast('记录已是空的'); return; }
+    if (confirm('清空全部 AI 翻译记录？')) { saveHistoryList([]); renderHistory(); toast('已清空'); }
+  });
+  if (histPrivate) histPrivate.addEventListener('change', () => {
+    const from = histPrivate.checked ? localStorage : getStore();
+    const to = histPrivate.checked ? getStore() : localStorage;
+    try {
+      const data = from.getItem(HKEY);
+      if (data) { to.setItem(HKEY, data); from.removeItem(HKEY); }
+    } catch (e) {}
+    renderHistory();
+    toast(histPrivate.checked ? '无痕模式已开：关标签页后记录自动清除' : '无痕模式已关：记录持久保存于本浏览器');
+  });
   function ensureThinkBox() {
     let body = document.getElementById('ai-think-body');
     if (!body) {
@@ -203,6 +276,72 @@
       body = box.querySelector('.ai-think-body');
     }
     return body;
+  }
+  // ---------- AI 调用（带序号防串、防覆盖；完成后写入记录） ----------
+  let aiSeq = 0;
+  function dovFromEnglish(en) {
+    const c2 = E.convert(en, {}, { fix: fixToggle.checked });
+    const ws = [];
+    c2.tokens.forEach(t => {
+      if (t.kind === 'unk' && t.translit) ws.push(t.translit);
+      else if (t.kind !== 'sep' && t.kind !== 'gram') { const c = t.cands[t.sel]; const w = t.fixed || t.overrideDov || (c && c.dov); if (w) ws.push(w); }
+    });
+    return ws.join(' ');
+  }
+  async function runAI(auto) {
+    const text = input.value.trim();
+    if (!text) { if (!auto) aiErr.textContent = '先在左侧输入内容，再调用 AI。'; return; }
+    if (state.dir === 'fwd' && !/[\u3400-\u9fff]/.test(text)) { if (!auto) aiErr.textContent = '正向模式：输入里没有中文，逐词直译即可，无需 AI。'; return; }
+    if (state.dir === 'rev' && !rconv) { if (!auto) aiErr.textContent = '请先输入龙语。'; return; }
+    const seq = ++aiSeq;
+    const dir0 = state.dir;
+    aiBtn.disabled = true; aiBtn.textContent = 'AI 处理中…'; aiErr.textContent = '';
+    if (!auto) { input.readOnly = true; $('#ime').classList.add('ai-busy'); }
+    try {
+      if (dir0 === 'fwd') {
+        const en = await llm(SYS_FWD, text);
+        if (seq !== aiSeq) return;
+        state.aiEnglish = en; state.aiSource = text;
+        pushHistory({ dir: 'fwd', t: Date.now(), input: text, en: en, dov: dovFromEnglish(en) });
+        if (input.value.trim() === text) { renderConvert(); toast('AI 中→龙完成'); }
+        else toast('输入已变化，本次 AI 结果已存入「记录」');
+      } else {
+        const zh = await llm(SYS_REV, rconv.enLine);
+        if (seq !== aiSeq) return;
+        state.aiZh = zh; state.aiZhSource = text;
+        pushHistory({ dir: 'rev', t: Date.now(), input: text, zh: zh });
+        if (input.value.trim() === text) { renderConvert(); toast('AI 已润成通顺中文'); }
+        else toast('输入已变化，本次 AI 结果已存入「记录」');
+      }
+    } catch (e) {
+      const noNet = /Failed to fetch|NetworkError|Load failed/i.test(e.message || '');
+      aiErr.textContent = AI_ENDPOINT
+        ? 'AI 调用失败：' + e.message
+        : noNet
+          ? '当前环境（应用内预览）禁止访问外网，AI 功能不可用：请用 Edge/Chrome 双击打开本文件使用；词典、双向转换、符文等其余功能全部离线可用。'
+          : 'AI 调用失败：' + e.message + '。接口需允许浏览器跨域(CORS)。';
+    } finally {
+      if (seq === aiSeq) {
+        aiBtn.disabled = false; aiBtn.textContent = state.dir === 'fwd' ? 'AI 翻译' : 'AI 润成通顺中文';
+        input.readOnly = false; $('#ime').classList.remove('ai-busy');
+      }
+    }
+  }
+  aiBtn.addEventListener('click', () => runAI(false));
+
+  // ---------- 即时翻译：停顿约 1.2s 自动触发一次（可开关） ----------
+  let autoTimer = null, lastAutoKey = '';
+  const autoToggle = $('#auto-toggle');
+  function maybeAutoAI() {
+    if (!autoToggle || !autoToggle.checked) return;
+    if (aiBtn.disabled) return;
+    const text = input.value.trim();
+    if (!text) return;
+    if (state.dir === 'fwd' && !/[\u3400-\u9fff]/.test(text)) return;
+    const key = state.dir + '|' + text;
+    if (key === lastAutoKey) return;
+    lastAutoKey = key;
+    runAI(true);
   }
   const SYS_FWD = '你是《上古卷轴5》龙语(Dovahzul)输入法的翻译前置模块。把用户的中文译成英语，且英文必须按龙语习惯组织，供逐词查龙语词典使用：1) 一律陈述语序（主语+动词+其余），疑问句绝不倒装——龙语疑问句就是陈述语序，例如「你是谁」译为 You are who，「他在哪」译为 He is where；2) 不用任何冠词 a/an/the；3) 不用缩写；物主用 my/your/his/her；名词复数直接加 s；4) 时态用助词明示：将来加 will、过去加 did、完成用 have+过去分词；5) 只用最基础、具象的常见词（火、天空、国王、灵魂这类），避免抽象词与俚语，逐词对应、不增删内容；6) 只输出这一句英文本身，不加任何解释。';
   const SYS_REV = '下面是龙语句子逐词的英文释义，把它连成一句通顺自然的中文，保持原意、不增删内容，只输出这一句中文。未收录的词多为汉字拼音音译（如人名），请还原成最合理的中文写法。';
@@ -250,36 +389,6 @@
     if (!t) throw new Error('模型返回为空');
     return t;
   }
-  aiBtn.addEventListener('click', async () => {
-    const text = input.value.trim();
-    if (!text) { aiErr.textContent = '先在左侧输入内容，再调用 AI。'; return; }
-    if (state.dir === 'fwd' && !/[\u3400-\u9fff]/.test(text)) { aiErr.textContent = '正向模式：输入里没有中文，逐词直译即可，无需 AI。'; return; }
-    if (state.dir === 'rev' && !rconv) { aiErr.textContent = '请先输入龙语。'; return; }
-    aiBtn.disabled = true; aiBtn.textContent = 'AI 处理中…'; aiErr.textContent = '';
-    try {
-      if (state.dir === 'fwd') {
-        const en = await llm(SYS_FWD, text);
-        state.aiEnglish = en; state.aiSource = text;
-        renderConvert();
-        toast('AI 中→龙完成，中间英文已折叠为辅助行');
-      } else {
-        const zh = await llm(SYS_REV, rconv.enLine);
-        state.aiZh = zh; state.aiZhSource = text;
-        renderConvert();
-        toast('AI 已润成通顺中文');
-      }
-    } catch (e) {
-      const noNet = /Failed to fetch|NetworkError|Load failed/i.test(e.message || '');
-      aiErr.textContent = AI_ENDPOINT
-        ? 'AI 调用失败：' + e.message
-        : noNet
-          ? '当前环境（应用内预览）禁止访问外网，AI 功能不可用：请用 Edge/Chrome 双击打开本文件使用；词典、双向转换、符文等其余功能全部离线可用。'
-          : 'AI 调用失败：' + e.message + '。接口需允许浏览器跨域(CORS)。';
-    } finally {
-      aiBtn.disabled = false;
-      aiBtn.textContent = state.dir === 'fwd' ? 'AI 翻译' : 'AI 润成通顺中文';
-    }
-  });
   $$('.ex-chip').forEach(b => b.addEventListener('click', () => { input.value = b.getAttribute('data-ex'); renderConvert(); input.focus(); }));
   function canonBadge(c) { return '<span class="badge b' + c + '">' + CANON_TXT[c] + '</span>'; }
 
@@ -411,6 +520,7 @@
   // ---------- 启动 ----------
   setDir('fwd');
   renderDict();
+  renderHistory();
   hashTab();
   window.addEventListener('hashchange', hashTab);
 })();
