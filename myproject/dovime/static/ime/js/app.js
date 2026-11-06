@@ -783,11 +783,10 @@
   })();
   // ==== DOV_QUIZ:END ====
 
-  // ---------- 学习面板：闯关 DOM（无任何系统弹窗，全部页内反馈） ----------
+  // ---------- 学习面板：无限连刷 DOM（无任何系统弹窗，全部页内反馈；不计分） ----------
   (function initQuizPanel() {
     const stage = $('#quiz-stage');
     if (!stage) return;
-    const BEST_KEY = 'dovime_quiz_best_v1';
     const deps = {
       alphabet: window.DOV_QUIZ.buildBasicPool(window.DOV_ALPHABET),
       wordPool: window.DOV_QUIZ.buildWordPool(E.lexCount(), E.lexGet, zhSensesFor),
@@ -797,77 +796,68 @@
     };
     const tierBtns = $$('#quiz-tier button');
     let tier = 'basic';
-    let best = {};
-    try { best = JSON.parse(localStorage.getItem(BEST_KEY)) || {}; } catch (e) {}
-    let round = null, lock = false;
+    let count = 0, lock = false, cur = null;
+    const seen = new Set();
     tierBtns.forEach(b => b.addEventListener('click', () => {
       tierBtns.forEach(x => x.setAttribute('aria-pressed', x === b));
       tier = b.getAttribute('data-t');
-      round = null;
+      count = 0; seen.clear();
       showStart();
     }));
-    function tierName(t) { return { basic: '基础 · 字母', word: '词组 · 词义', sent: '句子 · 翻译' }[t] || t; }
+    function tierName(t) { return { basic: '基础 · 字母', word: '词组 · 词义', sent: '句子 · 翻译', mix: '混合 · 全部' }[t] || t; }
     function optHtml(o) {
       if (o.display === 'rune') return '<span class="rune" aria-hidden="true">' + esc(o.label) + '</span>';
       if (o.display === 'dov') return '<span class="rune" aria-hidden="true">' + esc(C.toRuneKeys(o.label)) + '</span><span class="opt-sub">' + esc(o.label) + '</span>';
       return '<span>' + esc(o.label) + '</span>';
     }
     function showStart() {
-      lock = false;
-      $('#quiz-best').textContent = best[tier] != null ? '本档最佳 ' + best[tier] + '/10' : '还没有本档纪录';
+      lock = false; cur = null;
       stage.innerHTML =
         '<div class="quiz-sum" style="padding-top:34px">' +
         '<div class="rune" style="font-size:44px;color:var(--accent)">DR2M YOL LOK</div>' +
-        '<p>每组 10 题；答错当场亮出正确答案。三档难度随时切换，成绩只存在本浏览器。</p>' +
+        '<p>无限连刷：一道接一道，答错当场亮出正确答案与解析；随时切难度，不设终点、不计分。</p>' +
         '<div class="copy-row" style="justify-content:center"><button class="btn" id="quiz-go">开始答题</button></div>' +
         '</div>';
-      $('#quiz-go').addEventListener('click', startRound);
+      $('#quiz-go').addEventListener('click', nextQuestion);
     }
-    function startRound() {
-      const qs = [];
-      const seen = new Set();
-      let guard = 0;
-      while (qs.length < 10 && guard++ < 200) {
-        const q = window.DOV_QUIZ.makeQuestion(tier, deps);
-        if (!q) continue;
-        const sig = q.key || (q.kind + '|' + (q.prompt.rune || '') + '|' + (q.prompt.text || ''));
-        if (seen.has(sig)) continue;
+    function nextQuestion() {
+      let q = null, guard = 0;
+      while (guard++ < 120) {
+        const t = tier === 'mix' ? ['basic', 'word', 'sent'][Math.floor(Math.random() * 3)] : tier;
+        const cand = window.DOV_QUIZ.makeQuestion(t, deps);
+        if (!cand) continue;
+        const sig = cand.key || (cand.kind + '|' + (cand.prompt.rune || '') + '|' + (cand.prompt.text || ''));
+        if (seen.has(sig)) { if (seen.size > 400) seen.clear(); continue; }
         seen.add(sig);
-        qs.push(q);
+        q = cand;
+        break;
       }
-      if (qs.length < 10) { toast('这个难度题量不足，换一档试试'); return; }
-      round = { qs: qs, i: 0, ok: 0, streak: 0, maxStreak: 0 };
-      showQuestion();
-    }
-    function showQuestion() {
+      if (!q) { toast('这个难度暂时没题了，换一档试试'); showStart(); return; }
       lock = false;
-      const q = round.qs[round.i];
+      cur = q;
+      count++;
       const promptHtml =
         (q.prompt.rune ? '<div class="big-rune rune">' + esc(q.prompt.rune) + '</div>' : '') +
         (q.prompt.text ? '<div class="big-text">' + esc(q.prompt.text) + '</div>' : '') +
         (q.prompt.sub ? '<div class="sub">' + esc(q.prompt.sub) + '</div>' : '');
       stage.innerHTML =
-        '<div class="quiz-meta"><span>第 ' + (round.i + 1) + '/10 题 · ' + tierName(tier) + '</span><span>连对 ' + round.streak + (round.streak >= 3 ? ' 🔥' : '') + '</span></div>' +
-        '<div class="quiz-bar"><i style="width:' + (round.i * 10) + '%"></i></div>' +
+        '<div class="quiz-meta"><span>' + tierName(tier) + ' · 已答 ' + count + ' 题</span><span class="dim">随时切换难度</span></div>' +
         '<div class="quiz-prompt">' + promptHtml + '</div>' +
         '<div class="quiz-opts">' + q.options.map((o, i) => '<button class="quiz-opt" type="button" data-i="' + i + '">' + optHtml(o) + '</button>').join('') + '</div>';
       stage.querySelectorAll('.quiz-opt').forEach(b => b.addEventListener('click', () => answer(+b.getAttribute('data-i'), b)));
     }
     function answer(i, btn) {
-      if (lock || !round) return;
+      if (lock || !cur) return;
       lock = true;
-      const q = round.qs[round.i];
+      const q = cur;
       const right = i === q.answer;
       const btns = stage.querySelectorAll('.quiz-opt');
       btns.forEach(b => { b.disabled = true; });
       if (right) {
         btn.classList.add('is-right');
-        round.ok++; round.streak++;
-        round.maxStreak = Math.max(round.maxStreak, round.streak);
       } else {
         btn.classList.add('is-wrong');
         btns[q.answer].classList.add('is-right');
-        round.streak = 0;
       }
       if (q.explain) {
         const ex = document.createElement('div');
@@ -875,26 +865,7 @@
         ex.textContent = (right ? '✓ ' : '正确答案：') + q.explain;
         stage.querySelector('.quiz-opts').insertAdjacentElement('afterend', ex);
       }
-      setTimeout(() => {
-        round.i++;
-        if (round.i >= round.qs.length) showSummary();
-        else showQuestion();
-      }, right ? 850 : 1600);
-    }
-    function showSummary() {
-      const isNewBest = best[tier] == null || round.ok > best[tier];
-      if (isNewBest) { best[tier] = round.ok; try { localStorage.setItem(BEST_KEY, JSON.stringify(best)); } catch (e) {} }
-      $('#quiz-best').textContent = '本档最佳 ' + best[tier] + '/10';
-      stage.innerHTML =
-        '<div class="quiz-sum">' +
-        '<div class="score">' + round.ok + '/10</div>' +
-        '<p>' + (round.ok === 10 ? '满分！Dovahkiin 名不虚传。' : round.ok >= 7 ? 'Pruzah！相当不错。' : '多刷几组，词墙刻得更快。') + '最高连对 ' + round.maxStreak + (isNewBest ? ' · 新纪录' : '') + '</p>' +
-        '<div class="copy-row" style="justify-content:center">' +
-        '<button class="btn" id="quiz-again">再来一组</button>' +
-        '<button class="btn" id="quiz-back">返回</button>' +
-        '</div></div>';
-      $('#quiz-again').addEventListener('click', startRound);
-      $('#quiz-back').addEventListener('click', showStart);
+      setTimeout(nextQuestion, right ? 850 : 1600);
     }
     showStart();
   })();

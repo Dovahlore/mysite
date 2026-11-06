@@ -284,8 +284,6 @@
   .quiz-top .seg button { font-size: 13.5px; padding: 8px 14px; }
   #quiz-stage { min-height: 360px; display: flex; flex-direction: column; }
   .quiz-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
-  .quiz-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 18px; }
-  .quiz-bar i { display: block; height: 100%; background: var(--accent); transition: width .3s ease; }
   .quiz-prompt { text-align: center; margin: 6px 0 20px; }
   .quiz-prompt .big-rune { font-family: var(--font-rune); font-size: clamp(40px, 7vw, 58px); color: var(--accent); letter-spacing: .12em; line-height: 1.45; overflow-wrap: anywhere; }
   .quiz-prompt .big-text { font-family: var(--font-display); font-size: clamp(19px, 3.2vw, 27px); line-height: 1.5; overflow-wrap: anywhere; }
@@ -304,7 +302,6 @@
   .quiz-opt[disabled] { cursor: default; }
   @keyframes quizShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
   .quiz-sum { text-align: center; padding: 28px 0 10px; }
-  .quiz-sum .score { font-family: var(--font-display); font-size: 44px; color: var(--accent); }
   .quiz-sum p { color: var(--muted); margin: 6px 0 16px; }
   .quiz-explain { text-align: center; font-size: 13.5px; color: var(--fg); opacity: .85; margin-top: 16px; min-height: 20px; overflow-wrap: anywhere; }
 
@@ -545,15 +542,15 @@
   <!-- ══ 学习（三档闯关小测） ══ -->
   <section class="panel" id="quiz" role="tabpanel" aria-label="学习" hidden>
     <h2>龙语小测</h2>
-    <p class="lead">闯关式刷题：基础（字母 ↔ 符文互选）→ 词组（词义双向 + 龙吼识别）→ 句子（整句翻译，最难）。词库与字母表动态出题，全部离线作答，答错当场看正确答案。</p>
+    <p class="lead">无限连刷：基础（字母 ↔ 符文互选）、词组（词义双向 + 龙吼识别）、句子（整句翻译，最难）三档随意切换，或用「混合」随机三档；一题接一题没有上限、不计分，答错当场看正确答案与解析。</p>
     <div class="card">
       <div class="quiz-top">
         <div class="seg" id="quiz-tier" role="group" aria-label="难度">
           <button data-t="basic" aria-pressed="true">基础 · 字母</button>
           <button data-t="word" aria-pressed="false">词组 · 词义</button>
           <button data-t="sent" aria-pressed="false">句子 · 翻译</button>
+          <button data-t="mix" aria-pressed="false">混合 · 全部</button>
         </div>
-        <span id="quiz-best" class="dim num"></span>
       </div>
       <div id="quiz-stage"></div>
     </div>
@@ -572,7 +569,7 @@
 <script src="{% static 'ime/js/ref.js' %}?v=1"></script>
 <script src="{% static 'ime/js/core.js' %}?v=1"></script>
 <script>window.DOV_AI_ENDPOINT = "{% url 'dovime_ai' %}";</script>
-<script src="{% static 'ime/js/app.js' %}?v=4"></script>
+<script src="{% static 'ime/js/app.js' %}?v=5"></script>
 <script>
 /* ── 站点继承特效：自定义光标 + 星火背景（与主页 main.html 同款逻辑，龙金暖色） ── */
 (function () {
