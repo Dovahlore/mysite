@@ -189,8 +189,23 @@
     const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
     return m ? decodeURIComponent(m[1]) : '';
   }
+  function dropThink(s) { return s.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<\/?think>/g, ''); }
+  function ensureThinkBox() {
+    let body = document.getElementById('ai-think-body');
+    if (!body) {
+      const box = document.createElement('details');
+      box.id = 'ai-think';
+      box.className = 'ai-think';
+      box.open = true;
+      box.innerHTML = '<summary>AI 思考过程</summary><div class="ai-think-body dim" id="ai-think-body"></div>';
+      const out = $('#ime-out');
+      out.insertBefore(box, out.firstChild);
+      body = box.querySelector('.ai-think-body');
+    }
+    return body;
+  }
   const SYS_FWD = '你是《上古卷轴5》龙语(Dovahzul)输入法的翻译前置模块。把用户的中文译成英语，且英文必须按龙语习惯组织，供逐词查龙语词典使用：1) 一律陈述语序（主语+动词+其余），疑问句绝不倒装——龙语疑问句就是陈述语序，例如「你是谁」译为 You are who，「他在哪」译为 He is where；2) 不用任何冠词 a/an/the；3) 不用缩写；物主用 my/your/his/her；名词复数直接加 s；4) 时态用助词明示：将来加 will、过去加 did、完成用 have+过去分词；5) 只用最基础、具象的常见词（火、天空、国王、灵魂这类），避免抽象词与俚语，逐词对应、不增删内容；6) 只输出这一句英文本身，不加任何解释。';
-  const SYS_REV = '下面是龙语句子逐词的英文释义，把它连成一句通顺自然的中文，保持原意、不增删内容，只输出这一句中文。';
+  const SYS_REV = '下面是龙语句子逐词的英文释义，把它连成一句通顺自然的中文，保持原意、不增删内容，只输出这一句中文。未收录的词多为汉字拼音音译（如人名），请还原成最合理的中文写法。';
   async function llm(sys, user) {
     if (AI_ENDPOINT) {
       const r = await fetch(AI_ENDPOINT, {
@@ -199,7 +214,26 @@
         body: JSON.stringify({ direction: state.dir, text: user })
       });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      const t = (await r.text()).trim().replace(/^["'「」]+|["'「」。]+$/g, '');
+      let raw = '';
+      if (r.body && r.body.getReader) {
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        const box = ensureThinkBox();
+        for (;;) {
+          const res = await reader.read();
+          if (res.done) break;
+          raw += dec.decode(res.value, { stream: true });
+          const open = raw.indexOf('<think>');
+          const close = raw.indexOf('</think>');
+          let thinkPart = '';
+          if (open >= 0) thinkPart = close >= 0 ? raw.slice(open + 7, close) : raw.slice(open + 7);
+          let ansPart = close >= 0 ? raw.slice(close + 8) : '';
+          box.textContent = ansPart ? thinkPart + (thinkPart ? '\n\n—— 以下为正文 ——\n' : '') + ansPart : thinkPart;
+        }
+      } else {
+        raw = await r.text();
+      }
+      const t = dropThink(raw).trim().replace(/^["'「」]+|["'「」。]+$/g, '');
       if (!t) throw new Error('模型返回为空');
       return t;
     }

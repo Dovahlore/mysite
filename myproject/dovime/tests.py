@@ -86,6 +86,7 @@ class AiEndpointTests(SimpleTestCase):
         self.assertEqual(captured["messages"][1]["role"], "user")
         self.assertEqual(captured["messages"][1]["content"], "你是龙")
         self.assertEqual(captured["kwargs"]["temperature"], 0.2)
+        self.assertNotIn("max_tokens", captured["kwargs"])  # 不限思考预算，正文前会流式输出 <think>
 
     def test_rev_uses_sys_rev_prompt(self):
         captured = {}
@@ -136,3 +137,45 @@ class AiEndpointTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("AI 调用异常", body)
+
+    def test_reasoning_streamed_inside_think_block(self):
+        """推理型模型：思考包在 <think>…</think> 里先流，正文随后。"""
+
+        def mixed_stream(providers, messages, **kwargs):
+            yield SimpleNamespace(
+                choices=[SimpleNamespace(delta=SimpleNamespace(content=None, reasoning_content="正在分析释义，"))]
+            )
+            yield SimpleNamespace(
+                choices=[SimpleNamespace(delta=SimpleNamespace(content=None, reasoning_content="这是个人名。"))]
+            )
+            yield _chunk("我的名字叫王楚钦。")
+
+        with mock.patch.object(ai_view, "fast_model_providers", return_value=[{"name": "p"}]), \
+                mock.patch.object(ai_view, "stream_chat_completion", side_effect=mixed_stream):
+            response = self._post({"direction": "rev", "text": "My, mine · Call, Name"})
+            body = self._body(response)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<think>", body)
+        self.assertIn("</think>", body)
+        self.assertIn("正在分析释义，", body)
+        self.assertIn("这是个人名。", body)
+        self.assertTrue(body.index("</think>") < body.index("我的名字叫王楚钦。"))
+
+    def test_reasoning_only_stream_yields_fallback_hint(self):
+        """只吐思考不吐正文时：闭块后给明确提示而非空响应。"""
+
+        def reasoning_only_stream(providers, messages, **kwargs):
+            yield SimpleNamespace(
+                choices=[SimpleNamespace(delta=SimpleNamespace(content=None, reasoning_content="想了很久"), finish_reason=None)]
+            )
+
+        with mock.patch.object(ai_view, "fast_model_providers", return_value=[{"name": "p"}]), \
+                mock.patch.object(ai_view, "stream_chat_completion", side_effect=reasoning_only_stream):
+            response = self._post({"direction": "rev", "text": "My, mine · Call, Name"})
+            body = self._body(response)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<think>", body)
+        self.assertIn("</think>", body)
+        self.assertIn("没吐出译文", body)

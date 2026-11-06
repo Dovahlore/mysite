@@ -21,7 +21,7 @@ SYS_FWD = (
     "完成用 have+过去分词；5) 只用最基础、具象的常见词（火、天空、国王、灵魂这类），"
     "避免抽象词与俚语，逐词对应、不增删内容；6) 只输出这一句英文本身，不加任何解释。"
 )
-SYS_REV = "下面是龙语句子逐词的英文释义，把它连成一句通顺自然的中文，保持原意、不增删内容，只输出这一句中文。"
+SYS_REV = "下面是龙语句子逐词的英文释义，把它连成一句通顺自然的中文，保持原意、不增删内容，只输出这一句中文。未收录的词多为汉字拼音音译（如人名），请还原成最合理的中文写法。"
 
 MAX_TEXT_CHARS = 2000
 
@@ -55,13 +55,38 @@ def translate(request):
     ]
 
     def generate():
+        produced_content = False
+        in_think = False
+        think_closed = False
+
+        def _clean(piece):
+            return piece.replace("<think>", "").replace("</think>", "")
+
         try:
             for chunk in stream_chat_completion(
-                providers, messages=messages, temperature=0.2, max_tokens=500
+                providers, messages=messages, temperature=0.2
             ):
-                if chunk.choices and chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
+                delta = chunk.choices[0].delta
+                reasoning = getattr(delta, "reasoning_content", None)
+                content = getattr(delta, "content", None)
+                if reasoning:
+                    if not in_think:
+                        in_think = True
+                        yield "\n<think>\n"
+                    yield _clean(reasoning)
+                if content:
+                    if in_think and not think_closed:
+                        think_closed = True
+                        yield "\n</think>\n\n"
+                    produced_content = True
+                    yield _clean(content)
+            if in_think and not think_closed:
+                yield "\n</think>\n\n"
+            if not produced_content:
+                yield "[AI 这次没吐出译文（供应商抖动），请重试一次]"
         except Exception as exc:
+            if in_think and not think_closed:
+                yield "\n</think>\n\n"
             yield "\n[AI 调用异常：" + str(exc) + "]"
 
     response = StreamingHttpResponse(generate(), content_type="text/plain; charset=utf-8")
