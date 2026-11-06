@@ -513,10 +513,45 @@
       window.DOV_DIGRAPH_IPA.map(r => '<tr><td><b>' + r[0] + '</b></td><td class="num">' + r[1] + '</td><td class="dim">' + esc(r[2]) + '</td></tr>').join('') + '</tbody></table>';
   })();
 
+  // ---------- 撇号规范还原（zuu → zu'u，词库驱动；node 可测） ----------
+  // ==== DOV_APOS:BEGIN (pure, node 可测) ====
+  window.DOV_APOS = (function () {
+    'use strict';
+    // 依据词库构建「无撇号形 -> 规范撇号形」映射（canon 高者优先；无撇号形本身是词条时不映射）
+    function buildMap(lexCount, lexGet) {
+      const plain = new Set();
+      const words = [];
+      for (let i = 0; i < lexCount; i++) {
+        const e = lexGet(i);
+        const w = String(e[0]).toLowerCase();
+        words.push({ w: w, canon: e[2] });
+        if (!/['’]/.test(w)) plain.add(w);
+      }
+      const map = new Map();
+      words.forEach(x => {
+        if (!/['’]/.test(x.w)) return;
+        const key = x.w.replace(/['’]/g, '');
+        if (plain.has(key)) return;
+        const cur = map.get(key);
+        if (!cur || x.canon > cur.canon) map.set(key, { v: x.w, canon: x.canon });
+      });
+      const out = new Map();
+      map.forEach((v, k) => out.set(k, v.v));
+      return out;
+    }
+    // 逐词还原（保留空白与标点原样）
+    function restore(latin, map) {
+      return String(latin || '').split(/(\s+)/).map(t => (/^\s+$/.test(t) ? t : (map.get(t) || t))).join('');
+    }
+    return { buildMap: buildMap, restore: restore };
+  })();
+  // ==== DOV_APOS:END ====
+
   // ---------- 符文面板：符文打字机（打字即符文 + 对照条插入 + 即时逐词中文） ----------
   (function initTypewriter() {
     const ta = $('#tw-in');
     if (!ta) return;
+    const APOS = window.DOV_APOS.buildMap(E.lexCount(), E.lexGet);
     function normalizeCaret(s, caret) {
       const text = C.toRuneKeys(s);
       const len = (s || '').length;
@@ -528,7 +563,7 @@
     ta.addEventListener('compositionend', () => { composing = false; ta.dispatchEvent(new Event('input')); });
     function render() {
       const k = ta.value;
-      const latin = C.runeKeysToLatin(k).toLowerCase();
+      const latin = window.DOV_APOS.restore(C.runeKeysToLatin(k).toLowerCase(), APOS);
       $('#tw-latin').textContent = k ? latin : '—';
       $('#tw-keys').textContent = k || '—';
       $('#tw-count').textContent = (k.match(/[^ ]/g) || []).length + ' 个符文';
@@ -569,9 +604,9 @@
       render();
       ta.focus();
     });
-    $('#tw-copy-latin').addEventListener('click', () => { if (ta.value) copyText(C.runeKeysToLatin(ta.value).toLowerCase(), '转写'); });
+    $('#tw-copy-latin').addEventListener('click', () => { if (ta.value) copyText(window.DOV_APOS.restore(C.runeKeysToLatin(ta.value).toLowerCase(), APOS), '转写'); });
     $('#tw-ai').addEventListener('click', () => {
-      const latin = C.runeKeysToLatin(ta.value).toLowerCase();
+      const latin = window.DOV_APOS.restore(C.runeKeysToLatin(ta.value).toLowerCase(), APOS);
       if (!latin.trim()) { toast('先打点龙语，再 AI 翻译'); return; }
       aiThinkText = '';
       state.inputs.rev = latin;

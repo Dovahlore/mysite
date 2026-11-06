@@ -511,7 +511,7 @@
   <!-- ══ 符文（打字机整合版：替换原 键盘 / 拉丁输入 / 字母表 三块） ══ -->
   <section class="panel" id="rune" role="tabpanel" aria-label="符文" hidden>
     <h2>符文打字机</h2>
-    <p class="lead">直接打拉丁字母，框内即时出符文：aa/ah/ei/ey/ii/ir/oo/uu/ur 自动合成单符文（键位 1–9）、C→K、撇号忽略、退格一次删一个符文；也可点击下方任一符文精确插入；右侧即时给出逐词中文。</p>
+    <p class="lead">直接打拉丁字母，框内即时出符文：aa/ah/ei/ey/ii/ir/oo/uu/ur 自动合成单符文（键位 1–9）、C→K、撇号可打可不打（符文无撇号，转写自动还原 zu'u、thu'um 这类规范写法）、退格一次删一个符文；也可点击下方任一符文精确插入；右侧即时给出逐词中文。</p>
     <div class="card">
       <div class="ex-row" aria-label="示例" style="margin-top:0">
         <button class="ex-chip" data-tw="Dovahkiin">Dovahkiin</button>
@@ -569,7 +569,7 @@
 <script src="{% static 'ime/js/ref.js' %}?v=1"></script>
 <script src="{% static 'ime/js/core.js' %}?v=1"></script>
 <script>window.DOV_AI_ENDPOINT = "{% url 'dovime_ai' %}";</script>
-<script src="{% static 'ime/js/app.js' %}?v=5"></script>
+<script src="{% static 'ime/js/app.js' %}?v=6"></script>
 <script>
 /* ── 站点继承特效：自定义光标 + 星火背景（与主页 main.html 同款逻辑，龙金暖色） ── */
 (function () {
