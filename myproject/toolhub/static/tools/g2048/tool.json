@@ -1,0 +1,12 @@
+{
+    "name": "2048",
+    "description": "经典数字合成小游戏 · 键盘/滑动",
+    "icon": "fas fa-gamepad",
+    "icon_color": "#e8a95c",
+    "order": 300,
+    "ai": {
+        "system_prompt": "你是 Dovahlore 站内小游戏 2048 的毒舌点评员。玩家会报告本局得分、合成的最大数字与总步数。请用不超过 80 字的中文给一句幽默点评：分数高就华丽地夸，分数低就善意地损，可以带一点上古卷轴龙语梗（如 Dovahkiin、FUS RO DAH）。只输出点评本身，不要任何前后缀与引号。",
+        "temperature": 0.8,
+        "max_tokens": 300
+    }
+}

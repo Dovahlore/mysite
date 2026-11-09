@@ -16,6 +16,8 @@
 | DovahRide | `/s/bike/` | FIT/GPX 骑行记录、轨迹缩略图、地图回放、速度/海拔/心率/功率统计 |
 | Site Assistant | `/s/agent` | 查询站内已授权数据；访客可预览，登录后才能提问、读取或清空历史 |
 | Dovahzul IME | `/s/ime` | 龙语输入法：离线中文↔龙语双向转换、4227 词词典、龙吼、语法与符文键盘；AI 直译（龙语语法 + dict_lookup 词典工具 + 思考流展示），翻译记录存浏览器本地 |
+| Tools Wall（toolhub） | `/`（工具墙）、`/s/t/<id>/`（工具页） | 通用工具扩展机制：link 条目（外链/站内页）+ drop-in 文件夹（`tool.json` + `index.html` 扔进 `myproject/toolhub/static/tools/` 即自动上墙）；工具可声明 `ai` 获得本站 LLM 流式端点 `/s/t/<id>/ai`；内置 2048 小游戏活样例，详见 `myproject/toolhub/README.md` |
+
 | 管理入口 | `/s/login` | 登录后开放上传、编辑、删除、同步及 AI 功能 |
 
 ## v1.3 更新
@@ -253,6 +255,8 @@ v1.2 当前包含 28 项测试，覆盖 Agent 访客权限、只读 SQL、AI 供
 | v1.1.3 | 加入 iGPSPORT 自动同步、任务状态、记录去重、静态图标迁移与数据卷清理 |
 | v1.2 | 加入访客 Agent 预览、只读查询防护、YAML 多 API 路由、扩展 Live2D 模型、Wall 时间轴和 2 GB 主机内存优化 |
 | v1.3 | 新增 Dovahzul IME 龙语输入法（离线引擎 + AI 语法直译 + 词典工具），主页 Tools Wall 工具墙改版 |
+| v1.4 | 新增 toolhub 通用工具机制（注册表驱动工具墙、drop-in 工具文件夹、按工具配置的本站 AI 端点、2048 示例小游戏） |
+
 
 ## 注意事项
 

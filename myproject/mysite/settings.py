@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "dovahbase.apps.DovahbaseConfig",
     "dovahride.apps.DovahrideConfig",
     "dovime.apps.DovimeConfig",
+    "toolhub.apps.ToolhubConfig",
 
 ]
 

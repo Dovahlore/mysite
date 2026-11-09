@@ -22,6 +22,7 @@ from dovahbase.views import main as base_main
 from dovahbase.views import manga, episode, movie,polish,agent
 from dovahride import views as ride
 from dovime.views import main as dovime_main, ai as dovime_ai
+from toolhub import views as toolhub_views
 from django.conf.urls.static import static
 from django.views.generic.base import RedirectView
 from dovahwall import tests
@@ -37,6 +38,8 @@ urlpatterns = [
                 path("s/like", wall.like),
                 path("s/ime", dovime_main.page, name="dovime_page"),
                 path("s/ime/ai", dovime_ai.translate, name="dovime_ai"),
+                path("s/t/<tool_id>/", toolhub_views.tool_page, name="toolhub_page"),
+                path("s/t/<tool_id>/ai", toolhub_views.tool_ai, name="toolhub_ai"),
                 path("admin/", admin.site.urls),
                 path("upload", upload.upload),
                 path("s/test", tests.test_cache),

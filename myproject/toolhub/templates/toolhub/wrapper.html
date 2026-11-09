@@ -1,0 +1,51 @@
+{% load static %}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ tool.name }} · Dovahlore</title>
+    <link rel="icon" type="image/png" href="{% static 'ime/img/skyrim_favicon_black.png' %}">
+    <style>
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            margin: 0;
+            background: radial-gradient(ellipse at 50% -20%, #131a26 0%, #0a0d13 60%) fixed, #0a0d13;
+            color: #d8dee9;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+            overflow: hidden;
+        }
+        .topbar {
+            position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 10;
+            display: flex; align-items: center; gap: 14px; padding: 0 18px;
+            background: rgba(10, 13, 19, 0.72);
+            backdrop-filter: blur(14px) saturate(140%);
+            -webkit-backdrop-filter: blur(14px) saturate(140%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .topbar a.back {
+            color: #9aa7b8; text-decoration: none; font-size: 14px; letter-spacing: 0.5px;
+            padding: 6px 12px; border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 999px; transition: all 0.2s ease; white-space: nowrap;
+        }
+        .topbar a.back:hover { color: #e8ecf3; border-color: rgba(255, 255, 255, 0.35); }
+        .topbar .tname { font-size: 15px; color: #e8ecf3; letter-spacing: 1px; white-space: nowrap; }
+        .topbar .tdesc { font-size: 12px; color: #7d8899; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .topbar .hint { font-size: 12px; color: #5c6675; letter-spacing: 1px; white-space: nowrap; }
+        iframe#tool-frame {
+            position: fixed; top: 52px; left: 0; width: 100%; height: calc(100% - 52px);
+            border: 0; background: transparent;
+        }
+        @media (max-width: 640px) { .topbar .tdesc, .topbar .hint { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a class="back" href="/">⌂ 主页</a>
+        <span class="tname">{{ tool.name }}</span>
+        {% if tool.desc %}<span class="tdesc">{{ tool.desc }}</span>{% endif %}
+        <span class="hint">Dovahlore Tools</span>
+    </div>
+    <iframe id="tool-frame" src="{% static 'tools' %}/{{ tool.id }}/index.html" title="{{ tool.name }}"></iframe>
+</body>
+</html>

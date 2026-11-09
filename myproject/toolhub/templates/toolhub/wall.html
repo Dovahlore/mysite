@@ -1,0 +1,10 @@
+{% load static %}{% for tool in tools %}<a href="{{ tool.url }}" class="tool-card">
+    {% if tool.icon_img %}
+        <span class="tool-icon tool-icon-img"><img src="{% static tool.icon_img %}" alt="{{ tool.name }}图标"></span>
+    {% else %}
+        <span class="tool-icon"{% if tool.icon_color %} style="color:{{ tool.icon_color }};"{% endif %}><i class="{{ tool.icon_fa }}" aria-hidden="true"></i></span>
+    {% endif %}
+    <span class="tool-name">{{ tool.name }}</span>
+    <span class="tool-desc">{{ tool.desc }}</span>
+</a>
+{% endfor %}

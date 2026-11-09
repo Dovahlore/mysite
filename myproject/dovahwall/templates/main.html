@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-{% load static %}
+{% load static toolhub_tags %}
 <head>
     <meta charset="UTF-8">
     <title>Dovahlore</title>
@@ -377,26 +377,7 @@ a.tool-card, a.tool-card:hover { text-decoration: none; }
 
     <div class="tools-label">Tools Wall</div>
     <div class="tools-board">
-        <a href="/s/agent" class="tool-card">
-            <span class="tool-icon" style="color:#89bfe1;"><i class="fas fa-robot" aria-hidden="true"></i></span>
-            <span class="tool-name">Site Assistant</span>
-            <span class="tool-desc">站内数据问答助手</span>
-        </a>
-        <a href="/s/ime" class="tool-card">
-            <span class="tool-icon tool-icon-img"><img src="{% static 'ime/img/skyrim_logo_light.png' %}" alt="龙语输入法图标"></span>
-            <span class="tool-name">龙语输入法</span>
-            <span class="tool-desc">dovahzul ime · 中↔龙语</span>
-        </a>
-        <a href="http://deepseek.dovahwall.cn" class="tool-card">
-            <span class="tool-icon" style="color:#4d90fe;"><i class="fas fa-brain" aria-hidden="true"></i></span>
-            <span class="tool-name">DeepSeek AI</span>
-            <span class="tool-desc">deepseek.dovahwall.cn</span>
-        </a>
-        <a href="http://portainer.dovahwall.cn" class="tool-card">
-            <span class="tool-icon" style="color:#2496ed;"><i class="fab fa-docker" aria-hidden="true"></i></span>
-            <span class="tool-name">Portainer</span>
-            <span class="tool-desc">portainer.dovahwall.cn</span>
-        </a>
+        {% tool_wall %}
     </div>
 
     <div class="d-flex justify-content-center mt-5 flex-wrap">
