@@ -55,6 +55,7 @@
   const state = { dir: 'fwd', aiDov: null, aiSource: '', aiZh: null, aiZhSource: '', inputs: { fwd: '', rev: '' } };
   const dirBtns = $$('#dir-seg button');
   function setDir(d) {
+    abortAI(); clearTimeout(autoTimer);
     state.dir = d;
     dirBtns.forEach(b => b.setAttribute('aria-pressed', b.getAttribute('data-d') === d));
     $('#ai-btn').textContent = d === 'fwd' ? 'AI 翻译' : 'AI 润成通顺中文';
@@ -188,7 +189,7 @@
       '<p class="dim">输入即译（离线）；点「AI 翻译」用 AI 译文。</p></div>';
   }
   let deb;
-  input.addEventListener('input', () => { state.inputs[state.dir] = input.value; aiThinkText = ''; clearTimeout(deb); deb = setTimeout(renderConvert, 120); clearTimeout(autoTimer); autoTimer = setTimeout(maybeAutoAI, 3000); });
+  input.addEventListener('input', () => { state.inputs[state.dir] = input.value; aiThinkText = ''; abortAI(); clearTimeout(deb); deb = setTimeout(renderConvert, 120); clearTimeout(autoTimer); autoTimer = setTimeout(maybeAutoAI, 3000); });
 
   // ---------- AI（站点模式=统一接口无需 Key；单文件模式=OpenAI 兼容自备配置） ----------
   const aiBtn = $('#ai-btn'), aiErr = $('#ai-err');
@@ -196,6 +197,19 @@
   const AI_ENDPOINT = window.DOV_AI_ENDPOINT || '';
   let llmController = null;
   let aiThinkText = '';
+  let aiBusy = false;
+  function resetBusyUI() {
+    aiBtn.disabled = false;
+    aiBtn.textContent = state.dir === 'fwd' ? 'AI 翻译' : 'AI 润成通顺中文';
+    input.readOnly = false; $('#ime').classList.remove('ai-busy');
+  }
+  function abortAI() { // 中止在途请求：思考中打字/切方向/点按钮重开时调用，旧结果静默丢弃
+    if (!aiBusy) return;
+    aiSeq++;
+    aiBusy = false;
+    if (llmController) { try { llmController.abort(); } catch (e) {} }
+    resetBusyUI();
+  }
   function csrfToken() {
     const inp = document.querySelector('input[name="csrfmiddlewaretoken"]');
     if (inp && inp.value) return inp.value;
@@ -301,8 +315,9 @@
     if (state.dir === 'rev' && !rconv) { if (!auto) aiErr.textContent = '请先输入龙语。'; return; }
     const seq = ++aiSeq;
     const dir0 = state.dir;
-    aiBtn.disabled = true; aiBtn.textContent = 'AI 处理中…'; aiErr.textContent = '';
-    if (!auto) { input.readOnly = true; $('#ime').classList.add('ai-busy'); }
+    aiBusy = true;
+    aiBtn.textContent = 'AI 处理中…'; aiErr.textContent = '';
+    $('#ime').classList.add('ai-busy');
     try {
       if (dir0 === 'fwd') {
         const ref = (conv && conv.tokens ? conv.tokens : []).map(t => {
@@ -335,6 +350,7 @@
         else toast('输入已变化，本次 AI 结果已存入「记录」');
       }
     } catch (e) {
+      if (seq !== aiSeq) return; // 已被新请求取代或手动中止：静默退出
       const noNet = /Failed to fetch|NetworkError|Load failed/i.test(e.message || '');
       aiErr.textContent = AI_ENDPOINT
         ? 'AI 调用失败：' + e.message
@@ -342,20 +358,17 @@
           ? '当前环境（应用内预览）禁止访问外网，AI 功能不可用：请用 Edge/Chrome 双击打开本文件使用；词典、双向转换、符文等其余功能全部离线可用。'
           : 'AI 调用失败：' + e.message + '。接口需允许浏览器跨域(CORS)。';
     } finally {
-      if (seq === aiSeq) {
-        aiBtn.disabled = false; aiBtn.textContent = state.dir === 'fwd' ? 'AI 翻译' : 'AI 润成通顺中文';
-        input.readOnly = false; $('#ime').classList.remove('ai-busy');
-      }
+      if (seq === aiSeq) { aiBusy = false; resetBusyUI(); }
     }
   }
-  aiBtn.addEventListener('click', () => runAI(false));
+  aiBtn.addEventListener('click', () => { abortAI(); runAI(false); });
 
   // ---------- 即时翻译：停顿约 1.2s 自动触发一次（可开关） ----------
   let autoTimer = null, lastAutoKey = '';
   const autoToggle = $('#auto-toggle');
   function maybeAutoAI() {
     if (!autoToggle || !autoToggle.checked) return;
-    if (aiBtn.disabled) return;
+    if (aiBusy) return;
     const text = input.value.trim();
     if (!text) return;
     if (state.dir === 'fwd' && !/[\u3400-\u9fff]/.test(text)) return;
