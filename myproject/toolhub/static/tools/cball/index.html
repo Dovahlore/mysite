@@ -35,6 +35,8 @@ window.addEventListener('unhandledrejection', e => { ERRS.push('rej:' + String((
 const W = 480, H = 720;
 const TOP = 56, DANGER_Y = 686;
 const COLS = 8, CELL = 60, BW = 54, BH = 30, ROWH = 38, GRID_TOP = 64, BAND_H = 64;
+// 2026-11-10 距离标准单位：1 格 = CELL（60px，一格方块位）。全场范围/半径统一以「格」表述——卡面/图鉴/名词表与代码经 cells() 同源换算（原 px 数值玩家不可读，且 60-90px 中心距在随机落位+块间留隙下常够不到邻块，本批波及类统一 2 格起）
+function cells(u) { return u * CELL; }
 const CANNON_Y = H - 66, BUCKET_W = 92; // 2026-11-09 六批拍板：炮塔整体上移 42px——不再遮住底部经验条（文字 ~671-679、条 682-688；炮塔底缘 ≤669）；出膛/接物/僚机全部随 CANNON_Y 联动
 const BR = 6, BSPEED = 540, PELLET_SPEED = 640;
 const AIM_MIN = 0.18;
@@ -64,7 +66,7 @@ const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
 const TAU = Math.PI * 2;
 
 /* ---------- 合成音效 ---------- */
-let ac = null, mgain = null, lastTick = 0;
+let ac = null, mgain = null, lastTick = 0, lastHeat = 0, lastCrit = 0, lastFrz = 0; // 2026-11-10：heat/crit/freeze 节流时钟（tick 同模式）
 function ensureAudio() {
   if (S.muted) return;
   try {
@@ -124,8 +126,33 @@ const sfx = {
   boing()  { beep(240, 0.14, 'sine', 0.14, 320); },
   alarm()  { beep(170, 0.3, 'sawtooth', 0.22, -55); noiseS(0.2, 0.18, 420); },
   over()   { [392, 311, 247, 165].forEach((f, i) => beep(f, 0.3, 'triangle', 0.2, 0, i * 0.17)); },
-  record() { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.16, 'sine', 0.16, 0, i * 0.1)); }
+  record() { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.16, 'sine', 0.16, 0, i * 0.1)); },
+  /* 2026-11-10 事件音效批：热冲击/落雷/暴击/冻结/激光光柱/毒云（heat/crit/freeze 带 tick 式节流，防同帧连环触发刷屏） */
+  heat()   { if (gameT - lastHeat < 0.05) return; lastHeat = gameT; noiseS(0.16, 0.17, 6500); beep(200, 0.13, 'sine', 0.1, -110); }, // 热冲击：蒸汽嘶 + 低嚟
+  strike() { noiseS(0.09, 0.2, 8000); beep(1500, 0.1, 'square', 0.09, -1150); noiseS(0.5, 0.3, 210, 0.03); }, // 落雷：脆响 + 远雷滚
+  crit()   { if (gameT - lastCrit < 0.05) return; lastCrit = gameT; beep(1560, 0.07, 'square', 0.12); beep(2090, 0.09, 'sine', 0.1, 0, 0.035); }, // 暴击：亮金双音
+  freeze() { if (gameT - lastFrz < 0.06) return; lastFrz = gameT; beep(1720, 0.09, 'sine', 0.1, -420); beep(1140, 0.12, 'triangle', 0.08, -260, 0.05); noiseS(0.07, 0.045, 6000, 0.02); }, // 冻结：冰晶下行双音 + 细闪
+  laser()  { beep(920, 0.12, 'sawtooth', 0.07, 460); noiseS(0.05, 0.045, 7000); }, // 激光光柱：缴齿上扫 + 高频嘶
+  cloud()  { noiseS(0.3, 0.09, 480); beep(110, 0.22, 'sine', 0.07, 55); } // 毒云：沼泡 + 毒嘶
 };
+
+/* ---------- 2026-11-10 关卡背景音：按主题的轻环境声（BGM 另行预留——用户找曲后再接） ---------- */
+let ambT = 0, ambNext = 2.5;
+const AMB = {
+  fire()  { noiseS(rnd(0.5, 0.9), 0.05, 240); if (Math.random() < 0.4) noiseS(0.06, 0.045, 3200, rnd(0.15, 0.55)); }, // 烈焰山：地底闷燃 + 偶发爆花
+  swamp() { beep(rnd(85, 135), rnd(0.25, 0.4), 'sine', 0.045, rnd(30, 80)); noiseS(rnd(0.4, 0.7), 0.025, 500, 0.1); }, // 毒沼泽：沼泡上冒 + 毒嘶
+  ice()   { beep(rnd(1400, 2100), rnd(0.9, 1.4), 'sine', 0.028); noiseS(rnd(0.8, 1.2), 0.02, 900); }, // 冰峰：高空冰晶泛音 + 风嘶
+  storm() { noiseS(rnd(0.7, 1.1), 0.06, 160); }, // 雷暴：远处闷雷滚
+  wind()  { noiseS(rnd(1.0, 1.6), 0.045, 700); } // 风林：阵风过林
+};
+function stageAmbience(rdt) { // 主循环 play 分支每帧喂 rdt；无 AudioContext/静音时零开销直跳（选卡/工坊期间照常播）
+  if (!ac || S.muted) return;
+  ambT += rdt;
+  if (ambT < ambNext) return;
+  ambT = 0; ambNext = rnd(2.2, 4.6);
+  const fn = AMB[(stageMod() || {}).theme];
+  if (fn) { try { fn(); } catch (e) {} }
+}
 
 /* ---------- 状态 ---------- */
 let gameT = 0;
@@ -156,7 +183,7 @@ const S = {
   mode: 'menu', paused: false, muted: false,
   score: 0, disp: 0, best: 0, newBest: false, wave: 1, arsenal: 5, shield: 3,
   combo: 0, comboT: 0, comboPop: 0, maxCombo: 0,
-  blocks: [], balls: [], pickups: [], parts: [], floats: [], shocks: [], bolts: [], evts: [], launchQ: [], rays: [], bees: [], clouds: [], zones: [], holes: [], // 2026-11-03 疫病波：zones=坏死区域；2026-11-04 黑洞引力场：holes=湮灭黑洞存续实体
+  blocks: [], balls: [], pickups: [], parts: [], floats: [], shocks: [], bolts: [], beams: [], evts: [], launchQ: [], rays: [], bees: [], clouds: [], zones: [], holes: [], // 2026-11-03 疫病波：zones=坏死区域；2026-11-04 黑洞引力场：holes=湮灭黑洞存续实体；2026-11-10：beams=激光光柱实体（与闪电链 bolts 分离）
   perm: { fire: 0, ice: 0, bolt: 0, poison: 0, blood: 0, pierce: 0, split: 0, shot: 0 }, // V3 基础球 8：元素 5 + 机能 3
   gemGroups: new Map(), gemSeq: 0, blkSeq: 0,
   luck: 0, pity: { sr: 0, ssr: 0 }, buffs: [], phoenixUsed: false, waveScore0: 0, killCount: 0, fuse: {}, tree: {}, shop: false,
@@ -264,7 +291,7 @@ function startGame(charId) {
   S.uiT = 0; // UI 时钟（不受冻结影响；见 90_main frame）
   S.combo = 0; S.comboT = 0; S.comboPop = 0; S.maxCombo = 0;
   S.blocks.length = 0; S.balls.length = 0; S.pickups.length = 0; S.parts.length = 0;
-  S.floats.length = 0; S.shocks.length = 0; S.bolts.length = 0; S.evts.length = 0; S.launchQ.length = 0;
+  S.floats.length = 0; S.shocks.length = 0; S.bolts.length = 0; S.beams.length = 0; S.evts.length = 0; S.launchQ.length = 0;
   S.rays.length = 0; S.bees.length = 0;
   S.clouds.length = 0; // V4.3 毒云
   S.zones.length = 0; // 2026-11-03 疫病波：坏死区域
@@ -276,6 +303,7 @@ function startGame(charId) {
   S.railCharge = 0; S.railKillDmg = 0; S.railVolleyKill = false; // Wave4·磁轨洒灭充能每局重置
   S.taken = {}; S.cardbook = false; S.cardbookScroll = 0; S.pausePage = null; S.pauseScroll = 0; S.pauseSel = null; S.pauseFilter = 'all'; S.ever = {}; // 卡册/暂停图鉴/曾拥有；2026-11-04：暂停页选中与筛选随局重置
   S.volley = false; S.canFire = true; S.aimOn = false; S.aimA = -Math.PI / 2;
+  S.refilled = false; // 2026-11-10 结算完整性：波末回填金弹每波限一次（正式结算时归零，重开也归零）
   S.volleyT = 0; S.hint = 7; S.overT = 0;
   S.ts = 1; S.slow = 0; S.shake = 0; S.flash = 0; S.redFlash = 0;
   S.lastStage = 0; S.muzzle = 0; S.bgCur = [10, 14, 26]; S.splitCount = 0; S.windX = 0; S.boltT = 2; S.boltFlash = 0; S.boltPath = null; // V4.19
@@ -521,7 +549,7 @@ const LEVEL_POOL = [
   /* ===== 元素联动（V3 新增：属性之间的反应卡；可叠加） ===== */
   { id: 'synFI', rarity: 'R', name: '热冲击 · 火冰', desc: '热冲击伤害 +1/层（全局：冰火互施逐层对冲，每消 1 层 1 次热冲击、基础 3 伤）', cat: 'syn', elem: 'ice', stack: 'inf', can: () => true, apply: m => { S.up.synFI += m; } }, // R2fireice 2026-11-04：热冲击改全局机制（无需卡即 3 伤），卡改为每层 +1；tag 走热冲击色；2026-11-09 重做：逐层对冲口径
   { id: 'synICS', rarity: 'R', name: '超导 · 冰雷', desc: '冻结块所受落雷/闪电链伤害 +30%/层', cat: 'syn', elem: 'bolt', stack: 'inf', can: () => true, apply: m => { S.up.synICS += m; } },
-  { id: 'synBF', rarity: 'SR', name: '引燃雷管 · 雷火', desc: '落雷/闪电链命中燃烧块：引爆（30px，2 伤/层）', cat: 'syn', elem: 'bolt', stack: 'inf', can: () => true, apply: m => { S.up.synBF += m; } },
+  { id: 'synBF', rarity: 'SR', name: '引燃雷管 · 雷火', desc: '落雷/闪电链命中燃烧块：引爆（1.5 格，2 伤/层）', cat: 'syn', elem: 'bolt', stack: 'inf', can: () => true, apply: m => { S.up.synBF += m; } },
   { id: 'synFP', rarity: 'R', name: '毒燃 · 火毒', desc: '燃烧跳伤对中毒块 +25%/层', cat: 'syn', elem: 'fire', stack: 'inf', can: () => true, apply: m => { S.up.synFP += m; } },
   { id: 'synPB', rarity: 'R', name: '败血症 · 毒血', desc: '流血爆发结算时若目标带毒：爆发伤 ×(1+25%×层)', cat: 'syn', elem: 'poison', stack: 'inf', can: () => true, apply: m => { S.up.synPB += m; } }, // R2bolt 2026-11-04：稀有度 SR→R
   { id: 'synIB', rarity: 'R', name: '冻疮 · 冰血', desc: '流血爆发对冰冻/冻结块 +2 伤/层', cat: 'syn', elem: 'ice', stack: 'inf', can: () => true, apply: m => { S.up.synIB += m; } },
@@ -568,10 +596,10 @@ const LEVEL_POOL = [
   { id: 'expamp', rarity: 'R', name: '聚爆破芯', desc: '爆炸类伤害 +1；子母弹爆炸伤害只有 50%', cat: 'elem', elem: 'fire', stack: 'inf', can: () => (S.fuse.bomb || 0) > 0, apply: m => { S.up.expamp += m; } }, // R2misc 2026-11-04：desc 注明子母弹 50% 爆伤
   { id: 'cluster', rarity: 'SR', name: '集束核心', desc: '爆炸半径 +30%', cat: 'elem', elem: 'fire', stack: 'inf', can: () => (S.fuse.bomb || 0) > 0 || S.ever.bomb, dyn: () => '爆炸半径 +' + 30 * (S.up.cluster || 0) + '% → +' + 30 * ((S.up.cluster || 0) + 1) + '%', apply: m => { S.up.cluster += m; } },
   { id: 'expIgnite', rarity: 'SSR', name: '燃烧弹幕', desc: '爆炸范围点燃：圈内方块 25%/层 概率点燃', cat: 'elem', elem: 'fire', stack: 'inf', can: () => (S.fuse.bomb || 0) > 0 || S.ever.bomb, dyn: () => '点燃率 ' + Math.min(100, 25 * (S.up.expIgnite || 0)) + '% → ' + Math.min(100, 25 * ((S.up.expIgnite || 0) + 1)) + '%', apply: m => { S.up.expIgnite += m; } }, // R2misc 2026-11-04：desc 改「爆炸范围点燃」
-  { id: 'spreader', rarity: 'SR', name: '燎原', desc: '燃烧块被击碎时引燃 70px 内方块并 +1 层燃烧', cat: 'elem', elem: 'fire', can: () => burnSrc() && S.up.spreader < 1, apply: m => { S.up.spreader += m; } },
+  { id: 'spreader', rarity: 'SR', name: '燎原', desc: '燃烧块被击碎时引燃 2 格内方块并 +1 层燃烧', cat: 'elem', elem: 'fire', can: () => burnSrc() && S.up.spreader < 1, apply: m => { S.up.spreader += m; } },
   // R2fireice 2026-11-04 火冰波删卡×2：深冬（deepwinter，抬冰冻上限）与冻结扩展（frostburst，冻结期每秒伤/%HP）——
   // 冻结=永久易伤后无「冻结期/碎裂」概念，两卡失去意义；键保留恒 0（frostCap 恒 5）
-  { id: 'frzblast', rarity: 'SR', name: '冻结爆发', desc: '冻结时 70px 内存活块各 +1 层病毒与冰冻 0→1 层（+1/层，可连锁冻结）', cat: 'elem', elem: 'ice', can: () => true, apply: m => { S.up.frzblast += m; } }, // R2fireice 术语对齐：原「冻结碎裂时」→「冻结时」；效果不变（病毒+冰冻各 +层数，可连锁）
+  { id: 'frzblast', rarity: 'SR', name: '冻结爆发', desc: '冻结时 2 格内存活块各 +1 层病毒与冰冻 0→1 层（+1/层，可连锁冻结）', cat: 'elem', elem: 'ice', can: () => true, apply: m => { S.up.frzblast += m; } }, // R2fireice 术语对齐：原「冻结碎裂时」→「冻结时」；2026-11-10 范围单位化（原 70px）
   { id: 'lightamp', rarity: 'SSR', name: '光照精粹', desc: '光照伤害 +1', cat: 'elem', elem: 'light', stack: 'inf', can: () => (S.fuse.sun || 0) > 0, apply: m => { S.up.lightamp += m; } }, // R2misc 2026-11-04：稀有度单改 SR→SSR
   { id: 'darkecho', rarity: 'R', name: '湮灭回响', desc: '斩杀线击杀时回复 1 层护盾/层（受护盾上限管束）', cat: 'elem', elem: 'dark', stack: 'inf', can: () => (S.fuse.dark || 0) > 0, apply: m => { S.up.darkecho += m; } }, // R2dark 2026-11-04 斩杀线口径：触发源统一为暗影球斩杀线击杀（处决/吞噬双措辞下线）；darkdeep 暗蚀深化已删卡（侵蚀体系删除，2026-11-04 批注）
   /* ===== 血/毒/雷 附着与金蛋系 ===== */
@@ -601,7 +629,7 @@ const LEVEL_POOL = [
   { id: 'bosshunter', rarity: 'SR', name: '首领猎人', desc: '对首领伤害 ×(1.4+0.2×层)', cat: 'sys', stack: 'inf', can: () => true, apply: m => { S.up.bosshunter += m; } },
   { id: 'phaseshield', rarity: 'SR', name: '相位护盾', desc: '护盾上限 +1', cat: 'sys', can: () => shieldCap() < 8 && S.up.phaseshield < 1, dyn: () => '护盾上限 ' + shieldCap() + '→' + (shieldCap() + 1) + '，护盾值 ' + S.shield + '→' + S.shield, apply: m => { S.up.phaseshield += m; } },
   { id: 'shieldpen', rarity: 'R', name: '相位穿甲', desc: '磁轨穿透伤害无视护盾，直接扣本体', cat: 'ball', ball: 'rail', can: () => (S.fuse.rail || 0) > 0 && S.up.shieldpen < 1, apply: m => { S.up.shieldpen += m; } },
-  { id: 'refill', rarity: 'SR', name: '弹药回填', desc: '每波结束 20%（+5%/额外层）朝瞄准方向发射层数颗金弹', cat: 'sys', stack: 'inf', can: () => true, apply: m => { S.up.refill += m; } },
+  { id: 'refill', rarity: 'SR', name: '弹药回填', desc: '每波结束 20%（+5%/额外层）发射层数颗金弹；金弹落底结算完才进下一波（2026-11-10 结算完整性）', cat: 'sys', stack: 'inf', can: () => true, apply: m => { S.up.refill += m; } },
   { id: 'rainbow', rarity: 'SR', name: '彩虹协议', desc: '普通弹穿透/碰撞后 8%（+5%/额外层）触发：落雷/燃烧/中毒/冰冻 之一', cat: 'sys', stack: 'inf', can: () => true, apply: m => { S.up.rainbow += m; } },
   { id: 'autobarrage', rarity: 'SSR', name: '弹幕预案', desc: '散弹丸可穿透 1 个方块', cat: 'ball', ball: 'shot', can: () => S.perm.shot > 0 && S.up.autobarrage < 1, apply: m => { S.up.autobarrage += m; } },
   { id: 'magdouble', rarity: 'SR', name: '弹仓倍增', desc: '普通弹珠立即 +10', cat: 'sys', can: () => S.up.magdouble < 1, dyn: () => '普通球 ' + S.arsenal + ' → ' + (S.arsenal + 10), apply: m => { S.up.magdouble += m; S.arsenal += 10; } },
@@ -617,13 +645,13 @@ const LEVEL_POOL = [
   { id: 'reroll2', rarity: 'SR', name: '重构协议', desc: '选卡刷新次数 +2', cat: 'sys', stack: 'inf', can: () => true, dyn: () => '刷新 ' + (1 + (S.up.reroll || 0)) + ' → ' + (3 + (S.up.reroll || 0)) + ' 次', apply: m => { S.up.reroll += 2 * m; } },
   /* ===== V4 即时类转技能卡（原拾取物下线：护盾/经验/幸运已有对应卡；以下为新增） ===== */
   { id: 'potionFrz', rarity: 'N', name: '急冻陷阱', desc: '立即：全场存活块施加 2 层冰冻（最多 3 张）', cat: 'sys', can: () => S.up.potionFrz < 3, apply: () => { S.up.potionFrz++; for (const b of S.blocks) { if (!b.dead) applyFrost(b, 2); } addFloat(W / 2, H * 0.3, '急冻陷阱！', '#8fd7ff', 20); } }, // R2misc 2026-11-04：稀有度单改 R→N
-  { id: 'potionFre', rarity: 'N', name: '狂热试剂', desc: '立即：狂热 12s', cat: 'sys', can: () => true, apply: () => { addBuff('frenzy', 12); addFloat(W / 2, H * 0.3, '狂热 12s · 伤害 ×1.5', WARN, 18); } }, // R2misc 2026-11-04：稀有度单改 R→N
+  { id: 'potionFre', rarity: 'N', name: '狂热试剂', desc: '立即：狂热 1 波', cat: 'sys', can: () => true, apply: () => { addBuff('frenzy', 1); addFloat(W / 2, H * 0.3, '狂热 1 波 · 伤害 ×1.5', WARN, 18); } }, // 2026-11-10：计时增益改按波；R2misc 2026-11-04：稀有度单改 R→N
   { id: 'potionBig', rarity: 'N', name: '巨球试剂', desc: '立即：巨球 2 波', cat: 'sys', can: () => true, apply: () => { addBuff('bigball', 2); addFloat(W / 2, H * 0.3, '巨球 2 波', SPLITC, 18); } }, // R2misc 2026-11-04：稀有度单改 R→N
   { id: 'potionDbl', rarity: 'R', name: '双发待发', desc: '立即：下次齐射弹珠 ×2', cat: 'sys', can: () => true, apply: () => { addBuff('double', 0); addFloat(W / 2, H * 0.3, '双发待发 · 下次弹珠 ×2', ACCENT, 18); } },
-  { id: 'potionNuke', rarity: 'R', name: '战术核弹', desc: '立即：上方区域以随机方块为中心剧烈连环爆（主爆 150px·8 伤 + 四向 80px·5 伤）', cat: 'sys', can: () => true, apply: () => { nukeStrike(); } }, // 2026-11-09 六批重做：旧版以屏幕中心/底部引爆，前期底部无块=空放；R2misc 2026-11-04：稀有度单改 SSR→R
+  { id: 'potionNuke', rarity: 'R', name: '战术核弹', desc: '立即：上方区域以随机方块为中心剧烈连环爆（主爆 2.5 格·8 伤 + 四向 1.5 格·5 伤）', cat: 'sys', can: () => true, apply: () => { nukeStrike(); } }, // 2026-11-09 六批重做：旧版以屏幕中心/底部引爆，前期底部无块=空放；R2misc 2026-11-04：稀有度单改 SSR→R；2026-11-10 范围单位化（原 150/80px）
   /* ===== V4.3 毒云（范围施毒） ===== */
-  { id: 'cloud', rarity: 'SSR', name: '毒云散布', desc: '毒球命中必生成毒云：范围内持续施加毒层，本波结束消散', cat: 'elem', elem: 'poison', stack: 'inf', can: () => ballCount('poison') > 0 || S.ever.poison, dyn: () => '半径 ' + Math.round(46 * (S.up.cloud2 > 0 ? 1.4 : 1)) + ' · 施加 ' + (S.up.cloud2 > 0 ? 2 : 1) + ' 层 · 场上 ' + (S.clouds || []).length + ' 朵', apply: m => { S.up.cloud += m; } }, // R2misc 2026-11-04：desc 去「滴注」术语改直白表述
-  { id: 'cloud2', rarity: 'SR', name: '浓毒云', desc: '毒云半径 +40%、施加层数 +1（持续仍 1 波；限 1 张）', cat: 'elem', elem: 'poison', stack: 1, can: () => S.up.cloud > 0 && S.up.cloud2 < 1, dyn: () => '半径 46 → 64 · 施加 1 → 2 层', apply: m => { S.up.cloud2 += m; } }, // R2misc 2026-11-04：术语同步（can 门槛=需先选中 cloud 原本就在，未动）
+  { id: 'cloud', rarity: 'SSR', name: '毒云散布', desc: '毒球命中必生成毒云：范围内持续施加毒层，本波结束消散', cat: 'elem', elem: 'poison', stack: 'inf', can: () => ballCount('poison') > 0 || S.ever.poison, dyn: () => '半径 ' + (S.up.cloud2 > 0 ? 1.5 : 1) + ' 格 · 施加 ' + (S.up.cloud2 > 0 ? 2 : 1) + ' 层 · 场上 ' + (S.clouds || []).length + ' 朵', apply: m => { S.up.cloud += m; } }, // R2misc 2026-11-04：desc 去「滴注」术语改直白表述；2026-11-10 范围单位化（原半径 46/64px）
+  { id: 'cloud2', rarity: 'SR', name: '浓毒云', desc: '毒云半径 +0.5 格、施加层数 +1（持续仍 1 波；限 1 张）', cat: 'elem', elem: 'poison', stack: 1, can: () => S.up.cloud > 0 && S.up.cloud2 < 1, dyn: () => '半径 1 → 1.5 格 · 施加 1 → 2 层', apply: m => { S.up.cloud2 += m; } }, // R2misc 2026-11-04：术语同步（can 门槛=需先选中 cloud 原本就在，未动）；2026-11-10 范围单位化（原 +40%/46→64px）
   /* ===== V4.7 树解锁联动（必须先点亮对应技能树节点；数值实时显示） ===== */
   { id: 'synP1', rarity: 'SR', name: '光棱共鸣', desc: '棱镜光伤害 +20%', cat: 'syn', elem: 'light', stack: 'inf', can: () => true, dyn: () => '棱镜光 ×' + (1 + 0.2 * (S.up.synP1 || 0)).toFixed(1) + ' → ×' + (1 + 0.2 * ((S.up.synP1 || 0) + 1)).toFixed(1), apply: m => { S.up.synP1 += m; } }, // R2misc 2026-11-04 去前提：删 treeOn 门与「需棱镜树·光棱矩阵」
   { id: 'synL1', rarity: 'SR', name: '激光过载', desc: '激光束伤害 +2', cat: 'syn', elem: 'light', stack: 'inf', can: () => true, dyn: () => '激光束 ' + (2 + 2 * (S.up.synL1 || 0)) + ' → ' + (4 + 2 * (S.up.synL1 || 0)), apply: m => { S.up.synL1 += m; } }, // R2misc 2026-11-04 去前提
@@ -957,6 +985,7 @@ function fire(angle) {
     return sp;
   };
   for (const k of ownedKinds().slice().sort((x, y) => kindSpd(y) - kindSpd(x))) {
+    if (k === 'shot') continue; // 2026-11-10 散弹口径拍板：散弹只出小散弹丸（下方 shotgunBlast），不再随散射等级出「本体」整球——本体大球仅独头弹卡提供（slug 大球，带脆弱）
     const kind = k === 'bomb' ? 'b' : ({ pierce: 'i', split: 's', bolt: 'l' })[k] || k;
     const n = ballCount(k);
     for (let i = 0; i < n; i++) { S.launchQ.push({ t: t, a, kind, pierce: k === 'pierce', split: false }); t += gap; }
@@ -989,7 +1018,7 @@ function fire(angle) {
 }
 function spawnBall(l) {
   const a = l.a + rnd(-0.012, 0.012);
-  let sp = (l.kind === 'p' ? PELLET_SPEED : BSPEED) * (1 + 0.05 * Math.min(4, S.up.spd || 0));
+  let sp = ((l.kind === 'p' && !l.slug) ? PELLET_SPEED : BSPEED) * (1 + 0.05 * Math.min(4, S.up.spd || 0)); // 2026-11-10 独头弹：本体大球用正常弹速（强装药等 'p' 系乘区照吃）
   const stm = stageMod();
   if (stm && stm.spd) sp *= 1 + stm.spd; // V4.3 关卡特效：弹速
   if (l.kind === 'rail') sp *= railSpeedMult();
@@ -1014,7 +1043,7 @@ function spawnBall(l) {
   const penK = kind === 'b' ? 'bomb' : ({ i: 'pierce', s: 'split', l: 'bolt', p: 'shot' })[kind] || kind;
   const penN = (['rail', 'laser'].indexOf(kind) < 0 && kind !== 'i') ? Math.min(2, S.up['pen_' + penK] || 0) : 0;
   if (penN > 0) { pierce = true; pierceLeft += penN; }
-  let r = kind === 'p' ? 4.2 : BR;
+  let r = kind === 'p' ? (l.slug ? BR * 1.25 : 4.2) : BR; // 2026-11-10 独头弹：本体大球半径（大球观感与判定）
   if (kind === 'gold' && treeOn('gold', 'n1')) r *= 1.2; // 大金芯：判定 +20%
   if (S.up.fusionSize && kind === 'gold') { r *= 1.5; sp *= 0.9; } // 融合协议（批注）：只作用于金弹，半径 +50%、弹速 −10%
   if (buffOn('bigball')) r *= 1.5;
@@ -1022,6 +1051,7 @@ function spawnBall(l) {
     x: (typeof l.x === 'number' ? l.x : W / 2) + rnd(-2, 2), y: (typeof l.y === 'number' ? l.y : CANNON_Y - 18), age: 0, baseSp: sp,
     vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
     r, kind, pierce, pierceLeft,
+    slug: !!l.slug, // 2026-11-10 独头弹本体大球标记（伤害加成/脆弱施加见 finishHit）
     hits: new Map(),
     trail: [], dead: false
   });
@@ -1098,7 +1128,7 @@ function fireSnakeTry(ball, b) {
     ang = sp2 > 1 ? Math.atan2(ball.vy, ball.vx) : Math.PI / 2; // 贴心兑底：穿透球用真速度，静止兑底向下
   }
   const perp = ang + Math.PI / 2;
-  const LEN = 120, SEG = 12, R0 = Math.max(b.w, b.h) / 2;
+  const LEN = cells(2), SEG = 12, R0 = Math.max(b.w, b.h) / 2; // 火舌长 2 格（2026-11-10 范围单位化，原 120px）
   const pts = [];
   for (let i = 0; i <= SEG; i++) {
     const t = i / SEG;
@@ -1176,14 +1206,14 @@ function updateBalls(dt) {
       ball.x += ball.vx * sdt; ball.y += ball.vy * sdt;
       if (windOn) ball.vx += S.windX * sdt; // V4.19 风林侧风：横向加速度
       // 2026-11-04 黑洞引力场（与风场同点同口径）：对每颗在场球（含 frag 子弹）施加向心加速度——
-      // 仅 240px 内生效，力随距离线性衰减（520×(1−d/240) px/s²，方向指向洞心），sdt 积分；末 0.25s 力淡出随洞消散
+      // 仅 4 格（240px）内生效，力随距离线性衰减（520×(1−d/4格) px/s²，方向指向洞心），sdt 积分；末 0.25s 力淡出随洞消散
       if (holesOn) {
         for (const h of S.holes) {
           const dx = h.x - ball.x, dy = h.y - ball.y;
           const d2 = dx * dx + dy * dy;
-          if (d2 > 57600 || d2 < 1) continue; // 240²=57600；贴心 1px 内无方向，跳过防除零
+          if (d2 > cells(4) * cells(4) || d2 < 1) continue; // 4 格²=240²；贴心 1px 内无方向，跳过防除零
           const d = Math.sqrt(d2);
-          const f = 520 * (1 - d / 240) * Math.min(1, h.t / 0.25);
+          const f = 520 * (1 - d / cells(4)) * Math.min(1, h.t / 0.25);
           ball.vx += (dx / d) * f * sdt;
           ball.vy += (dy / d) * f * sdt;
         }
@@ -1208,9 +1238,7 @@ function updateBalls(dt) {
         }
         if (ball.y - ball.r > H + 12) {
           if (ball.kind === 'meteor') {
-            // 水蛭球：落底大爆炸（半径 90 / 伤 5 + 爆炸加成）
-            explode(ball.x, Math.min(ball.y, H - 6), 90, 5);
-            ball.dead = true;
+            ball.dead = true; // 2026-11-10 拍板：水蛭球落底不爆炸——贯穿挂寄生即全部价值，落底静默消亡（原落底 2 格/伤 5 爆炸下线）
           } else if (ball.kind === 'boomerang') {
             // 回旋弹（Wave4 重做）：落底不消失，全速折返（伤害 ×2）；双回旋可折返 +2 次；追踪回旋折返朝最近块
             const maxRet = 1 + (treeOn('boomerang', 'ssr1') ? 2 : 0);
@@ -1274,7 +1302,7 @@ function triPath(cx, cy, R, rot) {
 }
 // 圆-形状触碰预判（磁轨/幽灵/水蛭等穿透类球用；灵魂之环：幽灵弹外环扫到即视为穿过）
 function ballTouches(ball, b) {
-  const ring = ball.kind === 'ghost' ? 7 * treeCount('ghost', 'soulring') : 0;
+  const ring = ball.kind === 'ghost' ? cells(0.1) * treeCount('ghost', 'soulring') : 0; // 灵魂之环：外扩 0.1 格/层（2026-11-10 范围单位化，原 7px/层）
   const br2 = ball.r + ring;
   const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
   if (b.shape === 'tri') return Math.hypot(ball.x - cx, ball.y - cy) < br2 + b.w / 2 * 0.95;
@@ -1431,7 +1459,7 @@ function bombletHit(ball, b) {
   ball.hits.set(b.id, gameT + 0.1);
   S.lastHitKind = 'bm';
   const bd = Math.max(1, Math.round(3 * 0.5)); // 子母弹小爆（50% 爆炸伤基数；加成由 explode 统一）
-  explode(ball.x, ball.y, fxRad(30), bd);
+  explode(ball.x, ball.y, fxRad(cells(1.5)), bd); // 子母弹小爆 1.5 格（2026-11-10 下限 1.5 格，原 0.5 格；50% 爆炸伤基数；加成由 explode 统一）
   ball.bmLeft = (ball.bmLeft || 0) - 1;
   if (ball.bmLeft <= 0) { ball.dead = true; return; }
   const bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
@@ -1443,9 +1471,9 @@ function bombletHit(ball, b) {
 function bombBlast(ball, b, newBalls) { // 爆裂弹爆炸体（撞击/穿透共用）：爆炸 + 子母弹 + 圈内附加；2026-11-07 穿透=碰撞时同样触发
   ball.hits.set(b.id, gameT + 0.1);
   S.lastHitKind = 'b';
-  // 爆裂弹：撞击爆炸（半径 66 / 伤 3）；批注：半径/伤/点燃全部上收全局爆炸卡（集束核心/聚爆破芯/燃烧弹幕）；树上只剩复燃/子母弹/逆商爆炸
+  // 爆裂弹：撞击爆炸（半径 1.5 格 / 伤 3；2026-11-10 范围单位化，原 66px）；批注：半径/伤/点燃全部上收全局爆炸卡（集束核心/聚爆破芯/燃烧弹幕）；树上只剩复燃/子母弹/逆商爆炸
   // 2026-11-09 修复双乘：原此处预乘 (1+0.3×集束) 而 explode 内再乘一次 → 实际半径=66×(1.3N)²（2 层 +98%）；现集束乘区只保留 explode 内一处，圈内附加判定半径与之对齐
-  const radBase = fxRad(66 * (treeOn('bomb', 'ssr1') ? 1.4 : 1));
+  const radBase = fxRad(cells(1.5) * (treeOn('bomb', 'ssr1') ? 1.4 : 1));
   explode(ball.x, ball.y, radBase, 3); // 爆炸伤基数；聚爆破芯/集束核心/燃烧弹幕由 explode() 统一结算（V3 全局爆炸口径）
   const rad = radBase * (1 + 0.30 * (S.up.cluster || 0));
   const bmN = treeCount('bomb', 'r2') + (treeOn('bomb', 'ssr2') ? 2 : 0); // 子母弹：连击扩爆 +1 颗/层、燎原火圈 +2
@@ -1486,7 +1514,7 @@ function railWall(ball) {
   }
   const tol = 2 + (treeOn('rail', 'ssr1') ? 3 : 0);
   if (ball.walls >= tol) {
-    explode(ball.x, ball.y, fxRad(40), 2); // 撞墙爆炸（加成由 explode 统一）
+    explode(ball.x, ball.y, fxRad(cells(1.5)), 2); // 撞墙爆炸（1.5 格；2026-11-10 下限 1.5 格，原 1 格；加成由 explode 统一）
     ball.dead = true;
   }
 }
@@ -1494,25 +1522,22 @@ function railWall(ball) {
 // 全息激光（SSR）光束伤随穿过方块数 +50%/块；solo=真激光（棱镜·掠地棱镜）：继承激光效果不含数量（不加双子/矩阵线）
 function laserBeam(ball, baseAng, solo) {
   const base = baseAng != null ? baseAng : Math.atan2(ball.vy, ball.vx);
-  sfx.zap();
+  sfx.laser(); // 2026-11-10：激光光柱专属音（与闪电 zap 区分）
   const dmg = prismDmg(ball, fxDmg(2) + treeCount('laser', 'n1') + treeDmg('laser') + 2 * (S.up.synL1 || 0)); // V4.7 激光过载
-  const pad = 6 + 6 * treeCount('laser', 'n2');
+  const pad = cells(0.1) + cells(0.1) * treeCount('laser', 'n2'); // 扩束镜：判定走廊 +0.1 格/层（2026-11-10 范围单位化，原 +6px/层）
   const frostBeam = treeOn('laser', 'ssr2'); // 冷冻光束（批注）：光束命中施加 1 层冰冻
   if (treeOn('laser', 'ssr1') && !solo) {
-    // 矩阵激光（Wave4 重做）：光束变圆环（以碰撞点为中心，半径 80）
-    const R = 80;
+    // 矩阵激光（Wave4 重做）：光束变圆环（以碰撞点为中心，半径 2 格）
+    const R = cells(2);
     for (const b of S.blocks) {
       if (b.dead) continue;
       const pad2 = (b.shape === 'circle' || b.shape === 'tri') ? b.w / 2 : Math.max(b.w, b.h) / 2;
       if (Math.hypot(b.x + b.w / 2 - ball.x, b.y + b.h / 2 - ball.y) <= R + pad2) {
         damage(b, dmg + synLightBonus(b), undefined, undefined, 'laser'); // R2dark 2026-11-04 湮灭反应：激光束对湮蚀块 +6 伤/层
-        if (frostBeam) applyFrost(b, 1);
+        if (frostBeam) { applyFrost(b, 1); spark(b.x + b.w / 2, b.y + b.h / 2, '#cfeeff'); } // 冷冻光束：冰冻 + 冰晶溅点（2026-11-10 光柱化适配）
       }
     }
-    for (let s2 = 0; s2 < 18; s2++) {
-      const a0 = s2 * TAU / 18, a1 = (s2 + 1) * TAU / 18;
-      S.bolts.push({ x1: ball.x + Math.cos(a0) * R, y1: ball.y + Math.sin(a0) * R, x2: ball.x + Math.cos(a1) * R, y2: ball.y + Math.sin(a1) * R, life: 0.28, col: BALL_KIND_C.laser });
-    }
+    S.beams.push({ type: 'ring', x: ball.x, y: ball.y, r: R, life: 0.3, max: 0.3, col: BALL_KIND_C.laser }); // 2026-11-10 光柱化：矩阵激光=整圈光环（S.beams，不再用闪电链锯齿段拼环）；寿命 0.3s>旧 bolts 0.28——保「无冷却两次命中并发」重叠窗口
     return;
   }
   const lines = [base];
@@ -1537,11 +1562,11 @@ function laserBeam(ball, baseAng, solo) {
             hitSet.add(b.id);
             damage(b, (holo ? Math.round(dmg * (1 + 0.5 * passed)) : dmg) + synLightBonus(b), undefined, undefined, 'laser'); // 激光伤害：走 damage 统一暴击（电磁效应 20%）；R2dark 2026-11-04 湮灭反应：对湮蚀块 +6 伤/层
             passed++;
-            if (frostBeam) applyFrost(b, 1); // 冷冻光束：光束冰冻
+            if (frostBeam) { applyFrost(b, 1); spark(bcx, bcy, '#cfeeff'); } // 冷冻光束：光束冰冻 + 冰晶溅点（2026-11-10 光柱化适配）
           }
         }
       }
-      S.bolts.push({ x1: beam.x1, y1: beam.y1, x2: beam.x2, y2: beam.y2, life: 0.28, col: frostBeam ? '#8fd7ff' : BALL_KIND_C.laser });
+      S.beams.push({ type: 'line', x1: beam.x1, y1: beam.y1, x2: beam.x2, y2: beam.y2, life: 0.3, max: 0.3, col: frostBeam ? '#9fdcff' : BALL_KIND_C.laser }); // 2026-11-10 光柱化：笔直光柱进 S.beams（旧版进 S.bolts 被画成闪电锯齿）；寿命 0.3s>旧 bolts 0.28——保「无冷却两次命中并发」重叠窗口
     }
   }
 }
@@ -1640,7 +1665,7 @@ function finishHit(ball, b, newBalls, isPierce) {
   spark(ball.x, ball.y, '#cfe3ff');
   S.lastHitKind = ball.kind;
   // 伤害口径：基础 + 树撞击伤 + 元素亲和乘区；分裂子弹独立基数
-  let d = ball.kind === 'frag' ? 1 + (ball.dmgBonus || 0) : ballDmg() + treeDmg(ball.kind) + (ball.dmgBonus || 0);
+  let d = ball.kind === 'frag' ? 1 + (ball.dmgBonus || 0) : ballDmg() + treeDmg(ball.kind) + (ball.dmgBonus || 0) + (ball.kind === 'p' && ball.slug ? 2 : 0); // 2026-11-10 独头弹：本体大球撞击伤 +2（先于亲和/风暴弹幕乘区——享受散弹全卡加成）
   d *= affinityMult(ball.kind); // V3：亲和元素每级 +5%
   if (ball.kind === 'swarm' && treeOn('swarm', 'n1')) d += 1; // 合金弹体
   if (ball.kind === 'p' && treeOn('shot', 'ssr1')) d *= 2; // 风暴弹幕：丸伤 ×2
@@ -1685,7 +1710,7 @@ function finishHit(ball, b, newBalls, isPierce) {
         if (p.dead || p === b) continue;
         const pdx = p.x + p.w / 2 - scx, pdy = p.y + p.h / 2 - scy;
         const dist = Math.hypot(pdx, pdy);
-        if (dist > 70) continue;
+        if (dist > cells(2)) continue;
         let da = Math.abs(Math.atan2(pdy, pdx) - ang);
         if (da > Math.PI) da = TAU - da;
         if (da < 0.6) damage(p, 1);
@@ -1710,10 +1735,10 @@ function finishHit(ball, b, newBalls, isPierce) {
   }
   if (ball.kind === 'ice') {
     applyFrost(b, 1 + treeCount('ice', 'n1')); // 霜牙：+1 层/层
-    const wt = treeCount('ice', 'n3'); // 凛冬之触（2026-11-03 疫病波改回）：15%+5%/层 向 90px 内随机 1 块施加 层 层冰冻（可叠加）
+    const wt = treeCount('ice', 'n3'); // 凛冬之触（2026-11-03 疫病波改回）：15%+5%/层 向 3 格内随机 1 块施加 层 层冰冻（可叠加；2026-11-10 范围单位化，原 90px）
     if (wt > 0 && Math.random() < 0.15 + 0.05 * (wt - 1)) {
       const cxI = b.x + b.w / 2, cyI = b.y + b.h / 2;
-      const nearI = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cxI, p.y + p.h / 2 - cyI) <= 90);
+      const nearI = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cxI, p.y + p.h / 2 - cyI) <= cells(3));
       if (nearI.length) applyFrost(nearI[ri(0, nearI.length - 1)], wt);
     }
   }
@@ -1741,7 +1766,7 @@ function finishHit(ball, b, newBalls, isPierce) {
   if ((ball.kind === 's' || ball.kind === 'frag') && treeOn('split', 'ssr2')) applyBleed(b, 1); // 裂变出血（批注：改流血）
   damage(b, prismDmg(ball, d), dbl, ball.kind === 'ghost', ball.kind);
   // 2026-11-09 用户重做：斩杀线全局化——所有球撞击/穿透均可斩（各球线不同：斩杀契约=全球；暗影球独吃天生线/湮蚀/刻印/噬痕/共鸣/暗属性；金球另吃金弹工程 8% 在 damage() 内）；
-  // 噬界改「湮灭」：暗影球命中 3%/层 无视血量直接击碎（掷骰仅在此，线判定本身仍无概率）；同日二批：连锁水晶（gid 血池共通）改整链一并秒杀（斩杀/湮灭皆然），首领仍 -10% 最大生命，触发后清空目标湮蚀层
+  // 噬界改「湮灭」：暗影球命中 3%/层 无视血量直接击碎（掷骰仅在此，线判定本身仍无概率）；同日二批：连锁水晶（gid 血池共通）改整链一并秒杀（斩杀/湮灭皆然），首领降级改 5%（湮灭 10%）最大生命伤（2026-11-10 拍板），触发后清空目标湮蚀层
   const exLine = execLineOf(ball.kind, b);
   const anhChance = treeCount('dark', 'soul') > 0 ? Math.min(0.85, 0.03 * treeCount('dark', 'soul') + 0.02 * (b.annih || 0) + 0.005 * elemLv('dark')) : 0; // 湮灭几率（噬界卡解锁）：3%/层 + 湮蚀 2%/层 + 暗属性 0.5%/级（吃 buff 与暗属性）
   const anhK = ball.kind === 'dark' && !b.dead && anhChance > 0 && Math.random() < anhChance; // 湮灭（噬界卡）：暗影球独有直接秒杀
@@ -1758,17 +1783,19 @@ function finishHit(ball, b, newBalls, isPierce) {
         if (S.up.darkecho > 0) execEchoHeal(); // 湮灭回响：整链每块击杀回盾（受 shieldCap 管束）
         if (S.up.synD1 > 0 && S.shield < shieldCap()) S.shield++; // 暗影汲取（synD1）：处决击杀回盾
       }
-      if (treeOn('dark', 'ssr2')) darkNova(b.x + b.w / 2, b.y + b.h / 2); // 湮灭爆发（ssr2）：处决时 40px 暗爆 + 随机 1 块 +2 层湮蚀
+      if (treeOn('dark', 'ssr2')) darkNova(b.x + b.w / 2, b.y + b.h / 2); // 湮灭爆发（ssr2）：处决时 1.5 格暗爆 + 随机 1 块 +2 层湮蚀
     } else if (b.boss) {
-      damage(b, Math.ceil(b.maxHp * 0.10), undefined, undefined, ball.kind);
-      addFloat(b.x + b.w / 2, b.y - 8, exLab + ' · -10%', exCol, 13);
+      // 2026-11-10 拍板：首领降级伤按最大生命上限比例——斩杀线触发 5%、湮灭（噬界）触发 10%（原统一 10%；连锁水晶仍走整链秒杀分支）
+      const exPct = anhK ? 0.10 : 0.05;
+      damage(b, Math.ceil(b.maxHp * exPct), undefined, undefined, ball.kind);
+      addFloat(b.x + b.w / 2, b.y - 8, exLab + ' · -' + Math.round(exPct * 100) + '%', exCol, 13);
       if (b.dead && S.up.darkecho > 0) execEchoHeal(); // 湮灭回响：首领被斩杀/湮灭伤害击杀才回盾
     } else {
       destroyBlock(b);
       addFloat(b.x + b.w / 2, b.y - 8, exLab + '!', exCol, 14);
       if (S.up.darkecho > 0) execEchoHeal(); // 湮灭回响：斩杀/湮灭击杀回盾
       if (S.up.synD1 > 0 && S.shield < shieldCap()) S.shield++; // 暗影汲取（synD1）：处决击杀回盾
-      if (treeOn('dark', 'ssr2')) darkNova(b.x + b.w / 2, b.y + b.h / 2); // 湮灭爆发（ssr2）：处决时 40px 暗爆 + 随机 1 块 +2 层湮蚀
+      if (treeOn('dark', 'ssr2')) darkNova(b.x + b.w / 2, b.y + b.h / 2); // 湮灭爆发（ssr2）：处决时 1.5 格暗爆 + 随机 1 块 +2 层湮蚀
     }
     if (treeOn('dark', 'ssr3')) blackHole(b.x + b.w / 2, b.y + b.h / 2, b); // 湮灭黑洞（ssr3）：触发即以目标为中心，目标自身已在上方结算
   }
@@ -1807,13 +1834,14 @@ function finishHit(ball, b, newBalls, isPierce) {
       else if (r2 === 4) applyBleed(b, 2);
       else applyFrost(b, 2);
     } else if (roll === 1) boltStrike(1);
-    else explode(ball.x, ball.y, 40, 2);
+    else explode(ball.x, ball.y, cells(1.5), 2);
   }
   // 凛冬弹头（批注改）：回旋飞轮命中施加（见 updateWheels）；破甲散布：散弹丸 (10%+5%/层) 1 层脆弱
   if (!b.dead && ball.kind === 'p' && S.up.frailshot > 0 && Math.random() < Math.min(1, 0.10 + 0.05 * (S.up.frailshot - 1))) b.frail = (b.frail || 0) + 1;
-  // 散弹树：弹片碎裂（25% 施加 1+层 流血）；龙息弹（25% 对非燃烧目标施加 1 层燃烧）
+  if (!b.dead && ball.kind === 'p' && ball.slug) b.frail = (b.frail || 0) + 1; // 2026-11-10 独头弹：本体大球命中必施 1 层脆弱
+  // 散弹树：弹片碎裂（25%+10%/层 触发、恒施 1 层流血——2026-11-10 三拍：叠层加概率不加层数）；龙息弹（25% 对非燃烧目标施加 1 层燃烧）
   if (!b.dead && ball.kind === 'p') {
-    if (treeCount('shot', 'frag1') > 0 && Math.random() < 0.25) applyBleed(b, treeCount('shot', 'frag1'));
+    if (treeCount('shot', 'frag1') > 0 && Math.random() < Math.min(1, 0.25 + 0.10 * (treeCount('shot', 'frag1') - 1))) applyBleed(b, 1);
     if (treeOn('shot', 'drag') && (b.burn || 0) <= 0 && Math.random() < 0.25) ignite(b, 'shot');
   }
   sfx.hit(Math.max(0, S.combo));
@@ -1883,7 +1911,7 @@ function boltDamageTo(b, base) {
 // 雷命中联动（引燃雷管/电出血）：命中燃烧块引爆；命中流血块加流血
 function boltSynergy(b) {
   if (b.dead) return;
-  if (S.up.synBF > 0 && (b.burn || 0) > 0) explode(b.x + b.w / 2, b.y + b.h / 2, 30, 2 * S.up.synBF); // 引燃雷管（雷火）
+  if (S.up.synBF > 0 && (b.burn || 0) > 0) explode(b.x + b.w / 2, b.y + b.h / 2, cells(1.5), 2 * S.up.synBF); // 引燃雷管（雷火）：引爆 1.5 格（2026-11-10 范围单位化+下限 1.5 格，原 30px）
   if (S.up.synBBL > 0 && (b.bleed || 0) > 0) applyBleed(b, 2 * S.up.synBBL); // 电出血（雷血）
 }
 function boltChain(x, y, exclude) {
@@ -1898,6 +1926,7 @@ function boltChain(x, y, exclude) {
   let hits = targets.slice(0, 1 + (S.up.bolt || 0)); // 链目标卡不封顶（批注：无封顶）
   if (!hits.length) return;
   sfx.zap();
+  hits.forEach((pair, i2) => sfx.chain(i2)); // 2026-11-10 闪电链音效：主响 zap + 链目标琶音（每链一音错峰）
   for (const pair of hits) {
     S.bolts.push({ x1: x, y1: y, x2: pair[1].x + pair[1].w / 2, y2: pair[1].y + pair[1].h / 2, life: 0.28 });
     let bd2 = boltDamageTo(pair[1], ballDmg());
@@ -1994,7 +2023,7 @@ function ignite(b, srcKind, addL) {
       burnAdd(b, layers, dur);
       if (treeOn('fire', 'burn5') && b.burnL >= 5 && !b.burn5Used) {
         b.burn5Used = 1; // 燃爆层（P9）：叠到 5 层的瞬间触发爆炸（每块每波限一次；重置在 endVolley）
-        explode(b.x + b.w / 2, b.y + b.h / 2, 50, 2);
+        explode(b.x + b.w / 2, b.y + b.h / 2, cells(1.5), 2); // 燃爆层：1.5 格爆炸（2026-11-10 下限 1.5 格，原 50px）
       }
       if (srcKind) b.burnDmg = Math.max(b.burnDmg || 1, burnDmgOf(srcKind));
       if (trueFire) b.trueFire = 1; // R2fireice：真火再点燃保持真火身份（旧 burnFire %HP 附加随三味真火改版下线）
@@ -2010,7 +2039,7 @@ function ignite(b, srcKind, addL) {
     const marsL = treeCount('fire', 'mars');
     if (marsL > 0 && srcKind) {
       const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-      const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 80);
+      const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2));
       for (const p of near.slice(0, 2)) {
         if (Math.random() < Math.min(1, 0.10 * marsL)) ignite(p, null, 1);
       }
@@ -2019,14 +2048,14 @@ function ignite(b, srcKind, addL) {
 }
 /* ---------- Wave3 新元素：毒 / 冰冻 / 冻结（2026-10-30 契约总表 §二；Wave3.1 审阅修正）+ V3 状态词（病毒/流血/标记） ---------- */
 // 毒：层叠 DoT·波级结算（2026-10-30 拍板）：每波掉血=层数、层 −1（结算在 endVolley 回合末）
-function poisonCap() { return 10 + 2 * treeCount('poison', 'r2'); } // 毒层上限：基础 10；毒囊扩容（毒球树）+2/层
+// 2026-11-10 二拍（用户口径「都无上限」）：中毒无上限——与燃烧/流血/病毒/寄生同口径；毒囊扩容卡与 poisonCap 同批一并下线
 function applyPoison(b, n) {
   if (b.dead) return;
-  b.poison = Math.min(poisonCap(), (b.poison || 0) + (n || 1));
+  b.poison = (b.poison || 0) + (n || 1);
 }
 // 脆弱标记层数上限（W3-02：易伤已并入脆弱栈——落雷/雷神与幽灵弹共用同一上限：基础 1，深度侵蚀 3，双重标记 5）
 // V4.13：脆弱/怨印不再设上限（原 frailCap 及其树节点/冥河泛滥上限口径下线）；回合末清空（见 endVolley），怨灵潮 SSR 保留怨印
-// 冰冻：受击暴击率 +20%/层（仅碰撞类伤害，见 critChanceOf）；叠满门槛触发冻结（R2fireice：冻结=永久易伤，见 applyFreeze）
+// 冰冻：受击暴击率 (5%+5%×冰寒暴击层)×层（2026-11-10 新系数，见 critChanceOf）；叠满门槛触发冻结（R2fireice：冻结=永久易伤，见 applyFreeze）
 function frostCap() { return 5; } // R2fireice 2026-11-04：延展冰域/深冬已删卡——冰冻上限恒 5（旧键 frostext/deepwinter 保留恒 0）
 function frostNeed() { return Math.max(3, frostCap() - (S.up.frostneed || 0)); } // 冻结门槛=存储上限−极寒凝聚层数（下限 3）
 // R2fireice 2026-11-04 冻结（原「冻结碎裂」改叫「冻结」并重定义）：永久易伤——每层受到伤害 +1（受伤+1），不随时间消失、普通燃烧不可消耗；深寒（ice r1）每层 +1
@@ -2036,6 +2065,7 @@ function heatShock(b) {
   damage(b, 3 + (S.up.synFI || 0));
   steamBurst(b.x + b.w / 2, b.y + b.h / 2, REDUCED ? 6 : 12); // 水蒸气喷发：白雾腾起（steamBurst 见 60_round_boss）
   spark(b.x + b.w / 2, b.y + b.h / 2, '#ffb45c');
+  sfx.heat(); // 2026-11-10 事件音效：热冲击蒸汽嘶
 }
 let FRZ_WAVING = false; // 2026-11-09 冻结爆发波及互斥标记（防 applyFreeze↔applyFrost 无限递归，见 applyFreeze 内注释）
 // R2fireice 2026-11-04 施加 1 层冻结（绝对零度直冻 / 冰冻叠满门槛共用入口）；含核弹判定与冻结爆发链
@@ -2046,9 +2076,10 @@ function applyFreeze(b) {
   b.frz = (b.frz || 0) + 1;
   spark(b.x + b.w / 2, b.y + b.h / 2, '#e8f7ff');
   burst(b.x + b.w / 2, b.y + b.h / 2, '#dff4ff', REDUCED ? 5 : 9, 130); // 2026-11-09 拍板：冻结转化加冰晶进溅（原来只有单点 spark）
+  sfx.freeze(); // 2026-11-10 事件音效：冻结冰晶脆响
   addFloat(b.x + b.w / 2, Math.max(TOP + 12, b.y - 4), '冻结 易伤+' + freezeVuln(b), '#c9f2ff', 13);
   if (S.up.frzblast > 0 && !b.dead && !FRZ_WAVING) {
-    // 冻结爆发（R2fireice 术语对齐：原「冻结碎裂时」→「冻结时」；效果不变）：60px 内存活块各 +层数 层病毒与冰冻（可连锁冻结）
+    // 冻结爆发（R2fireice 术语对齐：原「冻结碎裂时」→「冻结时」）：2 格内存活块各 +层数 层病毒与冰冻（可连锁冻结；2026-11-10 范围单位化：70px 中心距在同块型随机落位下常够不到邻块，扩为 2 格）
     // 2026-11-09 修复崩溃级递归：原波及→邻居 applyFrost 达门槛→再 applyFreeze 又波及原块，frzblast 层数≥冻结门槛（5 张或 3 张+极寒凝聚×2）时无限递归栈溢出；
     // 现波及期间置 FRZ_WAVING：邻居达门槛仍可冻结（保留一跳连锁），但波及中触发的冻结不再二次波及，链路由后续命中自然延续
     const cx2 = b.x + b.w / 2, cy2 = b.y + b.h / 2;
@@ -2056,7 +2087,7 @@ function applyFreeze(b) {
     try {
       for (const p of S.blocks) {
         if (p.dead || p === b) continue;
-        if (Math.hypot(p.x + p.w / 2 - cx2, p.y + p.h / 2 - cy2) > 70) continue;
+        if (Math.hypot(p.x + p.w / 2 - cx2, p.y + p.h / 2 - cy2) > cells(2)) continue;
         applyVirus(p, S.up.frzblast);
         applyFrost(p, S.up.frzblast);
       }
@@ -2128,7 +2159,7 @@ function applyAnnih(b, n) {
 // 湮灭斩杀线（2026-11-09 用户重做：斩杀线全局化——所有球撞击/穿透可斩、各球线不同；噬界改湮灭=暗影球独有直接秒杀）：
 // 线 = 1%×斩杀契约层（全球）+ (3%+1.5%×湮灭刻印层)×湮蚀层 + 1%×噬痕层（均对湮蚀块的所有球生效——暗影球 buff 授线全球）
 //   +（仅暗影球）天生 1% + 5%×湮灭共鸣(ssr4) + 0.2%×暗属性等级；金球另吃金弹工程 8% 线（damage() 内实现）
-// 普通球基础零线（无契约且块无湮蚀 → 线 0 不斩）；湮灭（噬界卡）：暗影球命中 3%/层 无视血量直接击碎（首领 -10%、连锁水晶整链秒杀；掷骰仅在此，线判定仍无概率）
+// 普通球基础零线（无契约且块无湮蚀 → 线 0 不斩）；湮灭（噬界卡）：暗影球命中 3%/层 无视血量直接击碎（首领改 10% 最大生命伤、斩杀线触发则 5%；连锁水晶整链秒杀；掷骰仅在此，线判定仍无概率）
 function execLineOf(kind, b) {
   let line = 0.01 * treeCount('dark', 'pact'); // 斩杀契约：全局线（所有球）
   line += (0.03 + 0.015 * treeCount('dark', 'engrave')) * (b.annih || 0); // 湮蚀：3%/层（任何球对湮蚀块；刻印每层 +1.5%）——2026-11-09 拍板
@@ -2137,13 +2168,13 @@ function execLineOf(kind, b) {
   return line;
 }
 function darkExecLine(b) { return execLineOf('dark', b); } // 观测口兼容（90_main debug.execLine 仍可用）
-// 湮蚀扩散（dark spread）：暗影球命中必施 1 层湮蚀（球本体），湮蚀卡每层再 +1（applyAnnihSpread）；并向 70px 内最多「扩散层」个随机存活块各施加 1 层（随机不重复；可施加 BOSS——湮蚀计入斩杀线；2026-11-09 五批：块间留隙后 60→70 恢复邻居覆盖）
+// 湮蚀扩散（dark spread）：暗影球命中必施 1 层湮蚀（球本体），湮蚀卡每层再 +1（applyAnnihSpread）；并向 2 格内最多「扩散层」个随机存活块各施加 1 层（随机不重复；可施加 BOSS——湮蚀计入斩杀线；2026-11-10 范围单位化，原 70px）
 function applyAnnihSpread(b) {
   applyAnnih(b, 1 + treeCount('dark', 'chase')); // 2026-11-09 十批：球本体 1 层 + 湮蚀卡每层 +1（旧 max(1,卡层) 会让卡层覆盖本体层）
   const sp = treeCount('dark', 'spread');
   if (sp <= 0) return;
   const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-  const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 70);
+  const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2));
   for (let i = 0; i < sp && near.length; i++) applyAnnih(near.splice(ri(0, near.length - 1), 1)[0], 1);
 }
 // 湮灭反应（光暗，synLD）R2dark 2026-11-04：灼耀族光伤（太阳光照/激光束/棱镜光）对湮蚀标记块 +6 伤/层·synLD，并消解 2 层标记（消解数不随层变化）
@@ -2168,7 +2199,7 @@ function critChanceOf(b, kind) {
   let ch = 0;
   if ((kind === 'n' || kind === 'p' || kind === 'gold' || kind === 'i') && S.up.crit > 0) ch += 0.05 * S.up.crit; // 暴击机构：普通球碰撞（金蛋视为普通弹、穿透弹；不含分裂子弹）
   if ((kind === 'n' || kind === 'p' || kind === 'gold' || kind === 'i') && (S.up.weakaim || 0) > 0) ch += 0.10 * S.up.weakaim; // 弱点瞄准（R2misc 2026-11-04 新卡）：普通球碰撞暴击率 +10%/层，与暴击机构同门同叠加
-  ch += (0.20 + 0.05 * treeCount('ghost', 'critI')) * (b.frost || 0); // 冰冻：受击暴击率 +20%/层 + 冰寒暴击 +5%/层
+  ch += (0.05 + 0.05 * treeCount('ghost', 'critI')) * (b.frost || 0); // 冰冻暴击（2026-11-10 拍板）：(5%+5%×冰寒暴击层)×冰冻层——原基础 20%/层过强（满层≈必暴），降为 5%/层由冰寒暴击卡放大
   if ((b.bleed || 0) > 0 && S.up.bloodhunt > 0) ch += 0.10 * S.up.bloodhunt; // 勘血术（批注改）：对流血目标暴击率 +10%/层（与流血层数无关）
   if (b.frail && treeOn('ghost', 'ssr2')) ch += 0.50; // 亡者馈赠
   ch += elemCritBonus(); // V3 冰属性等级：暴击率 +2%/级（全伤害源）
@@ -2200,7 +2231,7 @@ function damage(b, d, dbl, force, kind) {
     if (d <= 0) { sfx.tick(); return; }
   }
   b.hp -= d; b.flash = 1;
-  if (rolledCrit) { b.flash = 1.4; b.critT = 0.22; addFloat(b.x + b.w / 2, Math.max(TOP + 12, b.y - 6), '暴击!', '#ffd166', 14); burst(b.x + b.w / 2, b.y + b.h / 2, '#ffd166', REDUCED ? 4 : 8, 170); } // 暴击反馈：金学浮字+粒子+更强受击闪白+块体震动（critT→drawBlock 纯视效抖动，2026-11-10）
+  if (rolledCrit) { b.flash = 1.4; b.critT = 0.22; sfx.crit(); addFloat(b.x + b.w / 2, Math.max(TOP + 12, b.y - 6), '暴击!', '#ffd166', 14); burst(b.x + b.w / 2, b.y + b.h / 2, '#ffd166', REDUCED ? 4 : 8, 170); } // 暴击反馈：金学浮字+粒子+更强受击闪白+块体震动（critT→drawBlock 纯视效抖动，2026-11-10）+暴击音（2026-11-10 音效批）
   if (kind && b.hp > 0) {
     // R2fireice 2026-11-04：原「打冰碎冰」（命中敲碎冻结态）随冻结重定义下线——冻结为永久易伤，不因受击消失
     // 状态词施加（R2misc 2026-11-04 归属散弹：水蛭弹头/病毒载体改仅散弹丸触发，原碰撞类全域门下线）；金蛋落雷/毒染仅金弹
@@ -2216,16 +2247,16 @@ function damage(b, d, dbl, force, kind) {
   if (b.hp > 0 && !b.boss && !b.gid && kind === 'gold' && S.up.goldeng > 0 && b.hp <= b.maxHp * 0.08) destroyBlock(b);
   if (b.hp <= 0) destroyBlock(b); else sfx.tick();
 }
-// 湮灭爆发（暗影 ssr2，R2dark 2026-11-04：原「湮灭吞噬」改键）：斩杀线处决时 40px 暗爆 + 全场随机 1 块 +2 层湮蚀标记（侵蚀施加随体系删除）
+// 湮灭爆发（暗影 ssr2，R2dark 2026-11-04：原「湮灭吞噬」改键）：斩杀线处决时 1.5 格暗爆 + 全场随机 1 块 +2 层湮蚀标记（2026-11-10 下限 1.5 格）
 function darkNova(x, y) {
-  explode(x, y, 40, 2);
+  explode(x, y, cells(1.5), 2);
   const alive = S.blocks.filter(p => !p.dead);
   if (alive.length) { const t = alive[ri(0, alive.length - 1)]; applyAnnih(t, 2); }
 }
-// 湮灭黑洞（dark ssr3，2026-11-03 暗影斩杀改版）：湮灭触发时以目标为中心生成黑洞——70px 内非 BOSS 非~~块全部秒杀（死亡结算）；不可秒杀者（BOSS 与水晶 gid 成员，2026-11-04 补）统一降级为 10% 最大生命伤害，经 damage()→gemDamage 入共享血池；目标自身不重复结算（src 跳过）
+// 湮灭黑洞（dark ssr3，2026-11-03 暗影斩杀改版）：湮灭触发时以目标为中心生成黑洞——2 格内非 BOSS 非~~块全部秒杀（死亡结算）；不可秒杀者（BOSS 与水晶 gid 成员，2026-11-04 补）统一降级为 10% 最大生命伤害，经 damage()→gemDamage 入共享血池；目标自身不重复结算（src 跳过）
 function blackHole(x, y, src) {
-  S.shocks.push({ x, y, r0: 10, r1: 70, t: 0 }); // 吸积环
-  S.holes.push({ x, y, t: 1.2 }); // 2026-11-04 黑洞引力场：存续 1.2s，期间对 240px 内弹珠施加向心加速度（见 updateBalls 风场同点）
+  S.shocks.push({ x, y, r0: 10, r1: cells(2), t: 0 }); // 吸积环（2 格）
+  S.holes.push({ x, y, t: 1.2 }); // 2026-11-04 黑洞引力场：存续 1.2s，期间对 4 格（240px）内弹珠施加向心加速度（见 updateBalls 风场同点）
   burst(x, y, '#9b6bff', REDUCED ? 10 : 22, 240); // 暗紫粒子云
   burst(x, y, '#45286e', REDUCED ? 6 : 12, 110);
   for (let i = 0; i < (REDUCED ? 4 : 10); i++) { // 内层旋涡粒子（少量）：切向速度绕洞心旋转，随洞淡出
@@ -2238,7 +2269,7 @@ function blackHole(x, y, src) {
   sfx.boom();
   for (const p of S.blocks) {
     if (p.dead || p === src) continue;
-    if (Math.hypot(p.x + p.w / 2 - x, p.y + p.h / 2 - y) <= 70) {
+    if (Math.hypot(p.x + p.w / 2 - x, p.y + p.h / 2 - y) <= cells(2)) {
       if (p.boss || p.gid) damage(p, Math.ceil(p.maxHp * 0.10), undefined, undefined, 'dark'); // 不可秒杀→10% 入池（gid 经 damage 内路由 gemDamage）
       else destroyBlock(p);
     }
@@ -2257,6 +2288,7 @@ function deathStat(b, k) { return deathVal(b, k) > 0; }
 function destroyBlock(b) {
   if (b.dead) return;
   b.dead = true;
+  S.waveKills = (S.waveKills || 0) + 1; // 2026-11-10 清屏奖励：本波真实击杀计数（压线移除/凤凰清理不经此，不算击杀）
   S.combo++; S.comboT = 1.4; S.comboPop = 1;
   if (S.combo > S.maxCombo) S.maxCombo = S.combo;
   let base = ({ n: 10, g: 16, t: 24, r: 40, f: 26 })[b.type] || 10;
@@ -2279,7 +2311,7 @@ function destroyBlock(b) {
     addFloat(W / 2, H * 0.35, '首领击破！ +2000', DANGER, 24);
     for (let i = 0; i < 4; i++) {
       const ex = cx + rnd(-60, 60), ey = cy + rnd(-25, 25);
-      S.evts.push({ t: i * 0.12, fn: () => explode(ex, ey, 90, 4) });
+      S.evts.push({ t: i * 0.12, fn: () => explode(ex, ey, cells(2), 4) });
     }
     for (let i = 0; i < 3; i++) dropPickup(cx + rnd(-60, 60), cy + rnd(-20, 20));
     queueLevel('boss');
@@ -2292,10 +2324,10 @@ function destroyBlock(b) {
     if (S.combo >= 10) slowmo(0.45);
   }
   if (S.up.spreader > 0 && deathStat(b, 'burn')) {
-    // 燎原（合并口径，2026-11-02 归属重构）：燃烧块被击碎时引燃 60px 内全部方块并各 +1 层燃烧（原燃烧树·燎原节点「点燃周围 1 块+1 层」并入）
+    // 燎原（合并口径，2026-11-02 归属重构）：燃烧块被击碎时引燃 2 格内全部方块并各 +1 层燃烧（原燃烧树·燎原节点「点燃周围 1 块+1 层」并入；2026-11-10 范围单位化，原 70px）
     for (const p of S.blocks) {
       if (p.dead || p === b) continue;
-      if (Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 70) ignite(p, null, 2); // 2026-11-06 逐层独立：燎原各 +1 层并入 ignite(layers=2)；2026-11-09 五批：60→70（块间留隙补偿）
+      if (Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2)) ignite(p, null, 2); // 2026-11-06 逐层独立：燎原各 +1 层并入 ignite(layers=2)
     }
   }
   if (b.type === 'f') {
@@ -2307,36 +2339,36 @@ function destroyBlock(b) {
     if (Math.random() < dropChance()) dropPickup(cx, cy);
   }
   // 火星（mars）：施加燃烧时的传染由 ignite 内触发；燃爆层（burn5）：叠到 5 层瞬间爆炸（每块每波限一次，见 ignite）
-  // 毒球树死亡联动：疫病扩散（r1）中毒块死亡 40% 传 2 层毒；腐败尸爆（ssr2）30px 毒爆 2 伤+传染
+  // 毒球树死亡联动：疫病扩散（r1）中毒块死亡 40% 传 2 层毒；腐败尸爆（ssr2）1.5 格毒爆 2 伤+传染（2026-11-10 下限 1.5 格）
   if (deathStat(b, 'poison')) {
     if (treeOn('poison', 'r1') && Math.random() < 0.40) {
-      const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 80);
+      const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2));
       if (near.length) applyPoison(near[ri(0, near.length - 1)], 2);
     }
     if (treeOn('poison', 'ssr2')) {
-      explode(cx, cy, 30 * poisonBurstRadMult(), 2);
-      const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 70);
+      explode(cx, cy, cells(1.5) * poisonBurstRadMult(), 2);
+      const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2));
       if (near.length) applyPoison(near[ri(0, near.length - 1)], 2);
     }
   }
   // 血球树死亡联动：血雾（r2）流血块死亡 30% 传染邻近 2 层流血（死亡时带流血即算——被撞死/流死/结算后死亡皆可，快照兑底）
   if (deathStat(b, 'bleed') && treeOn('blood', 'r2') && Math.random() < 0.30) {
-    const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 80);
+    const near = S.blocks.filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2));
     for (const p of near.slice(0, 2)) applyBleed(p, 2);
   }
-  // 冰球树死亡联动：碎冰爆（r2）带冻结的块碎裂 40px 冰爆（R2fireice：25→40px）；冰川崩解（ssr2）带冰冻或冻结的块波及 60px 内邻近块（各 +1 层冰冻）
-  if (deathStat(b, 'frz') && treeOn('ice', 'r2')) explode(cx, cy, 40, Math.round(1 * iceBurstMult()));
+  // 冰球树死亡联动：碎冰爆（r2）带冻结的块碎裂 1.5 格冰爆（2026-11-10 下限 1.5 格）；冰川崩解（ssr2）带冰冻或冻结的块波及 2 格内邻近块（各 +1 层冰冻）
+  if (deathStat(b, 'frz') && treeOn('ice', 'r2')) explode(cx, cy, cells(1.5), Math.round(1 * iceBurstMult()));
   if ((deathStat(b, 'frost') || deathStat(b, 'frz')) && treeOn('ice', 'ssr2')) {
     for (const p of S.blocks) {
       if (p.dead || p === b) continue;
-      if (Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 70) applyFrost(p, 1);
+      if (Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2)) applyFrost(p, 1);
     }
   }
-  // R2dark 2026-11-04：夜蔓延（n3 侵蚀传染）已随侵蚀体系删除；暗爆（epic）改键——暗影球击碎方块时 50px 暗爆（伤=湮蚀标记层，封顶 6）
-  if (S.lastHitKind === 'dark' && treeOn('dark', 'epic')) explode(cx, cy, 50, Math.min(6, deathVal(b, 'annih') || 1));
+  // R2dark 2026-11-04：夜蔓延（n3 侵蚀传染）已随侵蚀体系删除；暗爆（epic）改键——暗影球击碎方块时 1.5 格暗爆（伤=湮蚀标记层，封顶 6；2026-11-10 下限 1.5 格）
+  if (S.lastHitKind === 'dark' && treeOn('dark', 'epic')) explode(cx, cy, cells(1.5), Math.min(6, deathVal(b, 'annih') || 1));
   // 水蛭树·感染块死亡联动：双蛭→爆亡；冲击深化→传播 1-3 层寄生；传染病（2026-11-03 批注·疫病进化选项）→病毒层数一半随机传播
   if (deathStat(b, 'virus')) {
-    if (treeOn('meteor', 'epic')) explode(cx, cy, 30, 1);
+    if (treeOn('meteor', 'epic')) explode(cx, cy, cells(1.5), 1);
     if (treeOn('plague', 'ssr3')) {
       const alive2 = S.blocks.filter(p => !p.dead && p !== b);
       if (alive2.length) applyVirus(alive2[ri(0, alive2.length - 1)], Math.ceil(deathVal(b, 'virus') / 2));
@@ -2344,25 +2376,25 @@ function destroyBlock(b) {
     if (treeOn('meteor', 'ssr2')) {
       const spread = ri(1, 3);
       const near2 = S.blocks
-        .filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 70)
+        .filter(p => !p.dead && p !== b && Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2))
         .sort((p2, q) => Math.hypot(p2.x + p2.w / 2 - cx, p2.y + p2.h / 2 - cy) - Math.hypot(q.x + q.w / 2 - cx, q.y + q.h / 2 - cy));
       for (let i = 0; i < Math.min(spread, near2.length); i++) applyVirus(near2[i], 1);
     }
   }
-  // 怨压爆裂（批注改）：幽灵弹标记的块碎裂时大范围（60px）按自身冰冻层数施加冰冻（不再爆炸伤）
+  // 怨压爆裂（批注改）：幽灵弹标记的块碎裂时大范围（2 格）按自身冰冻层数施加冰冻（不再爆炸伤；2026-11-10 范围单位化，原 70+块半径）
   if (deathStat(b, 'frailG') && treeOn('ghost', 'r1')) {
     const fl = Math.max(1, deathVal(b, 'frost'));
     for (const p of S.blocks) {
       if (p.dead || p === b) continue;
       const pad4 = (p.shape === 'circle' || p.shape === 'tri') ? p.w / 2 : Math.max(p.w, p.h) / 2;
-      if (Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 70 + pad4) applyFrost(p, fl);
+      if (Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2) + pad4) applyFrost(p, fl);
     }
   }
-  // 怨灵潮（Wave3.1 读 frailG）：幽灵弹标记的块碎裂时把标记波及 60px 内邻近块（波及层同记 frailG，链条保持幽灵纯度）
+  // 怨灵潮（Wave3.1 读 frailG）：幽灵弹标记的块碎裂时把标记波及 2 格内邻近块（波及层同记 frailG，链条保持幽灵纯度；2026-11-10 范围单位化，原 70px）
   if (deathStat(b, 'frailG') && treeOn('ghost', 'ssr1')) {
     for (const p of S.blocks) {
       if (p.dead || p === b || p.frail) continue;
-      if (Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= 70) { p.frail = 1; p.frailG = 1; }
+      if (Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= cells(2)) { p.frail = 1; p.frailG = 1; }
     }
   }
 }
@@ -2437,11 +2469,11 @@ function nukeStrike() {
     cx = t.x + t.w / 2; cy = t.y + t.h / 2;
   }
   addFloat(cx, Math.max(TOP + 14, cy - 16), '核弹命中！', DANGER, 20);
-  explode(cx, cy, 150, 8); // 主爆：150px 8 伤
+  explode(cx, cy, cells(2.5), 8); // 主爆：2.5 格 8 伤（2026-11-10 范围单位化，原 150px）
   for (let i = 0; i < 4; i++) { // 四向延时连环爆（剧烈观感）
     const a2 = i * TAU / 4 + rnd(0, 1), d2 = 88 + rnd(0, 42);
     const ex = clamp(cx + Math.cos(a2) * d2, 12, W - 12), ey = clamp(cy + Math.sin(a2) * d2, TOP + 12, H - 90);
-    S.evts.push({ t: 0.09 * (i + 1), fn: () => explode(ex, ey, 80, 5) });
+    S.evts.push({ t: 0.09 * (i + 1), fn: () => explode(ex, ey, cells(1.5), 5) });
   }
   S.shocks.push({ x: cx, y: cy, r0: 24, r1: 260, t: 0 });
   S.shake = Math.min(18, S.shake + 10);
@@ -2453,12 +2485,13 @@ function dropPickup(x, y, forced) {
 function spawnPoisonCloud(x, y) {
   // V4.10 毒云：仅毒球命中必触发；持续 1 轮（回合结束滴注后消散）；浓毒云=更大更浓
   const strong = S.up.cloud2 > 0;
-  S.clouds.push({ x, y, r: 46 * (strong ? 1.4 : 1), turns: 1, n: strong ? 2 : 1, born: gameT });
+  S.clouds.push({ x, y, r: cells(strong ? 1.5 : 1), turns: 1, n: strong ? 2 : 1, born: gameT }); // 半径 1 格（浓毒 1.5 格；2026-11-10 范围单位化，原 46/64px）
   for (let i = 0; i < 6; i++) {
     const a = Math.random() * TAU, rr2 = Math.random() * 30;
     S.parts.push({ x: x + Math.cos(a) * rr2, y: y + Math.sin(a) * rr2, vx: Math.cos(a) * 20, vy: -18 - Math.random() * 22, life: 0.7, c: '#7cff9b', r: 2.5 });
   }
   addFloat(x, Math.max(TOP + 14, y - 10), '毒云', '#7cff9b', 12);
+  sfx.cloud(); // 2026-11-10 事件音效：毒云生成（沼泡+毒嘶）
 }
 function tickClouds() {
   for (const c of S.clouds) {
@@ -2472,9 +2505,9 @@ function tickClouds() {
   S.clouds = S.clouds.filter(c => c.turns > 0);
 }
 function spawnNecroZone(x, y) {
-  // 坏死区域（2026-11-03 疫病波，克隆毒云骨架）：半径 70+20/层（2026-11-09 五批：60→70 块间留隙补偿；坏死扩张 r2）；每波滴注病毒=坏死层数+毒属性；停留 1 轮（SSR 坏死延续 +1）
+  // 坏死区域（2026-11-03 疫病波，克隆毒云骨架）：半径 2 格 +0.5 格/层（坏死扩张 r2；2026-11-10 范围单位化，原 70+20px）；每波滴注病毒=坏死层数+毒属性；停留 1 轮（SSR 坏死延续 +1）
   const layers = treeCount('plague', 'necro');
-  const r = 70 + 20 * treeCount('plague', 'r2');
+  const r = cells(2) + cells(0.5) * treeCount('plague', 'r2');
   const turns = 1 + (treeOn('plague', 'ssr1') ? 1 : 0);
   S.zones.push({ x, y, r, turns, layers, born: gameT });
   for (let i = 0; i < 6; i++) {
@@ -2508,7 +2541,7 @@ function boltStrike(n) {
     boltSynergy(b);
     if (treeOn('bolt', 'n3') && !b.dead) { b.charge = (b.charge || 0) + 1; spark(b.x + b.w / 2, b.y + b.h / 2, '#ffe14d'); } // 残血标记 R2bolt 2026-11-04：每道落雷施加 1 层感电（无上限、永不消散，与磁轨感电同栈）
   }
-  sfx.zap();
+  sfx.strike(); // 2026-11-10 事件音效：落雷专属（脆响+远雷滚，与闪电链 zap 区分）
 }
 // 雷暴 SSR（R2bolt 2026-11-04）：碰撞 2% 召唤——10 道落雷 + 5 道闪电链，伤害全走 boltStrike/boltChain 统一出口；
 // VFX 自设计：紫白云层刷屏折线（不造成伤害）+ 天降 10 道金雷逐帧铺开 + 5 波链错峰 + 屏闪屏震
@@ -2613,11 +2646,11 @@ function collect(p, caught) {
       applyFrost(b, caught ? 2 : 1);
     }
   } else if (p.kind === 'frenzy') {
-    addBuff('frenzy', caught ? 14 : 8);
-    addFloat(p.x, p.y - 10, tag + '狂热 ' + (caught ? 14 : 8) + 's · 伤害 ×1.5', WARN, 14);
+    addBuff('frenzy', caught ? 2 : 1); // 2026-11-10 拍板：计时增益改按波（8s→1 波、接住 14s→2 波）
+    addFloat(p.x, p.y - 10, tag + '狂热 ' + (caught ? 2 : 1) + ' 波 · 伤害 ×1.5', WARN, 14);
   } else if (p.kind === 'luckysurge') {
-    addBuff('luckysurge', 10);
-    addFloat(p.x, p.y - 10, tag + '幸运潮 10s · 掉落率 ×2', GOOD, 14);
+    addBuff('luckysurge', 1); // 2026-11-10 拍板：计时增益改按波（10s→1 波）
+    addFloat(p.x, p.y - 10, tag + '幸运潮 1 波 · 掉落率 ×2', GOOD, 14);
     if (caught) dropPickup(p.x + rnd(-24, 24), Math.max(TOP + 40, p.y - 40));
   } else if (p.kind === 'bigball') {
     addBuff('bigball', caught ? 2 : 1);
@@ -2640,6 +2673,8 @@ function shotgunBlast(count, t0) {
   else if (n > 0) ang = Math.atan2(sy / n - CANNON_Y, sx / n - W / 2);
   ang = clamp(ang, -Math.PI + 0.3, -0.3);
   for (let i = 0; i < n0; i++) S.launchQ.push({ t: (t0 || 0) + i * 0.022, a: ang + rnd(-spread, spread), kind: 'p', pierce: false, split: false });
+  // 2026-11-10 独头弹新卡：每次散射额外发射 1 颗本体大球（slug 标记；kind 仍 'p'——强装药/碎甲/橡皮/风暴弹幕/经验弹头/弹片碎裂/龙息/弱点瞄准/穿甲系等散弹全卡钩子自动生效）
+  if (treeOn('shot', 'slug')) S.launchQ.push({ t: (t0 || 0), a: ang, kind: 'p', pierce: false, split: false, slug: true });
   S.muzzle = 0.7;
 }
 function launchSpecials(kind, n) {
@@ -2695,7 +2730,7 @@ const FUSE_RECIPES = [
   { out: 'ghost', name: '幽灵弹', ins: ['prism', 'pierce'], desc: '高级·冰系终极：可伤灵体块，冰冻/冻结/标记' },
   { out: 'rail', name: '磁轨弹', ins: ['laser', 'bolt'], desc: '高级·电磁终极：高速无限贯穿，撞墙弹射爆炸' },
   { out: 'swarm', name: '蜂群弹', ins: ['plague', 'shot'], desc: '高级·毒系终极：撞击放出追踪毒蜂' },
-  { out: 'meteor', name: '水蛭球', ins: ['boomerang', 'blood'], desc: '高级·血系终极：贯穿施加寄生层，落底大爆炸' }
+  { out: 'meteor', name: '水蛭球', ins: ['boomerang', 'blood'], desc: '高级·血系终极：贯穿施加寄生层' } // 2026-11-10 拍板：落底大爆炸下线（贯穿挂寄生即全部价值）
 ];
 // 融合/进化产物全集（含金弹）；进化产物不再出自进化卡，出自两球特殊融合
 const FUSE_ORDER = ['gold', 'laser', 'melt', 'bomb', 'prism', 'boomerang', 'dark', 'plague', 'sun', 'ghost', 'rail', 'swarm', 'meteor']; // 2026-11-03 疫病波：plague 排 dark 后
@@ -2795,25 +2830,25 @@ const TREE_COMMON = [
   { id: 'dmg', rarity: 'N', name: '硬芯弹头', desc: '该类球撞击伤害 +1' }
 ];
 const TREE_SSR = {
-  fire:      [{ id: 'ssr1', rarity: 'SSR', name: '三味真火', desc: '燃烧弹点燃变为真火：跳伤/时长/叠层照燃烧；高层次——不与冰冻对冲、冰不可熄灭/施加；遇冻结两抵全场 hp−30；视为 1 层燃烧吃燃烧加成' }, { id: 'ssr2', rarity: 'SSR', name: '火蛇', desc: '任意球撞击/穿透命中后从块背后伸出约 120px 扭曲火舌，经过的方块点燃（每块 0.3s 一次）' }], // R2fireice 2026-11-04：ssr1 真火改版（%HP 附加下线）；ssr2 灰烬宝藏→火蛇
-  ice:       [{ id: 'ssr1', rarity: 'SSR', name: '绝对零度', desc: '施加冰冻时 10% 几率直接施加 1 层冻结（冻结=永久易伤，受伤 +1/层）' }, { id: 'ssr2', rarity: 'SSR', name: '冰川崩解', desc: '带冰冻或冻结的块被击碎时波及 70px 内邻近块（各 +1 层冰冻）' }], // R2fireice 2026-11-04：ssr1 原死节点接线（10% 直冻）；ssr2 触发扩至冰冻或冻结
+  fire:      [{ id: 'ssr1', rarity: 'SSR', name: '三味真火', desc: '燃烧弹点燃变为真火：跳伤/时长/叠层照燃烧；高层次——不与冰冻对冲、冰不可熄灭/施加；遇冻结两抵全场 hp−30；视为 1 层燃烧吃燃烧加成' }, { id: 'ssr2', rarity: 'SSR', name: '火蛇', desc: '任意球撞击/穿透命中后从块背后伸出约 2 格扭曲火舌，经过的方块点燃（每块 0.3s 一次）' }], // R2fireice 2026-11-04：ssr1 真火改版（%HP 附加下线）；ssr2 灰烬宝藏→火蛇
+  ice:       [{ id: 'ssr1', rarity: 'SSR', name: '绝对零度', desc: '施加冰冻时 10% 几率直接施加 1 层冻结（冻结=永久易伤，受伤 +1/层）' }, { id: 'ssr2', rarity: 'SSR', name: '冰川崩解', desc: '带冰冻或冻结的块被击碎时波及 2 格内邻近块（各 +1 层冰冻）' }], // R2fireice 2026-11-04：ssr1 原死节点接线（10% 直冻）；ssr2 触发扩至冰冻或冻结
   bolt:      [{ id: 'ssr1', rarity: 'SSR', name: '雷暴', desc: '雷电球碰撞 2% 召唤雷暴：10 道落雷 + 5 道闪电链', dyn: () => '雷暴：落雷 10 道 · 闪电链 5 道' }, { id: 'ssr2', rarity: 'SSR', name: '雷神风暴', desc: '闪电链伤害 ×2' }], // R2bolt 2026-11-05：ssr1 限雷电球触发（批注）
-  poison:    [{ id: 'ssr1', rarity: 'SSR', name: '致病性', desc: '中毒结算伤 ×2' }, { id: 'ssr2', rarity: 'SSR', name: '腐败尸爆', desc: '中毒块死亡时 30px 毒爆 2 伤，并向 70px 内随机 1 块传染 2 层中毒' }],
-  blood:     [{ id: 'ssr1', rarity: 'SSR', name: '血崩', desc: '流血波末爆发伤 ×2' }, { id: 'ssr2', rarity: 'SSR', name: '血脉相连', desc: '流血爆发时向 70px 内邻近块各传染 2 层流血（传染层下一轮才爆发）' }],
+  poison:    [{ id: 'ssr1', rarity: 'SSR', name: '致病性', desc: '中毒结算伤 ×2' }, { id: 'ssr2', rarity: 'SSR', name: '腐败尸爆', desc: '中毒块死亡时 1.5 格毒爆 2 伤，并向 2 格内随机 1 块传染 2 层中毒' }],
+  blood:     [{ id: 'ssr1', rarity: 'SSR', name: '血崩', desc: '流血波末爆发伤 ×2' }, { id: 'ssr2', rarity: 'SSR', name: '血脉相连', desc: '流血爆发时向 2 格内邻近块各传染 2 层流血（传染层下一轮才爆发）' }],
   pierce:    [{ id: 'ssr1', rarity: 'SSR', name: '相位拟态', desc: '穿透弹失去穿透能力，但碰撞视为穿透命中' }, { id: 'ssr2', rarity: 'SSR', name: '相位洪流', desc: '被穿透过的方块被击碎时经验 +100%' }],
   split:     [{ id: 'ssr1', rarity: 'SSR', name: '分裂代数', desc: '再分裂代数 +1' }, { id: 'ssr2', rarity: 'SSR', name: '裂变出血', desc: '分裂弹与全部分裂子弹命中附加 1 层流血' }],
   bomb:      [{ id: 'ssr1', rarity: 'SSR', name: '逆商爆炸', desc: '爆炸半径 +40%，圈内直接施加满层冰冻' }, { id: 'ssr2', rarity: 'SSR', name: '燎原火圈', desc: '子母弹 +2' }],
-  laser:     [{ id: 'ssr1', rarity: 'SSR', name: '矩阵激光', desc: '光束变为半径 80px 圆环命中' }, { id: 'ssr2', rarity: 'SSR', name: '冷冻光束', desc: '光束命中施加 1 层冰冻' }, { id: 'ssr3', rarity: 'SSR', name: '超解放', desc: '撞击即爆发 3 条随机角度整线激光' }],
+  laser:     [{ id: 'ssr1', rarity: 'SSR', name: '矩阵激光', desc: '光束变为半径 2 格圆环命中' }, { id: 'ssr2', rarity: 'SSR', name: '冷冻光束', desc: '光束命中施加 1 层冰冻' }, { id: 'ssr3', rarity: 'SSR', name: '超解放', desc: '撞击即爆发 3 条随机角度整线激光' }],
   melt:      [{ id: 'ssr1', rarity: 'SSR', name: '超临界', desc: '满层伤害 ×2' }, { id: 'ssr2', rarity: 'SSR', name: '熔毁之刺', desc: '满层后碰撞施加 1 层脆弱' }],
-  ghost:     [{ id: 'ssr1', rarity: 'SSR', name: '怨灵潮', desc: '幽灵标记永久保留，碎裂时波及 70px 内邻近块' }, { id: 'ssr2', rarity: 'SSR', name: '死灵 · 死亡标记', desc: '幽灵弹标记升级死亡标记：保留脆弱增伤，且被撞击时 2% 直接造成 100 伤' }, { id: 'ssr3', rarity: 'SSR', name: '冥河冰封', desc: '幽灵弹穿透不再施加脆弱/怨印，改为施加冻结：层数同原口径（基础 1，深度脆弱/冥河泛滥每层 +1；冻结=永久易伤，每层受伤 +1）' }], // 2026-11-09 幽灵进化三选一新增：冻结流——弃脆弱/怨印换永久易伤
+  ghost:     [{ id: 'ssr1', rarity: 'SSR', name: '怨灵潮', desc: '幽灵标记永久保留，碎裂时波及 2 格内邻近块' }, { id: 'ssr2', rarity: 'SSR', name: '死灵 · 死亡标记', desc: '幽灵弹标记升级死亡标记：保留脆弱增伤，且被撞击时 2% 直接造成 100 伤' }, { id: 'ssr3', rarity: 'SSR', name: '冥河冰封', desc: '幽灵弹穿透不再施加脆弱/怨印，改为施加冻结：层数同原口径（基础 1，深度脆弱/冥河泛滥每层 +1；冻结=永久易伤，每层受伤 +1）' }], // 2026-11-09 幽灵进化三选一新增：冻结流——弃脆弱/怨印换永久易伤
   rail:      [{ id: 'ssr1', rarity: 'SSR', name: '磁暴轨道', desc: '撞墙爆炸阈值 +3 次（基础第 2 次撞墙爆炸，点后第 5 次才爆）' }, { id: 'ssr2', rarity: 'SSR', name: '轨道加速', desc: '撞墙弹射后弹速 +100%（受封顶管束）' }],
   prism:     [{ id: 'ssr1', rarity: 'SSR', name: '光棱矩阵', desc: '棱镜光无限射程（四壁无限反弹；12s 寿命兑底）' }, { id: 'ssr2', rarity: 'SSR', name: '寒光聚焦', desc: '棱镜光对冰冻/冻结目标伤害 ×2' }],
   swarm:     [{ id: 'ssr1', rarity: 'SSR', name: '蜂群风暴', desc: '毒针残留：蜂死亡时向最近块施加 1 层中毒' }, { id: 'ssr2', rarity: 'SSR', name: '蜂亡语', desc: '蜂死亡时自爆' }],
   sun:       [{ id: 'ssr1', rarity: 'SSR', name: '烈日冰棱', desc: '光照对冻结块触发大范围冰爆、对冰冻块小范围冰爆' }, { id: 'ssr2', rarity: 'SSR', name: '浮光', desc: '光照附带 1 层中毒' }],
   shot:      [{ id: 'ssr1', rarity: 'SSR', name: '风暴弹幕', desc: '散弹丸伤害 ×2' }, { id: 'ssr2', rarity: 'SSR', name: '集束弹幕', desc: '散弹丸可再穿透 1 块' }],
   boomerang: [{ id: 'ssr1', rarity: 'SSR', name: '双回旋', desc: '可折返 +2 次' }, { id: 'ssr2', rarity: 'SSR', name: '复仇加重', desc: '飞轮命中触发闪电链' }, { id: 'ssr3', rarity: 'SSR', name: '雷神回旋', desc: '命中后向周围最近 3 块瞬击斩（基础 2 伤，0.4s 冷却；伤/目标数吃瞬击斩衍生卡）' }],
-  meteor:    [{ id: 'ssr1', rarity: 'SSR', name: '水蛭雨', desc: '每波开始随机 2 块各施加 5 层寄生' }, { id: 'ssr2', rarity: 'SSR', name: '冲击深化', desc: '感染块死亡时向 70px 内传播随机 1-3 层寄生' }], // R2misc 2026-11-04：水蛭雨重做 1 块→2 块（波始施加处同步 60_round_boss）
-  dark:      [{ id: 'ssr2', rarity: 'SSR', name: '湮灭爆发', desc: '斩杀线处决时引发 40px 暗爆，并给全场随机 1 块 +2 层湮蚀' }, { id: 'ssr3', rarity: 'SSR', name: '湮灭黑洞', desc: '斩杀线触发时以目标为中心生成黑洞并牵引周围弹道 1.2s：70px 内非首领、非水晶块秒杀，首领/水晶受 10% 最大生命伤' }, { id: 'ssr4', rarity: 'SSR', name: '湮灭共鸣', desc: '斩杀线加成 +5%（加法；基础 1%）' }], // R2dark 2026-11-04 斩杀线单一模型：深渊侵蚀（ssr1）随侵蚀体系删除，每球限 1 SSR 改三选一；ssr2 湮灭吞噬→湮灭爆发（挂斩杀处决+施湮蚀标记）；ssr3/ssr4 措辞改斩杀线
+  meteor:    [{ id: 'ssr1', rarity: 'SSR', name: '水蛭雨', desc: '每波开始随机 2 块各施加 5 层寄生' }, { id: 'ssr2', rarity: 'SSR', name: '冲击深化', desc: '感染块死亡时向 2 格内传播随机 1-3 层寄生' }], // R2misc 2026-11-04：水蛭雨重做 1 块→2 块（波始施加处同步 60_round_boss）
+  dark:      [{ id: 'ssr2', rarity: 'SSR', name: '湮灭爆发', desc: '斩杀线处决时引发 1.5 格暗爆，并给全场随机 1 块 +2 层湮蚀' }, { id: 'ssr3', rarity: 'SSR', name: '湮灭黑洞', desc: '斩杀线触发时以目标为中心生成黑洞并牵引周围弹道 1.2s：2 格内非首领、非水晶块秒杀，首领/水晶受 10% 最大生命伤' }, { id: 'ssr4', rarity: 'SSR', name: '湮灭共鸣', desc: '斩杀线加成 +5%（加法；基础 1%）' }], // R2dark 2026-11-04 斩杀线单一模型：深渊侵蚀（ssr1）随侵蚀体系删除，每球限 1 SSR 改三选一；ssr2 湮灭吞噬→湮灭爆发（挂斩杀处决+施湮蚀标记）；ssr3/ssr4 措辞改斩杀线
   plague:    [{ id: 'ssr1', rarity: 'SSR', name: '坏死延续', desc: '坏死区域持续 +1 波' }, { id: 'ssr2', rarity: 'SSR', name: '毒性滋养', desc: '每波结束：带中毒或病毒层数的块 +2 层病毒' }, { id: 'ssr3', rarity: 'SSR', name: '传染病', desc: '病毒块死亡：其病毒层数一半（向上取整）随机传播给一个存活块' }], // 2026-11-03 疫病波；同日进化选项×3（每球限 1 SSR，三选一）
   gold:      [{ id: 'ssr1', rarity: 'SSR', name: '真金', desc: '撞击伤 +20，取消双倍几率' }, { id: 'ssr2', rarity: 'SSR', name: '点金术 · 彩虹弹', desc: '金弹碰撞随机触发：2 层随机状态或落雷/闪电链/爆炸之一' }]
 };
@@ -2821,7 +2856,7 @@ const TREE_SSR = {
 const TREE_EXCL = {
   fire: [
     // 2026-11-02 批注：炽焰弹头删（与燃烧效果绑定）；新增火星（引燃传染）/燃爆层（5 层燃爆）/炽焰贯穿；引燃加深/加速燃烧/双重燃烧/燎原已上收全局
-    { id: 'mars', rarity: 'SR', name: '火星', desc: '施加燃烧时 10%×层 引燃 80px 内相邻 2 块各 1 层燃烧', max: 99 },
+    { id: 'mars', rarity: 'SR', name: '火星', desc: '施加燃烧时 10%×层 引燃 2 格内相邻 2 块各 1 层燃烧', max: 99 },
     { id: 'n1', rarity: 'N', name: '追燃', desc: '燃烧弹命中 15%（+5%/额外层）追加 已叠层数 层燃烧（无上限）', max: 99 }, // 2026-11-03 疫病波：燃烧无上限（双重燃烧卡已删）；2026-11-04 审清：概率为首层 15%+额外层 5%
     { id: 'n3', rarity: 'N', name: '疾燃推进', desc: '燃烧弹弹速 +10%' },
     { id: 'r1', rarity: 'R', name: '猎燃弹', desc: '对燃烧块碰撞伤害 +2' },
@@ -2831,9 +2866,9 @@ const TREE_EXCL = {
   ice: [
     { id: 'n1', rarity: 'N', name: '霜牙', desc: '冰球命中冰冻 +1 层/层', max: 99 },
     { id: 'n2', rarity: 'N', name: '冰棱', desc: '对冰冻/冻结块碰撞伤 +2' },
-    { id: 'n3', rarity: 'N', name: '凛冬之触', desc: '冰球命中 15%（+5%/额外层）向 90px 内随机 1 块追加 已叠层数 层冰冻', max: 99 },
+    { id: 'n3', rarity: 'N', name: '凛冬之触', desc: '冰球命中 15%（+5%/额外层）向 3 格内随机 1 块追加 已叠层数 层冰冻', max: 99 },
     { id: 'r1', rarity: 'SR', name: '深寒', desc: '冻结伤害 +1/层（冻结易伤每层 +1 → +2）', max: 99, dyn: () => '冻结易伤 每层 +' + (1 + treeCount('ice', 'r1')) + ' → +' + (2 + treeCount('ice', 'r1')) + '（不吃火力）' }, // 2026-11-09 B14 手写 dyn：freezeVuln=frz×(1+r1) 不吃 atk，autoTreeDyn 按 1+atk 生成虚高 // R2fireice 2026-11-04：对齐冻结=易伤（原「冻结持续伤 +1」随 DoT 下线）
-    { id: 'r2', rarity: 'SR', name: '碎冰爆', desc: '带冻结的块被击碎时 40px 冰爆 1 伤' }, // R2fireice：25→40px（+15px）
+    { id: 'r2', rarity: 'SR', name: '碎冰爆', desc: '带冻结的块被击碎时 1.5 格冰爆 1 伤' }, // R2fireice：25→40px（+15px）
     { id: 'epic', rarity: 'SSR', name: '万里冰封', desc: '每波开始全场存活块 +1 层冰冻' }
   ],
   bolt: [
@@ -2847,11 +2882,10 @@ const TREE_EXCL = {
     { id: 'epic', rarity: 'SR', name: '雷达预警', desc: '扩容电容触发落雷时 +3 道', dyn: () => '扩容电容落雷 1 道 → 4 道' }
   ],
   poison: [
-    // 2026-11-03 疫病波：n3 病媒移入疫病球树（毒球只留施毒与毒气）
+    // 2026-11-03 疫病波：n3 病媒移入疫病球树（毒球只留施毒与毒气）；2026-11-10 毒囊扩容（r2，中毒层数上限 +2/层）删卡，同批二拍中毒改无上限（poisonCap 一并下线）
     { id: 'n1', rarity: 'N', name: '毒牙', desc: '毒球命中中毒 +1 层/层', max: 99 },
     { id: 'n2', rarity: 'R', name: '剧毒代谢', desc: '对中毒块碰撞伤 +1', max: 99 },
-    { id: 'r1', rarity: 'SR', name: '疫病扩散', desc: '中毒块死亡 40% 向 80px 内随机 1 块传播 2 层中毒' },
-    { id: 'r2', rarity: 'R', name: '毒囊扩容', desc: '中毒层数上限 +2', max: 99 },
+    { id: 'r1', rarity: 'SR', name: '疫病扩散', desc: '中毒块死亡 40% 向 2 格内随机 1 块传播 2 层中毒' },
     { id: 'epic', rarity: 'SSR', name: '大流行', desc: '每波开始随机 2 块各 +2 层中毒' }
   ],
   blood: [
@@ -2859,7 +2893,7 @@ const TREE_EXCL = {
     { id: 'n2', rarity: 'R', name: '血宴', desc: '对流血块碰撞伤 +2', max: 99 },
     { id: 'n3', rarity: 'N', name: '汲血', desc: '血球命中 15%（+5%/额外层）追加 已叠层数 层流血', max: 99 },
     { id: 'r1', rarity: 'SR', name: '动脉切开', desc: '流血爆发结算 +1 伤/层', max: 99 },
-    { id: 'r2', rarity: 'R', name: '血雾', desc: '流血块死亡 30%（含流血而死）向 80px 内最多 2 块各传染 2 层流血；回合末结算期传染的层下一轮才爆发' },
+    { id: 'r2', rarity: 'R', name: '血雾', desc: '流血块死亡 30%（含流血而死）向 2 格内最多 2 块各传染 2 层流血；回合末结算期传染的层下一轮才爆发' },
     { id: 'epic', rarity: 'SSR', name: '血祭', desc: '每波开始全场流血块 +1 层' }
   ],
   dark: [
@@ -2868,18 +2902,18 @@ const TREE_EXCL = {
     { id: 'chase', rarity: 'R', name: '湮蚀', desc: '暗影球命中湮蚀施加 +1 层/层（球本体自带 1 层）；每层湮蚀使所有球对该块的斩杀线 +3%（斩杀/湮灭触发后清空）', max: 99 }, // 2026-11-09 十批：球本体自带 1 层（旧版需先抽卡才施加=死接线）；卡层叠加
     { id: 'engrave', rarity: 'R', name: '湮灭刻印', desc: '每层湮蚀的斩杀线加成 +1.5%（基础 +3%/层）', max: 99 }, // 2026-11-09 拍板：0.25%→1.5% 等比放大；术语统一湮蚀
     { id: 'n2', rarity: 'R', name: '噬痕', desc: '对带湮蚀块的斩杀线每层 +1%', max: 99 }, // 2026-11-09 拍板：0.25%→1% 随湮蚀增强上调（仍仅湮蚀目标）
-    { id: 'spread', rarity: 'R', name: '湮蚀扩散', desc: '暗影球每次施加湮蚀时，向 70px 内最多 层 个随机存活块各施加 1 层湮蚀（可施加首领：湮蚀同样计入斩杀线；需先点湮蚀）', max: 99 },
-    { id: 'epic', rarity: 'SSR', name: '暗爆', desc: '暗影球击碎方块时 50px 暗爆（伤=湮蚀层数，封顶 6）' },
+    { id: 'spread', rarity: 'R', name: '湮蚀扩散', desc: '暗影球每次施加湮蚀时，向 2 格内最多 层 个随机存活块各施加 1 层湮蚀（可施加首领：湮蚀同样计入斩杀线；需先点湮蚀）', max: 99 },
+    { id: 'epic', rarity: 'SSR', name: '暗爆', desc: '暗影球击碎方块时 1.5 格暗爆（伤=湮蚀层数，封顶 6）' },
     { id: 'pact', rarity: 'R', name: '斩杀契约', desc: '全局斩杀线每层 +1%（所有球生效；暗影球另有天生 1% 与湮蚀系加成）', max: 99 }, // 2026-11-09 用户重做：斩杀线全局化（原仅暗影球），等价标注随噬界改版下线
-    { id: 'soul', rarity: 'SR', name: '噬界', desc: '湮灭：暗影球命中 3%（+3%/额外层）无视血量直接击碎，湮蚀每层 +2%、暗属性每级 +0.5%（首领 -10%；连锁水晶整链秒杀；触发后清空湮蚀）', max: 99 }, // 2026-11-09 二批：连锁水晶改整链秒杀；触发后清空湮蚀
+    { id: 'soul', rarity: 'SR', name: '噬界', desc: '湮灭：暗影球命中 3%（+3%/额外层）无视血量直接击碎，湮蚀每层 +2%、暗属性每级 +0.5%（首领改 10% 最大生命伤；连锁水晶整链秒杀；触发后清空湮蚀）', max: 99 }, // 2026-11-10 拍板：首领降级伤按最大生命上限——湮灭 10%、斩杀线触发 5%（原统一 10%） // 2026-11-09 二批：连锁水晶改整链秒杀；触发后清空湮蚀
     { id: 'shadowpierce', rarity: 'R', name: '影穿', desc: '暗影球可穿透 1 块/层：贯穿不反弹、同块只结一次，保留湮蚀/斩杀线全套命中身份', max: 99 }
   ],
   plague: [
     // 2026-11-03 疫病波新增：病媒自毒树移来；坏死区域半径 60px、停留 1 轮（SSR +1）、每波滴注病毒=坏死层数+毒属性等级
     { id: 'n3', rarity: 'N', name: '病媒', desc: '疫病球命中 15%（+5%/额外层）施加 已叠层数 层病毒（无上限）', max: 99 },
     { id: 'r1', rarity: 'R', name: '疫病扩散', desc: '对中毒目标命中额外施加 1 层病毒/层', max: 99 },
-    { id: 'necro', rarity: 'SR', name: '坏死', desc: '命中时原地生成坏死区域（半径 70px；每波结束滴注 病毒=坏死层数+毒属性 层，停留 1 波）', max: 99 },
-    { id: 'r2', rarity: 'R', name: '坏死扩张', desc: '坏死区域半径 +20px/层', max: 99 }
+    { id: 'necro', rarity: 'SR', name: '坏死', desc: '命中时原地生成坏死区域（半径 2 格；每波结束滴注 病毒=坏死层数+毒属性 层，停留 1 波）', max: 99 },
+    { id: 'r2', rarity: 'R', name: '坏死扩张', desc: '坏死区域半径 +0.5 格/层', max: 99 }
   ],
   pierce: [
     // 2026-11-02 批注：灼热贯穿改全局穿透伤 +1（R）；淬火弹芯无限叠（基础 2 目标）；新增寄生/病毒/燃块加伤；效果延时已删；双重燃烧已上收全局
@@ -2905,8 +2939,9 @@ const TREE_EXCL = {
     { id: 'xp1', rarity: 'SR', name: '经验弹头', desc: '散弹丸每次撞击获得 1 经验' },
     { id: 'crush', rarity: 'R', name: '碎甲', desc: '散弹丸对护盾伤害 ×2' },
     { id: 'rub', rarity: 'R', name: '橡皮弹头', desc: '散弹丸每次弹射伤害 +5%' },
-    { id: 'frag1', rarity: 'SR', name: '弹片碎裂', desc: '散弹丸命中 25% 施加 已叠层数 层流血', max: 99 },
-    { id: 'drag', rarity: 'SR', name: '龙息弹', desc: '散弹丸命中非燃烧目标 25% 施加 1 层燃烧' }
+    { id: 'frag1', rarity: 'SR', name: '弹片碎裂', desc: '散弹丸命中 25%（+10%/额外层）施加 1 层流血', max: 99 }, // 2026-11-10 三拍：恒 1 层流血；叠层改加触发率每层 +10%（autoTreeDyn 自动出前后式数值行）——二拍砍成单卡太狠
+    { id: 'drag', rarity: 'SR', name: '龙息弹', desc: '散弹丸命中非燃烧目标 25% 施加 1 层燃烧' },
+    { id: 'slug', rarity: 'SR', name: '独头弹', desc: '每次散射发射 1 颗本体大球：撞击伤 +2、命中施加 1 层脆弱；享受散弹全部技能卡加成（散弹本体仅此一源，无此卡时只有小弹丸）' } // 2026-11-10 散弹口径：散弹只出小弹丸，本体大球仅本卡提供（kind 'p'+slug 标记，强装药/碎甲/橡皮/风暴弹幕/经验弹头/弹片碎裂/龙息弹/弱点瞄准/穿甲系全生效）
   ],
   bomb: [
     // 2026-11-02 批注：扩爆装药/高爆弹头/燃烧弹幕/集束核心均改全局爆炸卡（expRad/expIgnite/expamp/cluster）；树上只留复燃弹跳/连击扩爆
@@ -2916,7 +2951,7 @@ const TREE_EXCL = {
   laser: [
     // 2026-11-02 批注：快子旋钮删（本身无冷却）→改光子贯穿；全息激光改轨道激光（20% 可叠）
     { id: 'n1', rarity: 'N', name: '聚焦透镜', desc: '光束伤 +1', max: 99 },
-    { id: 'n2', rarity: 'N', name: '扩束镜', desc: '光束判定走廊 +6px/层', max: 99 },
+    { id: 'n2', rarity: 'N', name: '扩束镜', desc: '光束判定走廊 +0.1 格/层', max: 99 },
     { id: 'pen', rarity: 'SR', name: '光子贯穿', desc: '激光可穿透 1 个目标，穿透也触发激光' },
     { id: 'r1', rarity: 'R', name: '电磁效应', desc: '激光伤害 20% 概率暴击' },
     { id: 'r2', rarity: 'R', name: '双子发射器', desc: '附加垂直方向整线光束' },
@@ -2938,7 +2973,7 @@ const TREE_EXCL = {
     { id: 'r1', rarity: 'SR', name: '剧烈放热', desc: '每次命中成长 +1' },
     { id: 'r1x', rarity: 'SSR', name: '剧烈放热·二型', desc: '每次命中成长再 +2' },
     { id: 'r2', rarity: 'R', name: '熔炉上限', desc: '对冰冻目标碰撞伤 +2', max: 99 },
-    { id: 'epic', rarity: 'SR', name: '聚能穿甲', desc: '命中沿来向后方 70px 扇形溅射 1 伤' }
+    { id: 'epic', rarity: 'SR', name: '聚能穿甲', desc: '命中沿来向后方 2 格扇形溅射 1 伤' }
   ],
   ghost: [
     // 2026-11-02 批注：怨压爆裂改大范围冰冻；万灵改 5% 触发冻结（直接满层）；新增冰寒暴击线
@@ -2948,7 +2983,7 @@ const TREE_EXCL = {
     { id: 'r1', rarity: 'SR', name: '怨压爆裂', desc: '幽灵弹标记的块碎裂时大范围施加其冰冻层数' },
     { id: 'r2', rarity: 'SSR', name: '双重标记', desc: '怨印施加翻倍 +2 层' },
     { id: 'epic', rarity: 'SR', name: '万灵', desc: '施加冰冻时 5% 触发冻结' },
-    { id: 'soulring', rarity: 'SR', name: '灵魂之环', desc: '幽灵弹外扩 7px/层 灵魂环：环沿扫到即视为穿过' }
+    { id: 'soulring', rarity: 'SR', name: '灵魂之环', desc: '幽灵弹外扩 0.1 格/层 灵魂环：环沿扫到即视为穿过' }
   ],
   rail: [
     // 2026-11-02 批注：洒灭强化改轨道加速（ssr2：撞墙弹射后弹速 +100%）；磁轨弹基础可撞墙弹射一次、无限穿透
@@ -3248,7 +3283,7 @@ function updateBees(dt) {
     if (bee.dead) continue;
     bee.life -= dt;
     if (bee.life <= 0 || bee.bites <= 0) {
-      if (treeOn('swarm', 'ssr2')) explode(bee.x, bee.y, 30, 1); // 蜂亡语自爆（走爆炸效果）
+      if (treeOn('swarm', 'ssr2')) explode(bee.x, bee.y, cells(1.5), 1); // 蜂亡语自爆（1.5 格；2026-11-10 下限 1.5 格，原 0.5 格；走爆炸效果）
       if (treeOn('swarm', 'ssr1')) {
         // 蜂群风暴（批注改）：毒针残留——蜂死亡时向最近块施加 1 层中毒
         let tb = null, tdd = Infinity;
@@ -3287,34 +3322,37 @@ function updateBees(dt) {
 
 /* ---------- 回合结束 / 失败 ---------- */
 /* ---------- BOSS（四形态轮换） ---------- */
-// 2026-11-04 幸运星独占：每波开场 (5%×层数，封顶 50%) 触发幸运潮，时长 8+1s/层（封顶 18s）；光属性不参与。
+// 2026-11-04 幸运星独占：每波开场 (5%×层数，封顶 50%) 触发幸运潮，时长 1 波 +1 波/5 层（封顶 3 波；2026-11-10 计时增益改按波，原 8+1s/层 封顶 18s）；光属性不参与。
 // 幸运潮自 V4.6 掉落表改版后已无获取途径，此处由幸运星触发复活（×2 掉落率）。
 function luckSurgeWaveRoll(rollForTest) {
   if (!(S.luck > 0)) return false;
   const p = Math.min(0.5, 0.05 * S.luck);
   const r = (rollForTest === undefined) ? Math.random() : rollForTest;
   if (r >= p) return false;
-  const dur = Math.min(18, 8 + S.luck);
+  const dur = Math.min(3, 1 + Math.floor(S.luck / 5));
   addBuff('luckysurge', dur);
-  addFloat(W / 2, 170, '幸运潮 · 掉落率 ×2 · ' + dur + 's', GOOD, 14);
+  addFloat(W / 2, 170, '幸运潮 · 掉落率 ×2 · ' + dur + ' 波', GOOD, 14);
   return true;
 }
 const BOSS_META = {
   chain: { label: '锁链核心', note: '三段锁链 · 共享血池 · 打一段全链掉血' },
-  mover: { label: '浮游要塞', note: '左右机动 · 血量减半' },
+  mover: { label: '浮游要塞', note: '左右机动' },
   shield: { label: '护盾核心', note: '每波生成护盾抵消伤害' },
-  summon: { label: '召唤核心', note: '血量极厚 · 持续召唤回血块' }
+  summon: { label: '召唤核心', note: '持续召唤回血块' }
 };
 function spawnBoss(typeOverride) {
   const n = Math.max(1, Math.floor(S.wave / 50));
   const HM = 3; // 2026-10-30 拍板：BOSS 血量大量上升（×3）
-  // 2026-11-06 拍板：血量每次随机 ±15%（rf），且随代数提升（第一代 ×1，此后每代 +15%，gm）；测试桩 Math.random=0.5 时 rf 恰为 1
-  const gm = 1 + 0.15 * (n - 1);
+  // 2026-11-10 拍板：BOSS 血量按代数翻倍（gm=2^(n-1)：一代 1000 多、二代 2000 多、三代 4000 多），基准波次锁定 50、四形态同基准——
+  // 原 gm 每代仅 +15% 且基数随 S.wave 线性叠，成长后劲不足（三代 ~3500 而非翻倍 ~4700），且 mover 减半/summon 加厚基数差导致「第二个反而更脆」；
+  // 血量随机 ±15%（rf）保留；测试桩 Math.random=0.5 时 rf 恰为 1（2026-11-06 口径不变）
+  const gm = Math.pow(2, n - 1);
   const rf = rnd(0.85, 1.15);
-  const type = typeOverride || ['chain', 'mover', 'shield', 'summon'][(n - 1) % 4];
+  const hp1 = Math.round((140 + 50 * 5) * HM * gm * rf); // 一代基准 = (140+250)×3 = 1170；每代 ×2
+  const type = typeOverride || ['chain', 'mover', 'shield', 'summon'][ri(0, 3)]; // 2026-11-10 拍板：BOSS 形态出场全随机（原按代数轮换，可重复出同形态）
   if (type === 'chain') {
     // 锁链 BOSS：三段互连，共享血池（与锁链水晶同机制，复用 gemGroups）
-    const pool = Math.round((140 + S.wave * 5) * HM * gm * rf);
+    const pool = hp1;
     const gid = 'boss' + (++S.gemSeq);
     S.gemGroups.set(gid, { hue: GEM_HUES[ri(0, GEM_HUES.length - 1)], members: [], chaining: false, pulse: 0, pool });
     const segW = 74, segH = 46, gap2 = 12;
@@ -3330,12 +3368,12 @@ function spawnBoss(typeOverride) {
   } else {
     let hp;
     const extra = {};
-    if (type === 'mover') hp = Math.round(Math.floor((150 + S.wave * 6) / 2) * HM * gm * rf);
+    if (type === 'mover') hp = hp1; // 2026-11-10：四形态同基准翻倍成长（原「血量减半」基数差下线——机动性已是要塞的交换点）
     else if (type === 'shield') {
-      hp = Math.round((150 + S.wave * 6) * HM * gm * rf);
+      hp = hp1;
       const sm = 5 + (n - 1) * 2;
       extra.shieldMax = sm; extra.shieldCur = sm;
-    } else hp = Math.round((200 + S.wave * 8) * HM * gm * rf);
+    } else hp = hp1; // 召唤核心：原「血量极厚」基数差下线，厚血由代数翻倍自然给出
     const bx = (W - 150) / 2;
     const boss = Object.assign({ id: ++S.blkSeq, x: bx, y: GRID_TOP + 6, w: 150, h: 70, shape: 'rect', type: 'n', hp, maxHp: hp, flash: 0, dead: false, gid: null, fuse: false, rot: 0, born: gameT, frozen: 0, frozenBonus: false, boss: true, bossType: type, bossReward: true }, type === 'mover' ? { driftX: bx, driftA: 60, driftS: 0.4, driftP: Math.random() * TAU } : {}, extra);
     S.blocks.push(boss);
@@ -3387,7 +3425,7 @@ function healPulse() {
     const healedGems = new Set();
     for (const p of S.blocks) {
       if (p.dead || p === h || p.boss || p.type === 'h' || p.hp >= p.maxHp) continue; // W5-03：回血块不再治疗其他回血块（拆互奶；自身回血保留，见上分支；水晶链照常治疗非回血成员）
-      if (Math.hypot(p.x + p.w / 2 - (h.x + h.w / 2), p.y + p.h / 2 - (h.y + h.h / 2)) <= 100) {
+      if (Math.hypot(p.x + p.w / 2 - (h.x + h.w / 2), p.y + p.h / 2 - (h.y + h.h / 2)) <= cells(2)) {
         if (p.gid && S.gemGroups.has(p.gid)) {
           if (healedGems.has(p.gid)) continue; // 同串只治疗一次（全体成员）
           healedGems.add(p.gid);
@@ -3413,11 +3451,21 @@ function healPulse() {
   }
 }
 function endVolley() {
+  // 2026-11-10 结算完整性拍板：波末收尾弹（弹药回填金弹）先出膛落底结算——波次推进/清屏判定/燃烧流血等持续效果结算全部等它完成，期间不可发射（原版金弹入下一波队列、可与下一波齐射混杂）。
+  // 实现：回填触发时保持 S.volley=true 直接 return（fire 被挡、volleyT 重置以便金弹错峰出膛），step 的「弹幕+队列双清零」检测会再次调 endVolley 进入正式结算；每波限一次（S.refilled，正式结算时归零）
+  if (!S.refilled && S.up.refill > 0 && Math.random() < Math.min(1, 0.20 + 0.05 * (S.up.refill - 1))) {
+    S.refilled = true;
+    for (let gi = 0; gi < S.up.refill; gi++) S.launchQ.push({ t: 0.5 + gi * 0.15, a: S.aimA + rnd(-0.1, 0.1), kind: 'gold', pierce: false, split: false });
+    addFloat(W / 2, 150, '回填 · 金弹 ×' + S.up.refill + ' · 结算中', '#ffd700', 12);
+    S.volleyT = 0;
+    return; // 金弹落底后 step 会再次调 endVolley → 正式结算（含清屏判定）
+  }
+  S.refilled = false;
   S.volley = false; S.canFire = true; S.launchQ.length = 0; S.volleyT = 0;
   S.splitExtra = 0; // 满编分裂：每回合额外分裂总量重置
-  // 回合 buff（巨球）递减；时间 buff 在 step 按 rdt 递减
-  for (const bf of S.buffs) if (bf.id === 'bigball') bf.t -= 1;
-  S.buffs = S.buffs.filter(bf => bf.id !== 'bigball' || bf.t > 0);
+  // 2026-11-10 拍板：增益持续一律按波计（endVolley 递减；double=一次性待发不递减）——狂热/幸运潮从按秒计时并入本列，与巨球同口径
+  for (const bf of S.buffs) if (bf.id !== 'double') bf.t -= 1;
+  S.buffs = S.buffs.filter(bf => bf.id === 'double' || bf.t > 0);
   // V3 状态词·回合末结算（2026-11-02 批注+元素联动）：流血=层数×(1+0.5×滋养/层)×血属性；病毒=每层→中毒+1、自身−1；中毒=层数×毒属性×联动
   // 2026-11-09 血传播时序拍板：结算期间新传播的流血（血雾死亡传染/血脉相连波及）本轮不爆、留到下一轮——旗标让 applyBleed 打 bleedDefer
   BLEED_SETTLING = true;
@@ -3437,10 +3485,10 @@ function endVolley() {
       spark(b.x + b.w / 2, b.y + b.h / 2, '#ff5470');
       if (!b.dead) {
         if (treeOn('blood', 'ssr2')) {
-          // 血脉相连：爆发波及 70px 邻近各 +2 层流血（2026-11-09 五批：60→70 块间留隙补偿）
+          // 血脉相连：爆发波及 2 格邻近各 +2 层流血（2026-11-10 范围单位化，原 70px）
           for (const p of S.blocks) {
             if (p.dead || p === b) continue;
-            if (Math.hypot(p.x + p.w / 2 - (b.x + b.w / 2), p.y + p.h / 2 - (b.y + b.h / 2)) <= 70) applyBleed(p, 2);
+            if (Math.hypot(p.x + p.w / 2 - (b.x + b.w / 2), p.y + p.h / 2 - (b.y + b.h / 2)) <= cells(2)) applyBleed(p, 2);
           }
         }
         b.bleed = (b.bleed || 0) - actBleed; // 只清本轮已爆层；结算期内新传播层（bleedDefer 部分）留到下一轮
@@ -3485,6 +3533,7 @@ function endVolley() {
     stayed.add(b); // 2026-11-09 修复：已下移块也作为后续（更高）块的障碍——原版只判停留块，高位块可落进已移动块体内相交
   }
   if (S.up.entropy > 0) S.up.entropy--;
+  let waveDoomed = false; // 2026-11-10 清屏奖励：压线突破被移除的块不算「击杀清屏」
   let doomed = S.blocks.filter(b => !b.dead && b.y + b.h >= DANGER_Y);
   if (S.up.thorns > 0 && doomed.length) {
     // 荆棘防线：压线块先受 8 伤再判定（可能自碎保盾）
@@ -3492,6 +3541,7 @@ function endVolley() {
     doomed = S.blocks.filter(b => !b.dead && b.y + b.h >= DANGER_Y);
   }
   if (doomed.length) {
+    waveDoomed = true;
     for (const b of doomed) { b.dead = true; burst(b.x + b.w / 2, b.y + b.h / 2, DANGER, REDUCED ? 8 : 18, 200); }
     S.blocks = S.blocks.filter(b => !b.dead);
     if (doomed.some(b => b.boss)) { S.shield = 0; addFloat(W / 2, H * 0.4, '首领突破防线！', DANGER, 22); }
@@ -3519,14 +3569,17 @@ function endVolley() {
     }
   }
   S.waveScore0 = S.score;
-  // 弹药回填（批注重做）：每波开始 (20%+5%/层) 朝瞄准方向发射 n 颗金弹（n=层数）
-  if (S.up.refill > 0 && Math.random() < Math.min(1, 0.20 + 0.05 * (S.up.refill - 1))) {
-    for (let gi = 0; gi < S.up.refill; gi++) S.launchQ.push({ t: 0.5 + gi * 0.15, a: S.aimA + rnd(-0.1, 0.1), kind: 'gold', pierce: false, split: false });
-    addFloat(W / 2, 150, '回填 · 金弹 ×' + S.up.refill, '#ffd700', 12);
-  }
+  // 弹药回填已前移至 endVolley 入口（2026-11-10 结算完整性：金弹落底结算完才进下一波，见函数头部）
   // 起手补给：每波结束 15%×层 掉 1 球；经验复利：每波结束转化
   if (S.up.compoud > 0) gainXp(Math.round((50 + 10 * S.wave) * S.up.compoud / 100));
   if (S.up.supply > 0 && Math.random() < 0.15 * S.up.supply) dropPickup(W / 2 + rnd(-60, 60), 120);
+  // 2026-11-10 新增·清屏奖励：波次结束时场上块已被全部击杀（无压线突破移除，且本波有真实击杀——防空场/纯移除误发）→ 额外 +1 次技能抽卡
+  if (!waveDoomed && S.blocks.length === 0 && (S.waveKills || 0) > 0) {
+    queueLevel('level');
+    addFloat(W / 2, H * 0.34, '清屏奖励 · 技能卡 +1！', GOOD, 20);
+    sfx.record();
+  }
+  S.waveKills = 0; // 波级计数：下波重置
   luckSurgeWaveRoll(); // 2026-11-04 幸运星独占：每波幵场掷幸运潮
   spawnRowAt(GRID_TOP);
   S.wave++;
@@ -3639,11 +3692,7 @@ function step(rdt) {
   const dt = rdt * S.ts;
   gameT += dt;
   updateAmbient(rdt);
-  // 时间 buff 按 rdt 递减（回合 buff 在 endVolley 递减）
-  for (const bf of S.buffs) {
-    if (bf.id === 'frenzy' || bf.id === 'luckysurge') bf.t -= rdt;
-  }
-  S.buffs = S.buffs.filter(bf => (bf.id !== 'frenzy' && bf.id !== 'luckysurge') || bf.t > 0);
+  // 2026-11-10：计时 buff 下线——狂热/幸运潮改按波（endVolley 递减），step 不再按秒扣减
   if (S.evts.length) {
     const due = [];
     for (const e of S.evts) { e.t -= dt; if (e.t <= 0) due.push(e); }
@@ -3722,20 +3771,44 @@ function step(rdt) {
   S.holes = S.holes.filter(h => h.t > 0);
   for (const z of S.bolts) z.life -= dt;
   S.bolts = S.bolts.filter(z => z.life > 0);
+  for (const bm of S.beams) bm.life -= dt; // 2026-11-10 激光光柱实体衰减（S.beams，与闪电链分离）
+  S.beams = S.beams.filter(bm => bm.life > 0);
   if (S.hint > 0) S.hint -= rdt;
 }
 
 /* ---------- 绘制 ---------- */
-function hpHue(hp) {
-  // 全场统一色阶：1 血青色 → 100 血红色，0.6 次幂曲线让低血段跨步可见
-  const t = clamp((hp - 1) / 99, 0, 1);
-  return Math.round(190 * (1 - Math.pow(t, 0.6)));
+// 2026-11-10 拍板（档位二调）：血量色阶全梯度——绿→蓝→紫→橙→红→黄→黑，对数刻度；七档阈值 1/20/50/90/150/300/600（黑档 600+，BOSS 与厚血块自然落入）
+// [血量阈值, 色相, 饱和度%, 亮度%]；黑档存色相 -10（≡350，从黄 50 向红方向插值过渡），深红黑在暗背景可辨
+const HP_STOPS = [
+  [1, 128, 74, 58],
+  [20, 212, 82, 58],
+  [50, 276, 70, 62],
+  [90, 32, 92, 56],
+  [150, 6, 86, 56],
+  [300, 50, 90, 58],
+  [600, -10, 40, 13]
+];
+function hpColorOf(hp) {
+  const h = Math.max(1, hp);
+  if (h <= HP_STOPS[0][0]) return HP_STOPS[0];
+  const last = HP_STOPS[HP_STOPS.length - 1];
+  if (h >= last[0]) return last;
+  for (let i = 0; i < HP_STOPS.length - 1; i++) {
+    const a = HP_STOPS[i], b2 = HP_STOPS[i + 1];
+    if (h <= b2[0]) {
+      const t = (Math.log(h) - Math.log(a[0])) / (Math.log(b2[0]) - Math.log(a[0]));
+      return [0, Math.round(a[1] + (b2[1] - a[1]) * t), Math.round(a[2] + (b2[2] - a[2]) * t), +(a[3] + (b2[3] - a[3]) * t).toFixed(1)];
+    }
+  }
+  return last;
 }
 function bodyMain(type, hp, hue) {
-  return 'hsl(' + hpHue(hp) + ',80%,56%)';
+  const c = hpColorOf(hp);
+  return 'hsl(' + ((c[1] % 360 + 360) % 360) + ',' + c[2] + '%,' + c[3] + '%)';
 }
 function bodyDark(type, hp, hue) {
-  return 'hsl(' + hpHue(hp) + ',55%,26%)';
+  const c = hpColorOf(hp);
+  return 'hsl(' + ((c[1] % 360 + 360) % 360) + ',' + Math.round(c[2] * 0.62) + '%,' + Math.max(7, Math.round(c[3] * 0.4)) + '%)';
 }
 function drawBlockBody(x, y, w, h, type, hp, hue, fuse, shape, maxHp, rot) {
   const cx = x + w / 2, cy = y + h / 2;
@@ -3853,6 +3926,15 @@ function statusFrame(b, y, pad, rad) {
   else if (b.shape === 'tri') triPath(fcx, fcy, b.w / 2 * 0.92 + pad * 0.8, b.rot || 0);
   else rr(b.x - pad, y - pad, b.w + pad * 2, b.h + pad * 2, rad);
 }
+// 块形裁剪（2026-11-10 状态特效美化批）：状态纹路一律裁在块形内——三角/圆形块不再冒出到外接矩形区域
+function blockClip(b, y, fn) {
+  ctx.save();
+  if (b.shape === 'circle') { ctx.beginPath(); ctx.arc(b.x + b.w / 2, y + b.h / 2, Math.min(b.w, b.h) / 2 * 0.95, 0, TAU); }
+  else if (b.shape === 'tri') triPath(b.x + b.w / 2, y + b.h / 2, b.w / 2 * 0.95, b.rot || 0);
+  else rr(b.x, y, b.w, b.h, 6);
+  ctx.clip();
+  try { fn(); } finally { ctx.restore(); }
+}
 function drawBlock(b) {
   const bornOff = -Math.max(0, 1 - (gameT - b.born) * 5) * 12;
   const y = b.y + bornOff;
@@ -3870,12 +3952,25 @@ function drawBlock(b) {
   ctx.translate(-cx, -cy);
   drawBlockBody(b.x, y, b.w, b.h, b.type, b.hp, hue, b.fuse, b.shape, b.maxHp, b.rot);
   if (b.boss) {
+    // 2026-11-10 拍板：BOSS 块专属样式——暗底铭牌 + 金红渐变镶边 + 内圈高光 + 四角包角 + 呼吸辉光（替换原红线+白圈）
     ctx.save();
-    ctx.strokeStyle = DANGER; ctx.lineWidth = 2;
-    ctx.shadowColor = DANGER; ctx.shadowBlur = 12;
-    rr(b.x + 1, y + 1, b.w - 2, b.h - 2, 8); ctx.stroke();
-    ctx.beginPath(); ctx.arc(b.x + b.w / 2, y + b.h / 2, 14 + Math.sin(gameT * 3) * 2, 0, TAU);
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2; ctx.stroke();
+    const pul = 0.5 + 0.5 * Math.sin(gameT * 3); // 呼吸节律
+    rr(b.x + 2.5, y + 2.5, b.w - 5, b.h - 5, 7);
+    ctx.fillStyle = 'rgba(24,8,18,0.42)'; ctx.fill(); // 暗底铭牌（衬体）
+    const gb = ctx.createLinearGradient(b.x, y, b.x + b.w, y + b.h);
+    gb.addColorStop(0, '#ffd166'); gb.addColorStop(0.5, '#ff7a3d'); gb.addColorStop(1, '#ffd166');
+    ctx.strokeStyle = gb; ctx.lineWidth = 2.5;
+    ctx.shadowColor = DANGER; ctx.shadowBlur = 8 + 6 * pul;
+    rr(b.x + 1, y + 1, b.w - 2, b.h - 2, 8); ctx.stroke(); // 镶边外圈（金红渐变）
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1;
+    rr(b.x + 4, y + 4, b.w - 8, b.h - 8, 6); ctx.stroke(); // 镶边内圈高光细线
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    const cl = 7; // 四角包角臂长
+    const cors = [[b.x + 1.5, y + 1.5, 1, 1], [b.x + b.w - 1.5, y + 1.5, -1, 1], [b.x + 1.5, y + b.h - 1.5, 1, -1], [b.x + b.w - 1.5, y + b.h - 1.5, -1, -1]];
+    ctx.beginPath();
+    for (const [qx, qy, sx, sy] of cors) { ctx.moveTo(qx + sx * cl, qy); ctx.lineTo(qx, qy); ctx.lineTo(qx, qy + sy * cl); }
+    ctx.stroke();
     ctx.restore();
   }
   if (b.shieldCur > 0) {
@@ -3916,50 +4011,60 @@ function drawBlock(b) {
     ctx.restore();
   }
   if (b.frail > 0) {
-    // 脆弱标记：裂纹样式（2026-10-30 新增；层数越多裂纹越密，种子取块 id 每帧形状稳定；深色裂纹+淡紫勾边双层，深浅底色均可辨识）
+    // 脆弱标记：裂纹样式（2026-10-30 新增；2026-11-10 美化：块形裁剪——三角/圆不再冒出体外；层数越多裂纹越密，种子取块 id 每帧形状稳定）
     ctx.save();
-    let sd = ((b.id || 1) * 2654435761) >>> 0;
-    const crnd = () => { sd ^= sd << 13; sd >>>= 0; sd ^= sd >> 17; sd ^= sd << 5; sd >>>= 0; return sd / 4294967296; };
-    const cx0 = b.x + b.w / 2, cy0 = y + b.h / 2;
-    ctx.beginPath();
-    const nCr = 2 + b.frail;
-    for (let i = 0; i < nCr; i++) {
-      const a0 = crnd() * Math.PI * 2;
-      let px = cx0 + Math.cos(a0) * b.w * 0.5, py = cy0 + Math.sin(a0) * b.h * 0.5;
-      ctx.moveTo(px, py);
-      for (let s2 = 0; s2 < 3; s2++) {
-        px += (crnd() - 0.5) * b.w * 0.4;
-        py += (crnd() - 0.5) * b.h * 0.4;
-        px = Math.max(b.x + 2, Math.min(b.x + b.w - 2, px));
-        py = Math.max(y + 2, Math.min(y + b.h - 2, py));
-        ctx.lineTo(px, py);
+    blockClip(b, y, () => {
+      let sd = ((b.id || 1) * 2654435761) >>> 0;
+      const crnd = () => { sd ^= sd << 13; sd >>>= 0; sd ^= sd >> 17; sd ^= sd << 5; sd >>>= 0; return sd / 4294967296; };
+      const cx0 = b.x + b.w / 2, cy0 = y + b.h / 2;
+      ctx.beginPath();
+      const nCr = 2 + b.frail;
+      for (let i = 0; i < nCr; i++) {
+        const a0 = crnd() * Math.PI * 2;
+        let px = cx0 + Math.cos(a0) * b.w * 0.5, py = cy0 + Math.sin(a0) * b.h * 0.5;
+        ctx.moveTo(px, py);
+        for (let s2 = 0; s2 < 3; s2++) {
+          px += (crnd() - 0.5) * b.w * 0.4;
+          py += (crnd() - 0.5) * b.h * 0.4;
+          px = Math.max(b.x + 2, Math.min(b.x + b.w - 2, px));
+          py = Math.max(y + 2, Math.min(y + b.h - 2, py));
+          ctx.lineTo(px, py);
+        }
       }
-    }
-    ctx.strokeStyle = 'rgba(26,20,46,0.6)';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(159,180,255,' + (0.28 + 0.18 * b.frail).toFixed(2) + ')';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+      ctx.strokeStyle = 'rgba(26,20,46,0.6)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(159,180,255,' + (0.28 + 0.18 * b.frail).toFixed(2) + ')';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
     ctx.restore();
   }
   if (b.frost > 0) {
-    // 冰冻（Wave3）：冰蓝霜纹——中心向外约 2+层数 条品状辐射（种子取块 id 每帧稳定）
+    // 冰冻（Wave3）：冰蓝雪晶（2026-11-10 美化：块形裁剪不出界；中心向外 3+层数 条带侧枝雪晶辐条，呼吸式明暗）
     ctx.save();
-    let sd = ((b.id || 1) * 1013904223) >>> 0;
-    const frnd = () => { sd ^= sd << 13; sd >>>= 0; sd ^= sd >> 17; sd ^= sd << 5; sd >>>= 0; return sd / 4294967296; };
-    const cx0 = b.x + b.w / 2, cy0 = y + b.h / 2;
-    ctx.strokeStyle = 'rgba(143,215,255,' + (0.3 + 0.12 * b.frost).toFixed(2) + ')';
-    ctx.lineWidth = 1.2;
-    const nFr = 2 + b.frost;
-    for (let i = 0; i < nFr; i++) {
-      const a0 = frnd() * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(cx0 + Math.cos(a0) * 3, cy0 + Math.sin(a0) * 3);
-      ctx.lineTo(cx0 + Math.cos(a0 + 0.35) * b.w * 0.34, cy0 + Math.sin(a0 + 0.35) * b.h * 0.34);
-      ctx.lineTo(cx0 + Math.cos(a0 + 0.18) * b.w * 0.46, cy0 + Math.sin(a0 + 0.18) * b.h * 0.46);
-      ctx.stroke();
-    }
+    blockClip(b, y, () => {
+      let sd = ((b.id || 1) * 1013904223) >>> 0;
+      const frnd = () => { sd ^= sd << 13; sd >>>= 0; sd ^= sd >> 17; sd ^= sd << 5; sd >>>= 0; return sd / 4294967296; };
+      const cx0 = b.x + b.w / 2, cy0 = y + b.h / 2;
+      const breathe = 0.72 + 0.28 * Math.sin(gameT * 2.4 + (b.id || 0));
+      ctx.strokeStyle = 'rgba(143,215,255,' + Math.min(0.92, (0.3 + 0.12 * b.frost) * breathe).toFixed(2) + ')';
+      ctx.lineWidth = 1.2;
+      const R = Math.min(b.w, b.h) * 0.46;
+      const nFr = 3 + b.frost;
+      for (let i = 0; i < nFr; i++) {
+        const a0 = frnd() * Math.PI * 2;
+        const rr2 = R * (0.55 + frnd() * 0.45);
+        ctx.beginPath();
+        ctx.moveTo(cx0 + Math.cos(a0) * 2, cy0 + Math.sin(a0) * 2);
+        ctx.lineTo(cx0 + Math.cos(a0) * rr2, cy0 + Math.sin(a0) * rr2);
+        const bx = cx0 + Math.cos(a0) * rr2 * 0.62, by = cy0 + Math.sin(a0) * rr2 * 0.62;
+        ctx.moveTo(bx + Math.cos(a0 + 0.9) * R * 0.24, by + Math.sin(a0 + 0.9) * R * 0.24);
+        ctx.lineTo(bx, by);
+        ctx.lineTo(bx + Math.cos(a0 - 0.9) * R * 0.24, by + Math.sin(a0 - 0.9) * R * 0.24);
+        ctx.stroke();
+      }
+    });
     ctx.restore();
   }
   if ((b.frz || 0) > 0) {
@@ -4021,19 +4126,43 @@ function drawBlock(b) {
     ctx.restore();
   }
   if ((b.bleed || 0) > 0) {
-    // 流血（V3）：红色伤口纹——斜向短划（层数越多划痕越密；种子取块 id 每帧稳定）
+    // 流血（V3）：红色伤口纹（2026-11-10 美化：块形裁剪不出界 + 底缘血珠滴落粒子）
     ctx.save();
-    let sd = ((b.id || 1) * 2899172321) >>> 0;
-    const brnd = () => { sd ^= sd << 13; sd >>>= 0; sd ^= sd >> 17; sd ^= sd << 5; sd >>>= 0; return sd / 4294967296; };
-    ctx.strokeStyle = 'rgba(255,84,112,' + (0.45 + 0.09 * Math.min(5, b.bleed)).toFixed(2) + ')';
-    ctx.lineWidth = 1.4;
-    const nBl = 1 + Math.min(5, b.bleed);
-    for (let i = 0; i < nBl; i++) {
-      const x0 = b.x + 4 + brnd() * (b.w - 10), y0 = y + 3 + brnd() * (b.h - 8);
-      ctx.beginPath(); ctx.moveTo(x0, y0);
-      ctx.lineTo(x0 + 4 + brnd() * 4, y0 + 3 + brnd() * 4);
-      ctx.stroke();
+    blockClip(b, y, () => {
+      let sd = ((b.id || 1) * 2899172321) >>> 0;
+      const brnd = () => { sd ^= sd << 13; sd >>>= 0; sd ^= sd >> 17; sd ^= sd << 5; sd >>>= 0; return sd / 4294967296; };
+      ctx.strokeStyle = 'rgba(255,84,112,' + (0.45 + 0.09 * Math.min(5, b.bleed)).toFixed(2) + ')';
+      ctx.lineWidth = 1.4;
+      const nBl = 1 + Math.min(5, b.bleed);
+      for (let i = 0; i < nBl; i++) {
+        const x0 = b.x + 4 + brnd() * Math.max(1, b.w - 10), y0 = y + 3 + brnd() * Math.max(1, b.h - 8);
+        ctx.beginPath(); ctx.moveTo(x0, y0);
+        ctx.lineTo(x0 + 4 + brnd() * 4, y0 + 3 + brnd() * 4);
+        ctx.stroke();
+      }
+    });
+    ctx.restore();
+    if (!REDUCED && !S.paused && gameT - (b._bleedT || 0) > 0.26) { // 血珠滴落：底缘随机点受重力下坠（与燃烧火苗同框架）
+      b._bleedT = gameT;
+      S.parts.push({ x: b.x + rnd(4, Math.max(5, b.w - 4)), y: y + b.h - 2, vx: rnd(-6, 6), vy: rnd(14, 34), life: rnd(0.35, 0.6), max: 0.6, col: '#ff5470', size: rnd(1, 2), g: 240 });
     }
+  }
+  if ((b.charge || 0) > 0) {
+    // 感电（2026-11-10 新增常驻视效）：黄色电弧在块内闪烁（块形裁剪；种子含时间片约每 0.125s 换形，层数越多弧越亮越多）
+    ctx.save();
+    blockClip(b, y, () => {
+      let sd = (((b.id || 1) + Math.floor(gameT * 8) * 7919) * 2654435761) >>> 0;
+      const crnd = () => { sd ^= sd << 13; sd >>>= 0; sd ^= sd >> 17; sd ^= sd << 5; sd >>>= 0; return sd / 4294967296; };
+      ctx.strokeStyle = 'rgba(255,225,77,' + (0.35 + 0.13 * Math.min(4, b.charge)).toFixed(2) + ')';
+      ctx.lineWidth = 1.2;
+      const nArc = 1 + Math.min(3, Math.ceil((b.charge || 1) / 2));
+      for (let i = 0; i < nArc; i++) {
+        let px = b.x + 3 + crnd() * Math.max(1, b.w - 6), py = y + 3 + crnd() * Math.max(1, b.h - 6);
+        ctx.beginPath(); ctx.moveTo(px, py);
+        for (let s2 = 0; s2 < 3; s2++) { px += (crnd() - 0.5) * 12; py += (crnd() - 0.3) * 9; ctx.lineTo(px, py); }
+        ctx.stroke();
+      }
+    });
     ctx.restore();
   }
   if ((b.mark || 0) > 0) {
@@ -4466,6 +4595,37 @@ function drawBolts() {
   ctx.globalAlpha = 1;
   ctx.restore();
 }
+// 2026-11-10 激光光柱（S.beams）：笔直光束——白芯 + 彩色辉光 + 端点耀斑；type 'ring'=矩阵激光光环（激光类特效与闪电链 S.bolts 锯齿彻底分离）
+function drawBeams() {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const bm of S.beams) {
+    const a = clamp(bm.life / (bm.max || 0.26), 0, 1);
+    const col = bm.col || BALL_KIND_C.laser;
+    if (bm.type === 'ring') { // 矩阵激光：整圈光环（白芯环 + 辉光环）
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.7 * a;
+      ctx.shadowColor = col; ctx.shadowBlur = 14;
+      ctx.lineWidth = 4 * a + 1;
+      ctx.beginPath(); ctx.arc(bm.x, bm.y, bm.r, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = 0.5 * a; ctx.lineWidth = 1.6 * a + 0.4; ctx.shadowBlur = 4;
+      ctx.beginPath(); ctx.arc(bm.x, bm.y, bm.r, 0, TAU); ctx.stroke();
+      continue;
+    }
+    // 直线光柱：辉光层 + 白芯 + 两端耀斑（笔直——不再有闪电链的抖动中点）
+    ctx.strokeStyle = col; ctx.globalAlpha = 0.55 * a;
+    ctx.shadowColor = col; ctx.shadowBlur = 16;
+    ctx.lineWidth = 6.5 * a + 1;
+    ctx.beginPath(); ctx.moveTo(bm.x1, bm.y1); ctx.lineTo(bm.x2, bm.y2); ctx.stroke();
+    ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = 0.9 * a; ctx.lineWidth = 2.2 * a + 0.5; ctx.shadowBlur = 4;
+    ctx.beginPath(); ctx.moveTo(bm.x1, bm.y1); ctx.lineTo(bm.x2, bm.y2); ctx.stroke();
+    ctx.fillStyle = '#ffffff'; ctx.globalAlpha = 0.8 * a;
+    ctx.beginPath(); ctx.arc(bm.x1, bm.y1, 3.5 * a + 1, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(bm.x2, bm.y2, 3.5 * a + 1, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
 function drawParts() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -4746,7 +4906,7 @@ function drawHUD() {
     ctx.font = '600 9px ' + F_UI;
     for (const bf of S.buffs) {
       const meta = BUFF_META[bf.id] || { lab: bf.id, c: '#dfe8ff' };
-      const rem = bf.id === 'bigball' ? (bf.t + '波') : (bf.id === 'double' ? '待发' : (Math.max(0, bf.t).toFixed(1) + 's'));
+      const rem = bf.id === 'double' ? '待发' : (Math.max(0, bf.t) + '波'); // 2026-11-10：狂热/幸运潮并按波显示（原秒）
       ctx.fillStyle = 'rgba(10,14,26,0.62)';
       rr(W - 88, by - 10, 80, 13, 6); ctx.fill();
       ctx.fillStyle = meta.c;
@@ -4805,26 +4965,28 @@ const GLOSSARY = [
   ['燃烧', '火系状态：按层数持续掉血；火属性等级提升其时长与跳伤'],
   ['冰冻', '冰系状态：受击暴击率提升；叠满门槛转化为冻结（永久易伤）'],
   ['冻结', '冰冻叠满门槛（默认 5、可降至 3）转化：永久易伤，每层受伤 +1（深寒再 +1）；不随时间消失'], // 2026-11-09 修正：旧「冻结碎裂」词条仍是已删除的碎裂伤机制（V4.13 前）；文案按图鉴 ≤2 行约束压缩
-  ['中毒', '毒系状态：波末按层数扣血，之后层数 −1'],
+  ['中毒', '毒系状态：波末按层数扣血后层数 −1，无上限'], // 2026-11-10：中毒无上限（毒囊扩容与上限机制下线）
   ['流血', '血系状态：波末按层数扣血（爆发后清空）；死亡传染与血脉相连在结算期传的层下一轮才爆'],
   ['寄生（病毒）', '深层毒系状态：波末转化为中毒并增殖，无上限'],
   ['脆弱', '受击伤害每层 +1 的标记，每波清空；怨印=幽灵弹施加的特殊脆弱'],
+  ['格', '距离标准单位：1 格 = 一格方块位（同行相邻两块的中心距）；卡面/图鉴中的所有范围、半径均以格表述'],
   ['易伤', '受到的伤害按层数加深的机制（如冻结：每层 +1）'],
   ['热冲击', '冰火互施逐层对冲：每消 1 层 1 次热冲击（基础 3 伤+卡）；真火不参与，普通冰燃不共存'],
   ['真火', '三味真火点燃的特殊燃烧：高层次——不与冰冻对冲、冰不可熄灭/施加；遇冻结两者抵消，全场块 hp−30'],
   ['光照', '光伤族统称（旧称灼耀）：激光束 / 棱镜光 / 太阳光照造成的伤害'],
   ['棱镜光', '棱镜弹击发的折射光：遇方块/四壁反弹，每块限一次；射程 260+50%/层，光棱矩阵=无限射程'],
   ['圣愈', '太阳弹·圣辉：光照每累计命中 N 次回 1 层护盾（N=24−光属性等级，下限 8）'],
-  ['狂热', '增益：持续期间伤害 ×1.5（狂热试剂 12s；接住掉落物 14s、落底 8s）'],
+  ['狂热', '增益：持续期间伤害 ×1.5（按波计：狂热试剂 1 波；掉落接住 2 波/落底 1 波）'], // 2026-11-10：计时增益改按波（原 12s/14s/8s 文案下线）
   ['巨球', '增益：持续 2 波内弹珠体型与判定半径 ×1.5'],
   ['双发', '增益：下次齐射弹珠数 ×2（一次性）'],
+  ['清屏奖励', '波次结束时场上块被全部击杀（无压线突破）→ 额外获得 1 次技能抽卡'], // 2026-11-10 新增
   ['湮蚀', '暗影球施加的暗影 debuff（无上限）：每层使所有球对该块的斩杀线 +3%；斩杀/湮灭触发后清空'],
-  ['斩杀线', '血量≤线%被撞/穿即碎（全球）；暗影球另吃天生与暗属性，金球吃金弹8%；首领-10%、连锁整链秒杀'],
-  ['湮灭', '噬界卡解锁：暗影球命中 3%/层 无视血量直接击碎，另吃湮蚀 2%/层、暗属性 0.5%/级（首领-10%、连锁整链秒杀）'],
+  ['斩杀线', '血量≤线%被撞/穿即碎（全球）；暗影球另吃天生与暗属性，金球 8%；首领改扣 5% 最大生命、整链秒杀（湮灭 10%）'], // 2026-11-10 拆档：首领降级伤按最大生命上限
+  ['湮灭', '噬界卡解锁：暗影球命中 3%/层直接击碎，另吃湮蚀 2%/层、暗属性 0.5%/级（首领扣 10% 最大生命、整链秒杀）'],
   ['感电', '雷系标记（2026-11-03）：磁轨贯穿 +1 层，无上限不消散；落雷对感电块伤害 +1/层'],
   ['湮灭契约', '已并入斩杀线（11-04）：原「概率与目标同归于尽」的四门合并为确定性斩杀线，天生基础 1%，斩杀契约卡 +1%/层'],
-  ['湮灭黑洞', '斩杀线触发生成的引力场：牵引周围弹道 1.2s；70px 内非首领块秒杀，首领/水晶受 10% 最大生命伤'],
-  ['坏死区域', '疫病球·坏死生成的毒域（11-03）：每波向域内块滴注病毒（=坏死层数+毒属性），停留 1 波（坏死延续 +1）'],
+  ['湮灭黑洞', '斩杀线触发生成的引力场：牵引周围弹道 1.2s；2 格内非首领块秒杀，首领/水晶受 10% 最大生命伤'],
+  ['坏死区域', '疫病球·坏死生成的毒域：半径 2 格（+0.5 格/层），每波滴注病毒=坏死层数+毒属性，停留 1 波'],
   ['护盾', '护盾块/护盾首领的前置装甲：先破盾才掉血，每波回满（右上 ◈n=剩余层数）'],
   ['灵体', '幽灵块在波结束后切换的免疫形态：仅幽灵弹可伤'],
   ['穿透', '子弹穿过方块继续飞行；穿透命中可触发穿透系技能'],
@@ -4852,7 +5014,7 @@ const GLOSSARY = [
 const CHANGELOG = [
   ['11-04', '黑洞引力场 · 暂停图鉴改版', [
     '暗影斩杀线单一模型：四门（处决金弹/吞噬/湮蚀线/湮灭契约）合并为一条确定性斩杀线，无概率掷骰；侵蚀体系删除，湮灭反应/腐殖改键湮蚀标记',
-    '湮灭黑洞新增引力场：牵引 240px 内弹道 1.2s；首领/联动水晶降级为 10% 最大生命伤',
+    '湮灭黑洞新增引力场：牵引 4 格（240px）内弹道 1.2s；首领/联动水晶降级为 10% 最大生命伤',
     '暂停·图鉴中心全面改版：已选卡页直显本局构建、技能图鉴卡牌网格+详情面板、名词表收录新状态、新增更新日志页',
     '升级选卡面板 UI 质感：卡牌悬浮上浮增辉、属性元素配色、融合槽位滑入与球体图标',
     '幸运星独占化：掉落独立乘区 +2%/层、每波 5%/层触发幸运潮（复活幸运潮）；选卡四张保底 1 张 SR+（可掷出 SSR）'
@@ -5394,10 +5556,10 @@ function drawPauseUpdate(top, bottom) {
 /* ---------- 方块图鉴页（2026-11-04：hover 行高亮 + BOSS 段） ---------- */
 const LEGEND_ITEMS = [
   { t: 'n', hp: 3, name: '普通砖', tip: '血量随波次上涨 · 颜色＝当前血量档（全场统一）' },
-  { t: 'n', hp: 4, shape: 'circle', name: '圆形砖', tip: '半径随机 · 弹角更刁钻' },
+  { t: 'h', hp: 4, shape: 'circle', name: '回血块', tip: '每波治疗周围 2 格内方块 +2' },
   { t: 'n', hp: 3, shape: 'tri', rot: 0.5, name: '三角砖', tip: '角度随机 · 波次 11+ 可能左右漂移' },
   { t: 'e', hp: 3, shape: 'circle', name: '减速块', tip: '碰撞把球速降至 55%（下限基础球速 45%）' },
-  { t: 'h', hp: 4, shape: 'circle', name: '回血块', tip: '每波治疗周围 100px 内方块 +2' },
+  { t: 'n', hp: 4, shape: 'circle', name: '圆形砖', tip: '半径随机 · 弹角更刁钻' },
   { t: 'y', hp: 12, name: '幽灵块', tip: '隔波灵体化：灵体期仅幽灵弹可伤（波次 12+）' },
   { t: 'd', hp: 4, name: '护盾块', tip: '先破盾才掉血 · 每波回满盾' },
   { t: 'g', hp: 18, hue: 158, shape: 'circle', name: '联动水晶', tip: '成串共享血池 · 打一颗全串掉血、清零全碎' },
@@ -5428,7 +5590,7 @@ function drawLegendPanel(x, y, w, h, title) {
   let by2 = y + 34 + LEGEND_ITEMS.length * rowH + 8;
   ctx.textAlign = 'left';
   ctx.fillStyle = DANGER; ctx.font = '700 10.5px ' + F_UI;
-  ctx.fillText('首领 · 每 50 波（四形态轮换 · 击破=SSR 四选一）', x + 14, by2 + 8);
+  ctx.fillText('首领 · 每 50 波（四形态随机 · 击破=SSR 四选一）', x + 14, by2 + 8);
   by2 += 14;
   const bossKeys = ['chain', 'mover', 'shield', 'summon'];
   bossKeys.forEach((bk, i) => {
@@ -5807,6 +5969,7 @@ function draw() {
   for (const p of S.pickups) drawPickup(p);
   drawShocks();
   drawBolts();
+  drawBeams();
   drawRays();
   drawBees();
   drawParts();
@@ -6606,6 +6769,7 @@ function frame(t) {
   S.uiT = (S.uiT || 0) + rdt; // 2026-11-09：全局 UI 时钟——不受暂停/选卡/工坊冻结影响（选卡面板自 R1 冻结 gameT 后，原 gameT 驱动的 hover/滚动/流光全部停摆，改由 uiT 驱动）
   if (S.mode === 'play' && !S.paused) {
     step(rdt);
+    stageAmbience(rdt); // 2026-11-10 关卡背景音：按主题环境声（选卡/工坊期间照常播；BGM 预留位——用户找曲后再接）
   } else if (S.mode === 'play' && S.paused) {
     S.pauseT += rdt; // 2026-11-04：暂停专用时钟——暂停期间 gameT 冻结，hover/脉冲动画改由 pauseT 驱动
   } else if (S.mode === 'menu') {
@@ -6625,7 +6789,7 @@ window.CB = {
     const tree = {};
     for (const k of Object.keys(S.tree)) tree[k] = (S.tree[k] || []).slice();
     return {
-      mode: S.mode, paused: S.paused, pausePage: S.pausePage || null, pauseSel: S.pauseSel || null, pauseScroll: S.pauseScroll || 0, score: S.score, wave: S.wave, arsenal: S.arsenal, stage: Math.floor((S.wave - 1) / 10) % STAGES.length,
+      mode: S.mode, paused: S.paused, pausePage: S.pausePage || null, pauseSel: S.pauseSel || null, pauseScroll: S.pauseScroll || 0, score: S.score, wave: S.wave, arsenal: S.arsenal, stage: Math.floor((S.wave - 1) / 10) % STAGES.length, volley: S.volley, canFire: S.canFire, waveKills: S.waveKills || 0, levelQN: S.levelQ.length, // 2026-11-10 清屏奖励批：volley/canFire/waveKills/levelQ 观测口（测试诊断）
       level: S.level, xp: Math.floor(S.xp), xpNext: xpNeed(S.level + S.levelQ.length + (S.picking ? 1 : 0)), up: Object.assign({}, S.up),
       luck: S.luck, pity: { sr: S.pity.sr, ssr: S.pity.ssr }, buffs: S.buffs.map(bf => ({ id: bf.id, t: bf.t })), fuse: Object.assign({}, S.fuse),
       tree,
@@ -6648,7 +6812,7 @@ window.CB = {
     drop: (kind, x) => dropPickup(typeof x === 'number' ? x : W / 2 + rnd(-30, 30), 320, kind),
     catch: (kind) => collect({ x: W / 2, y: 360, vy: 0, kind, t: 0, dead: false }, true),
     floor: (kind) => collect({ x: W / 2, y: 360, vy: 0, kind, t: 0, dead: false }, false),
-    boom: (x, y) => explode(x || W / 2, y || H / 2, 74, 3),
+    boom: (x, y) => explode(x || W / 2, y || H / 2, cells(1.5), 3), // 2026-11-10 下限 1.5 格（原 74px）
     kill: () => { for (const b of S.balls) b.dead = true; },
     clearBlocks: () => { for (const b of S.blocks) b.dead = true; }, // Wave4 靶场直通口：清空全部方块（debug.blocks 返回快照副本，不能用它改 dead）
     shapes: () => { const m = {}; for (const b of S.blocks) m[b.shape] = (m[b.shape] || 0) + 1; return m; },
@@ -6672,9 +6836,10 @@ window.CB = {
     dropChance: () => dropChance(), // 2026-11-04 幸运星观测口：掉落率全乘区
     luckSurge: (roll) => luckSurgeWaveRoll(roll), // 2026-11-04 幸运潮观测口：可注入掷骰值验证阈值
     summon: () => { let n = 0; for (const b of S.blocks) { if (b.boss && b.bossType === 'summon' && !b.dead) n += summonNear(b); } return n; },
-    balls: () => S.balls.map(b => ({ kind: b.kind, pierce: !!b.pierce, pl: b.pierceLeft || 0, wh: (b.wheelPos || []).length, x: Math.round(b.x), y: Math.round(b.y), r: +b.r.toFixed(1), vx: Math.round(b.vx), vy: Math.round(b.vy), ret: b.ret || 0, melt: b.meltBonus || 0, gen: b.gen || 0, fromSplit: !!b.fromSplit })),
+    balls: () => S.balls.map(b => ({ kind: b.kind, pierce: !!b.pierce, pl: b.pierceLeft || 0, wh: (b.wheelPos || []).length, x: Math.round(b.x), y: Math.round(b.y), r: +b.r.toFixed(1), vx: Math.round(b.vx), vy: Math.round(b.vy), ret: b.ret || 0, melt: b.meltBonus || 0, gen: b.gen || 0, fromSplit: !!b.fromSplit, slug: !!b.slug })),
     rail: () => ({ mult: +railSpeedMult().toFixed(2), dmg: railHitDmg(), charge: S.railCharge || 0, killDmg: S.railKillDmg || 0, cap: railSpdCap(), capSpd: spdCap(), volleyKill: !!S.railVolleyKill }),
-    ents: () => ({ rays: S.rays.length, bees: S.bees.length, bolts: S.bolts.length }),
+    ents: () => ({ rays: S.rays.length, bees: S.bees.length, bolts: S.bolts.length, beams: S.beams.length }), // 2026-11-10：beams=激光光柱实体观测口
+    beams: () => S.beams.map(bm => ({ type: bm.type || 'line', x1: Math.round(bm.x1 || 0), y1: Math.round(bm.y1 || 0), x2: Math.round(bm.x2 || 0), y2: Math.round(bm.y2 || 0), x: Math.round(bm.x || 0), y: Math.round(bm.y || 0), r: bm.r || 0, col: bm.col || null })), // 2026-11-10：光柱几何观测口（直线束/光环）
     queue: () => S.launchQ.map(l => l.kind), // Wave5：发射队列观测口（弹药回填金弹入队验证）
     fuse: (a, b) => doFuse(a, b),
     fuseIns: (ins) => doFuseIns(Array.isArray(ins) ? ins : [ins]),
@@ -6702,6 +6867,9 @@ window.CB = {
     pickStat: (i) => pickStatBoost(i), // V4.1：弃卡换属性观测口
     frost: (tid, n) => { const t = S.blocks.find(b => b.tid === tid && !b.dead); if (!t) return false; applyFrost(t, n == null ? 1 : n | 0); return true; }, // V4.6：冰冻直注口
     burn: (tid, n) => { const t = S.blocks.find(b => b.tid === tid && !b.dead); if (!t) return false; ignite(t, 'fire', n == null ? 1 : n | 0); return true; }, // 2026-11-09：点燃直注口（走真实 ignite 入口——热冲击对冲/燃层队列全套生效；srcKind='fire'，燃弹树 ssr1 点亮时为真火）
+    poison: (tid, n) => { const t = S.blocks.find(b => b.tid === tid && !b.dead); if (!t) return false; applyPoison(t, n == null ? 1 : n | 0); return true; }, // 2026-11-10：中毒直注口（无上限口径验证）
+    buff: (id, t) => { addBuff(id, t == null ? 1 : +t); return S.buffs.map(x => ({ id: x.id, t: x.t })); }, // 2026-11-10：增益注入观测口（按波计时验证）
+    fire: (a) => { fire(a == null ? -Math.PI / 2 : +a); return S.volley; }, // 2026-11-10：发射直通口（回合推进/独头弹散射验证）
     frostNeed: () => frostNeed(), // V4.13：碎裂门槛观测口
     reroll: () => rerollOptions(), // V4.2：刷新选卡观测口
     taken: () => Object.assign({}, S.taken), // V4.2：卡册记账观测口
