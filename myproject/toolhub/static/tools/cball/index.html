@@ -352,7 +352,7 @@ function tryDrift(b) {
     if (ok) { b.driftX = b.x; b.driftA = amp; b.driftS = rnd(0.5, 1.1); b.driftP = Math.random() * TAU; return; }
   }
 }
-function hpBase(w) { return Math.max(1, Math.round(w)); } // 血量基准：波次即基准（2026-10-30 上调，原 w×2/3）；行内 35% +1 随机浮动保留
+function hpBase(w) { return Math.max(1, Math.round(w * (1 + 0.3 * Math.pow(w / 100, 1.1)))); } // 血量曲线 2026-11-10 拍板：前期近线性、后期超线性（锚点：100 波≈130、150 波≈220；原纯线性 w 下后期块相对玩家乘区成长太脆，无尽局永远打不完）；行内 35% +1 随机浮动保留
 function spawnRowAt(y) {
   const wave = S.wave;
   const base = hpBase(wave) + (Math.random() < 0.35 ? 1 : 0);
@@ -662,7 +662,7 @@ const LEVEL_POOL = [
   { id: 'ghost2', rarity: 'SSR', name: '冥河泛滥', desc: '幽灵弹穿透施加脆弱 +1', cat: 'syn', elem: 'dark', stack: 'inf', can: () => true, dyn: () => '穿透脆弱 +' + (1 + (S.up.ghost2 || 0)) + ' → +' + (2 + (S.up.ghost2 || 0)) + ' 层', apply: m => { S.up.ghost2 += m; } }, // R2misc 2026-11-04 去前提
   { id: 'rail2', rarity: 'SSR', name: '超导磁轨', desc: '磁轨弹速封顶 +2 倍', cat: 'syn', elem: 'bolt', stack: 'inf', can: () => true, dyn: () => '弹速封顶 ' + railSpdCap() + '× → ' + (railSpdCap() + 2) + '×', apply: m => { S.up.rail2 += m; } }, // R2misc 2026-11-04 去前提
   { id: 'swarm2', rarity: 'SSR', name: '蜂后觉醒', desc: '每次撞击毒蜂数 +3', cat: 'syn', elem: 'poison', stack: 'inf', can: () => true, dyn: () => '蜂群基数 +' + 3 * (S.up.swarm2 || 0) + ' → +' + 3 * ((S.up.swarm2 || 0) + 1), apply: m => { S.up.swarm2 += m; } }, // R2misc 2026-11-04 去前提
-  { id: 'meteor2', rarity: 'SSR', name: '疫病血主', desc: '水蛭球撞击伤 +2', cat: 'syn', elem: 'blood', stack: 'inf', can: () => true, dyn: () => '水蛭撞击 ' + (2 + 2 * (S.up.meteor2 || 0)) + ' → ' + (4 + 2 * (S.up.meteor2 || 0)), apply: m => { S.up.meteor2 += m; } } // R2misc 2026-11-04 去前提
+  { id: 'meteor2', rarity: 'SSR', name: '疫病血主', desc: '水蛭球撞击引爆目标寄生：每层立即 +1 伤/卡层（寄生保留，波末照常结算，越打越痛）', cat: 'syn', elem: 'blood', stack: 'inf', can: () => true, dyn: () => '引爆 ×' + (S.up.meteor2 || 0) + ' → ×' + ((S.up.meteor2 || 0) + 1) + '（每层寄生 +1 伤）', apply: m => { S.up.meteor2 += m; } } // 2026-11-10 二改：简单 +撞伤下线，改病毒引爆机制（基础撞击保持 2）
 ];
 /* ---------- 金弹参数 ---------- */
 function goldDmg() {
@@ -765,10 +765,14 @@ function rollRarityOnce() {
   return rar;
 }
 function buildBossOptions() {
-  const ssrAvail = LEVEL_POOL.filter(c => c.rarity === 'SSR' && c.can());
-  const opts = [], pool = ssrAvail.slice();
+  // 2026-11-10 拍板（二改）：首领击破四选一=进化卡——究极级特殊 SSR 技能卡（树 SSR 节点，三味真火/雷神回旋这类，每球限 1 由 can 门管）；
+  // 不混入全局 SSR（雷暴增幅等）与球种类卡，也不发融合球（「进化卡」非「高级融合」）
+  // 2026-11-10 体验批补丁：过滤收紧为 /^t_[a-z]+_ssr\d$/——旧过滤器（rarity SSR && t_ 前缀）会把 SSR 稀有度的 epic 节点
+  // （大流行/万里冰封/血祭/暗爆/相位寄生等非究极卡）也放进池，与究极口径及 batch2 断言不符（采样命中即闪红，旧批首跑侥幸绿）
+  const evoAvail = LEVEL_POOL.filter(c => c.rarity === 'SSR' && /^t_[a-z]+_ssr\d$/.test(String(c.id)) && c.can());
+  const opts = [], pool = evoAvail.slice();
   while (opts.length < 4 && pool.length) opts.push(pool.splice(ri(0, pool.length - 1), 1)[0]);
-  return { opts, empty: !ssrAvail.length };
+  return { opts, empty: !evoAvail.length };
 }
 function buildLevelOptions() {
   // 常规升级/掉卡：N/R/SR 四张（V4.2）；SSR 不入常规池（球卡 SSR 档例外，只经首位保证位出现）
@@ -822,17 +826,17 @@ function buildLevelOptions() {
 function tryOpenPicking() {
   if (S.picking || S.levelQ.length === 0 || S.mode !== 'play' || S.volley) return;
   const kind = S.levelQ.shift();
-  // BOSS 击破 → SSR 四选一（V4：SSR 只出自 BOSS；每球 SSR 技能最多 1 个由卡 can 门管）；无可选时能量回收
+  // BOSS 击破 → 进化卡四选一（2026-11-10 二改：究极树 SSR 特殊技能卡，不混全局 SSR/球卡/融合球）；无可选时能量回收
   if (kind === 'boss') {
     const { opts, empty } = buildBossOptions();
     S.level++;
     if (empty) {
       S.score += 500;
-      addFloat(W / 2, H * 0.3, 'SSR 池空缺 · 能量回收 +500', '#cfe0ff', 16);
+      addFloat(W / 2, H * 0.3, '进化卡池空缺 · 能量回收 +500', '#cfe0ff', 16);
       return tryOpenPicking(); // 2026-11-09：继续消化 levelQ 队列（原提前 return 会把已排队的选择滞留到下一轮）
     }
     S.picking = { kind, options: opts, cards: [], fuseSel: [], rerolls: 1 + (S.up.reroll || 0) };
-    addFloat(W / 2, H * 0.24, '首领击破 · SSR 四选一！', DANGER, 22);
+    addFloat(W / 2, H * 0.24, '首领击破 · 进化卡四选一！', DANGER, 22);
     S.flash = Math.min(0.35, S.flash + 0.3);
     sfx.record();
     return;
@@ -1329,9 +1333,10 @@ function collideBlock(ball, b, newBalls) {
     bombletHit(ball, b);
     return;
   }
-  // 融合球中「穿透不反弹」的一类：陨星碾压 / 幽灵打标 / 磁轨贯穿（2026-11-09 十批拍板：所有穿透类同口径——
+  // 融合球中「穿透不反弹」的一类：幽灵打标 / 磁轨贯穿（2026-11-09 十批拍板：所有穿透类同口径——
   // 每次穿越都结算、零冷却（磁轨撞墙折返再穿同块照常伤害）；同块持续接触期间静默=pierceIn（与普通穿透弹同机制，离开即解锁）
-  if (ball.kind === 'meteor' || ball.kind === 'ghost' || ball.kind === 'rail') {
+  // 2026-11-10 拍板：水蛭球无限穿透下线——改普通碰撞反弹（寄生/撞击伤钩子移至 finishHit 的 meteor 分支）
+  if (ball.kind === 'ghost' || ball.kind === 'rail') {
     if (!ballTouches(ball, b)) return;
     ball.pierceIn = b.id;
     S.lastHitKind = ball.kind;
@@ -1355,18 +1360,11 @@ function collideBlock(ball, b, newBalls) {
       if (!b.dead && treeOn('rail', 'n2')) b.frail = (b.frail || 0) + 1;
       if (!b.dead && treeOn('rail', 'r2')) { b.charge = (b.charge || 0) + 1; spark(b.x + b.w / 2, b.y + b.h / 2, '#ffe14d'); } // 感电（2026-11-03 疫病波）：每次贯穿 +1 层，无上限永不消散；黄色 spark
       if (S.up.railbolt > 0) boltStrike(1); // 引雷轨道（批注：100%）
-    } else if (ball.kind === 'meteor') {
-      // 水蛭球（批注重做）：碰撞施加寄生层；超重弹芯=对已感染块伤 +2（2026-11-09 修复死卡：先取命中前病毒层再施加——原写法本次命中自施寄生致条件恒真，且无 treeOn 门=效果全玩家白送）
-      const preVirus = (b.virus || 0);
-      applyVirus(b, 1 + treeCount('meteor', 'n1')); // 2026-11-09 拍板：水蛭吸盘/装药加固合并——n2 删卡，寄生只看 n1
-      let md = 2 + treeDmg(ball.kind) + 2 * (S.up.meteor2 || 0); // V4.8 疫病血主：+2/层
-      if (treeOn('meteor', 'r1') && preVirus > 0) md += 2; // 超重弹芯（批注改；2026-11-09 接线）
-      damage(b, prismDmg(ball, fxDmg(md) * affinityMult('meteor')), undefined, undefined, ball.kind);
     } else {
       damage(b, prismDmg(ball, (ballDmg() + treeDmg(ball.kind)) * affinityMult('ghost')), undefined, ball.kind === 'ghost', ball.kind); // 幽灵弹：唯一可伤灵体块的伤害源（force）；2026-11-09 修复：补漏乘冰/暗亲和（BALL_ELEMS.ghost 定义原闲置）
       if (ball.kind === 'ghost' && treeOn('ghost', 'n2')) applyFrost(b, 1); // 鬼影迷踪（Wave3 重做）：穿透击中施加冰冻（伤害结算后施加）
     }
-    if (!b.dead) fireSnakeTry(ball, b); // R2fireice 火蛇：磁轨/幽灵/水蛭穿透视为碰撞，任意球生效
+    if (!b.dead) fireSnakeTry(ball, b); // R2fireice 火蛇：磁轨/幽灵穿透视为碰撞，任意球生效（水蛭已改普通碰撞，走 finishHit 内同名调用）
     return;
   }
   // 影穿（2026-11-03 暗影二改，dark shadowpierce）：暗影球贯穿不反弹——同块只结一次（hits 口径同磁轨贯穿），但走 finishHit 保留暗影全套命中身份
@@ -1520,11 +1518,13 @@ function railWall(ball) {
 }
 // 激光弹（Wave4 重做）：命中时过弹心的整条直线前后贯穿全屏；快子旋钮无冷却；矩阵激光变圆环（以碰撞点为中心）；
 // 全息激光（SSR）光束伤随穿过方块数 +50%/块；solo=真激光（棱镜·掠地棱镜）：继承激光效果不含数量（不加双子/矩阵线）
-function laserBeam(ball, baseAng, solo) {
+function laserBeam(ball, baseAng, solo, orbital) {
   const base = baseAng != null ? baseAng : Math.atan2(ball.vy, ball.vx);
   sfx.laser(); // 2026-11-10：激光光柱专属音（与闪电 zap 区分）
   const dmg = prismDmg(ball, fxDmg(2) + treeCount('laser', 'n1') + treeDmg('laser') + 2 * (S.up.synL1 || 0)); // V4.7 激光过载
-  const pad = cells(0.1) + cells(0.1) * treeCount('laser', 'n2'); // 扩束镜：判定走廊 +0.1 格/层（2026-11-10 范围单位化，原 +6px/层）
+  // 2026-11-10 拍板：扩束镜 +0.5 格/层（原 +0.1 格/层体感无效）；走廊宽度同享轨道激光——
+  // 轨道激光（自上而下粗束）初始走廊 0.8 格，普通光束基础 0.1 格；hw 写入光柱实体，渲染同步加粗
+  const pad = cells(orbital ? 0.8 : 0.1) + cells(0.5) * treeCount('laser', 'n2');
   const frostBeam = treeOn('laser', 'ssr2'); // 冷冻光束（批注）：光束命中施加 1 层冰冻
   if (treeOn('laser', 'ssr1') && !solo) {
     // 矩阵激光（Wave4 重做）：光束变圆环（以碰撞点为中心，半径 2 格）
@@ -1566,7 +1566,7 @@ function laserBeam(ball, baseAng, solo) {
           }
         }
       }
-      S.beams.push({ type: 'line', x1: beam.x1, y1: beam.y1, x2: beam.x2, y2: beam.y2, life: 0.3, max: 0.3, col: frostBeam ? '#9fdcff' : BALL_KIND_C.laser }); // 2026-11-10 光柱化：笔直光柱进 S.beams（旧版进 S.bolts 被画成闪电锯齿）；寿命 0.3s>旧 bolts 0.28——保「无冷却两次命中并发」重叠窗口
+      S.beams.push({ type: 'line', x1: beam.x1, y1: beam.y1, x2: beam.x2, y2: beam.y2, life: 0.3, max: 0.3, col: frostBeam ? '#9fdcff' : BALL_KIND_C.laser, hw: pad }); // 2026-11-10 光柱化：笔直光柱进 S.beams（旧版进 S.bolts 被画成闪电锯齿）；寿命 0.3s>旧 bolts 0.28——保「无冷却两次命中并发」重叠窗口；hw=走廊半宽（渲染加粗）
     }
   }
 }
@@ -1674,6 +1674,14 @@ function finishHit(ball, b, newBalls, isPierce) {
     ball.bounceN = (ball.bounceN || 0) + 1;
     d += 0.05 * (ball.bounceN - 1) * treeCount('shot', 'rub');
     if (treeOn('shot', 'xp1')) gainXp(1);
+  }
+  if (ball.kind === 'meteor') {
+    // 2026-11-10 拍板（二改）：水蛭球普通碰撞（无限穿透下线）——命中挂寄生（水蛭吸盘 n1 +1/层，先施加后结算）；基础撞击伤保持 2（通用 1+专属 1）；
+    // 疫病血主（SSR）重设计：不再是简单 +撞伤——撞击引爆目标寄生，按当前层数立即加伤（每层 ×卡层，层数保留波末照常结算，越打越痛）；超重弹芯对已感染块 +2 保留
+    const preVirus = (b.virus || 0);
+    applyVirus(b, 1 + treeCount('meteor', 'n1'));
+    d += 1 + (b.virus || 0) * (S.up.meteor2 || 0);
+    if (treeOn('meteor', 'r1') && preVirus > 0) d += 2;
   }
   if (ball.kind === 'fire' && b.burn > 0 && treeOn('fire', 'r1')) d += 2; // 猎燃弹
   if (ball.kind === 'boomerang') d += 1 + (treeOn('boomerang', 'n1') ? 1 : 0); // 重型回旋刃/重刃
@@ -1867,7 +1875,7 @@ function finishHit(ball, b, newBalls, isPierce) {
       for (let i = 0; i < 3; i++) laserBeam(ball, Math.random() * TAU, true);
     }
     if (treeCount('laser', 'epic') > 0 && Math.random() < Math.min(1, 0.20 + 0.10 * (treeCount('laser', 'epic') - 1))) {
-      laserBeam(ball, Math.PI / 2 + rnd(-0.6, 0.6)); // 轨道激光：自上而下粗束随机角度
+      laserBeam(ball, Math.PI / 2 + rnd(-0.6, 0.6), false, true); // 轨道激光：自上而下粗束随机角度（2026-11-10：初始走廊 0.8 格，吃扩束镜加宽）
     }
   }
   if (ball.kind === 'boomerang' && treeOn('boomerang', 'ssr3') && gameT > (ball.thorCd || 0)) {
@@ -2864,7 +2872,7 @@ const TREE_EXCL = {
     { id: 'burn5', rarity: 'SR', name: '燃爆层', desc: '燃烧叠到 5 层的瞬间触发爆炸（每块每波限一次）' }
   ],
   ice: [
-    { id: 'n1', rarity: 'N', name: '霜牙', desc: '冰球命中冰冻 +1 层/层', max: 99 },
+    { id: 'n1', rarity: 'SR', name: '霜牙', desc: '冰球命中冰冻 +1 层/层', max: 99 }, // 2026-11-10 拍板：N→SR（冻结易伤链加速器，用户定档 SR；抽卡权重/保底位随 SR 档）
     { id: 'n2', rarity: 'N', name: '冰棱', desc: '对冰冻/冻结块碰撞伤 +2' },
     { id: 'n3', rarity: 'N', name: '凛冬之触', desc: '冰球命中 15%（+5%/额外层）向 3 格内随机 1 块追加 已叠层数 层冰冻', max: 99 },
     { id: 'r1', rarity: 'SR', name: '深寒', desc: '冻结伤害 +1/层（冻结易伤每层 +1 → +2）', max: 99, dyn: () => '冻结易伤 每层 +' + (1 + treeCount('ice', 'r1')) + ' → +' + (2 + treeCount('ice', 'r1')) + '（不吃火力）' }, // 2026-11-09 B14 手写 dyn：freezeVuln=frz×(1+r1) 不吃 atk，autoTreeDyn 按 1+atk 生成虚高 // R2fireice 2026-11-04：对齐冻结=易伤（原「冻结持续伤 +1」随 DoT 下线）
@@ -2951,7 +2959,7 @@ const TREE_EXCL = {
   laser: [
     // 2026-11-02 批注：快子旋钮删（本身无冷却）→改光子贯穿；全息激光改轨道激光（20% 可叠）
     { id: 'n1', rarity: 'N', name: '聚焦透镜', desc: '光束伤 +1', max: 99 },
-    { id: 'n2', rarity: 'N', name: '扩束镜', desc: '光束判定走廊 +0.1 格/层', max: 99 },
+    { id: 'n2', rarity: 'N', name: '扩束镜', desc: '光束判定走廊 +0.5 格/层（轨道激光同享，其初始 0.8 格）', max: 99 }, // 2026-11-10 拍板：+0.1 格/层无体感→+0.5；走廊宽度同享轨道激光
     { id: 'pen', rarity: 'SR', name: '光子贯穿', desc: '激光可穿透 1 个目标，穿透也触发激光' },
     { id: 'r1', rarity: 'R', name: '电磁效应', desc: '激光伤害 20% 概率暴击' },
     { id: 'r2', rarity: 'R', name: '双子发射器', desc: '附加垂直方向整线光束' },
@@ -3048,7 +3056,7 @@ for (const bid of BASIC_BALLS.concat(FUSE_ORDER)) {
   TREE_DEFS[bid] = { id: bid, name: BALL_CN[bid] || bid, nodes: common.concat(TREE_EXCL[bid] || [], TREE_SSR[bid] || []) };
 }
 const BALL_STATUS_BASE = { fire: [['燃烧', 1]], ice: [['冰冻', 1]], poison: [['中毒', 1], ['毒', 1]], blood: [['流血', 1]], meteor: [['寄生', 1]], plague: [['病毒', 1]] }; // V4.17：元素球命中自带的状态层基数；2026-11-09 补 meteor/plague（水蛭自带寄生、疫病自带病毒，原漏收致「寄生 0→1」应为「1→2」）
-const BALL_BASE_DMG = { n: 1, fire: 1, ice: 1, bolt: 1, poison: 1, blood: 1, pierce: 1, split: 1, shot: 1, laser: 2, melt: 3, bomb: 2, boomerang: 2, prism: 1, dark: 2, sun: 1, ghost: 1, rail: 4, swarm: 1, meteor: 2 }; // V4.17：各球基础撞击伤（总量口径）
+const BALL_BASE_DMG = { n: 1, fire: 1, ice: 1, bolt: 1, poison: 1, blood: 1, pierce: 1, split: 1, shot: 1, laser: 2, melt: 3, bomb: 2, boomerang: 2, prism: 1, dark: 2, sun: 1, ghost: 1, rail: 4, swarm: 1, meteor: 2 }; // V4.17：各球基础撞击伤（总量口径）；2026-11-10 二改：水蛭球保持 2（强化走疫病血主引爆机制）
 function autoTreeDyn(bid, nd) {
   // V4.12：数值行必须带效果前缀；V4.17：球自带状态层计入基数（血球流血卡=1 → 2 而非 0 → 1）
   // 2026-11-09 修复残句：优先解析「X%（+Y%/额外层）」句式——原正则取到括号内增量当主数值，生成「命中 15%（ 0 → 5%」式残句（波及 7 张树卡）
@@ -3083,7 +3091,7 @@ function autoTreeDyn(bid, nd) {
   return () => prefix + ' ' + (base + v * cur0(bid, nd)) + ' → ' + (base + v * (cur0(bid, nd) + 1)) + pct;
 }
 function cur0(bid, nd) { return treeCount(bid, nd.id); } // 单次节点也按 0→1 口径（含基数）
-// V4 球技能卡生成：拥有该球才入池；SSR 节点每球最多点 1 个（dark 三选一，BOSS 抽；R2dark 2026-11-04 斩杀线单一模型：ssr1 深渊侵蚀已删）
+// V4 球技能卡生成：拥有该球才入池；SSR 节点每球最多点 1 个（dark 三选一；2026-11-10：Boss 池改发进化卡，究极卡仅余过关保底位途径；R2dark 2026-11-04 斩杀线单一模型：ssr1 深渊侵蚀已删）
 for (const bid of BASIC_BALLS.concat(FUSE_ORDER)) {
   const def = TREE_DEFS[bid];
   for (const nd of def.nodes) {
@@ -3214,7 +3222,7 @@ function shortBall(k) {
 /* ---------- 合成工坊（常驻；V4：两球融合 + 3 普通球；升级面板内也可融合） ---------- */
 function shopModel() {
   const recipes = FUSE_RECIPES.map(r => ({
-    out: r.out, name: r.name, desc: r.desc, n: 2,
+    out: r.out, name: r.name, desc: r.desc, n: 2, ins: r.ins.slice(), // 2026-11-10 工坊改版：模型带 ins 材料种类（卡面 orb 图标/缺料清单用）
     evo: EVO_BALLS.has(r.out),
     cost: r.ins.map(shortBall).join('+') + ' 全部' + (EVO_BALLS.has(r.out) ? ' + 金弹×1/普通×10' : ' + 普通×3'),
     ok: r.ins.every(k => ballCount(k) >= 1) && (EVO_BALLS.has(r.out) ? (ballCount('gold') >= 1 || S.arsenal >= 10) : S.arsenal >= FUSE_COST_NORMAL) && (ballCount(r.out) > 0 || slotsUsed() < SLOT_CAP + 1),
@@ -3228,7 +3236,7 @@ function toggleShop(force) {
   if (S.mode !== 'play') return false;
   // 2026-11-09：允许选卡期间开工坊（面板内融合区已下线，F 工坊常驻承担；工坊层绘制在选卡之上、关闭即回选卡）
   S.shop = typeof force === 'boolean' ? force : !S.shop;
-  if (S.shop) S.aimOn = false;
+  if (S.shop) { S.aimOn = false; S.shopT0 = S.uiT || 0; } // 2026-11-10 工坊改版：开面板锚点（入场动画）
   return S.shop;
 }
 function pickFallback3() {
@@ -4612,15 +4620,17 @@ function drawBeams() {
       continue;
     }
     // 直线光柱：辉光层 + 白芯 + 两端耀斑（笔直——不再有闪电链的抖动中点）
+    // 2026-11-10 扩束镜/轨道激光：光柱粗细随走廊半宽 hw 同步变粗（hw 缺省=旧固定宽；基础 6px 内不加粗，超出部分辉光 /0.95 白芯 /0.32 耀斑 /0.22）
+    const exW = Math.max(0, (bm.hw || 0) - 6);
     ctx.strokeStyle = col; ctx.globalAlpha = 0.55 * a;
-    ctx.shadowColor = col; ctx.shadowBlur = 16;
-    ctx.lineWidth = 6.5 * a + 1;
+    ctx.shadowColor = col; ctx.shadowBlur = 16 + exW * 0.5;
+    ctx.lineWidth = (6.5 + exW * 0.95) * a + 1;
     ctx.beginPath(); ctx.moveTo(bm.x1, bm.y1); ctx.lineTo(bm.x2, bm.y2); ctx.stroke();
-    ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = 0.9 * a; ctx.lineWidth = 2.2 * a + 0.5; ctx.shadowBlur = 4;
+    ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = 0.9 * a; ctx.lineWidth = (2.2 + exW * 0.32) * a + 0.5; ctx.shadowBlur = 4;
     ctx.beginPath(); ctx.moveTo(bm.x1, bm.y1); ctx.lineTo(bm.x2, bm.y2); ctx.stroke();
     ctx.fillStyle = '#ffffff'; ctx.globalAlpha = 0.8 * a;
-    ctx.beginPath(); ctx.arc(bm.x1, bm.y1, 3.5 * a + 1, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(bm.x2, bm.y2, 3.5 * a + 1, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(bm.x1, bm.y1, (3.5 + exW * 0.22) * a + 1, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(bm.x2, bm.y2, (3.5 + exW * 0.22) * a + 1, 0, TAU); ctx.fill();
   }
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
@@ -4970,6 +4980,7 @@ const GLOSSARY = [
   ['寄生（病毒）', '深层毒系状态：波末转化为中毒并增殖，无上限'],
   ['脆弱', '受击伤害每层 +1 的标记，每波清空；怨印=幽灵弹施加的特殊脆弱'],
   ['格', '距离标准单位：1 格 = 一格方块位（同行相邻两块的中心距）；卡面/图鉴中的所有范围、半径均以格表述'],
+  ['走廊（激光）', '激光命中判定宽度：基础 0.1 格、扩束镜 +0.5 格/层；轨道激光初始 0.8 格且同吃扩束镜，光柱随宽度变粗'], // 2026-11-10 扩束镜拍板
   ['易伤', '受到的伤害按层数加深的机制（如冻结：每层 +1）'],
   ['热冲击', '冰火互施逐层对冲：每消 1 层 1 次热冲击（基础 3 伤+卡）；真火不参与，普通冰燃不共存'],
   ['真火', '三味真火点燃的特殊燃烧：高层次——不与冰冻对冲、冰不可熄灭/施加；遇冻结两者抵消，全场块 hp−30'],
@@ -4992,9 +5003,10 @@ const GLOSSARY = [
   ['穿透', '子弹穿过方块继续飞行；穿透命中可触发穿透系技能'],
   ['碰撞', '子弹撞上方块并反弹的普通命中'],
   ['减速块', '碰撞会把球速降至 55%（下限基础球速 45%）'],
-  ['首领', '每 50 波四形态轮换（锁链/浮游/护盾/召唤），血量逐代提升；击破=SSR 四选一'],
+  ['首领', '每 50 波四形态轮换（锁链/浮游/护盾/召唤），血量逐代提升；击破=进化四选一'], // 2026-11-10 拍板：奖励改发进化卡
   ['槽位', '特殊球种类上限 6：融合/高级融合产物占槽（金弹不占槽）；曾拥有过的球其专属卡仍会出现'],
   ['融合', '两球全部合并：产物数量=两类总和一半，另耗 3 颗普通球；配方含暗影球（毒+血）与疫病球（毒+裂）'],
+  ['进化卡', '究极级特殊 SSR 技能卡（每球限 1 张）：三味真火/雷神回旋这类；首领击破四选一专属'], // 2026-11-10 二改：进化卡=树 SSR 技能卡，非高级融合球
   ['高级融合', '高级球唯一配方=二级（融合球+基础球）；催化剂金弹×1 或 普通×10，详见工坊'],
   ['金弹', '普通球×10 合成（G 键）；金蛋系列卡只对金弹生效'],
   ['元素等级', '7 元素（火冰雷毒血光暗）：之潮/共鸣/之灾/万物归一升级，关卡可暂时+1；每级驱动机制并给亲和球伤 +5%'],
@@ -5003,7 +5015,7 @@ const GLOSSARY = [
   ['物品掉落', '普通方块概率掉：+1 普通球 / 经验球 / 巨球 / 核弹 / 狂热 / 双发；概率由幸运决定'],
   ['幸运', '幸运=幸运星+光属性等级：提掉落率、上移稀有度权重；幸运星独占：掉落再+2%/层、每波 5%/层触发幸运潮'],
   ['幸运潮', '幸运星触发：每波开场 5%×层（封顶 50%）掷中后，8+1s/层（封顶 18s）内掉落率 ×2'],
-  ['究极', '高级融合球专属 SSR 树节点卡（卡名前缀「究极 ·」），每球限 1 张，只出自首领击破四选一'],
+  ['究极', 'SSR 树节点技能卡的前缀（究极 · 球名 · 技名，即进化卡），每球限 1 张；出自首领击破四选一，保底位亦可掷出'], // 2026-11-10 二改：随 Boss 池口径同步
   ['装甲块', '高防方块：破甲弹头类卡对其加伤；爆炸对装甲块固定只造成 1 伤（雷击/持续伤害不受此限）'],
   ['保底', '四选一保底 1 张 SR+（无 SR 时末位补位，可掷出 SSR、吃幸运权重）；连歪 11 次必出 SR+、29 次必出 SSR'],
   ['刷新', '选卡面板 Z 重掷四张；快取弹链/重构协议提高次数'],
@@ -5012,6 +5024,12 @@ const GLOSSARY = [
 ];
 /* 2026-11-04 更新日志页（内容取自引擎源码内的版本批注，新→旧） */
 const CHANGELOG = [
+  ['11-10', '体验批 · 暂停置顶/工坊改版/激光走廊', [
+    '暂停浮层置顶：切后台自动暂停不再被选卡/工坊面板盖住，「继续」随时可点；工坊开着也能按 P 暂停',
+    '合成工坊改版：只列可融合大卡（点击即融合），缺料配方收进待解锁清单并标注缺什么；融合带汇聚动画与入库浮字，顶部新增弹舱一览',
+    '扩束镜 +0.5 格/层（原 +0.1 无体感），走廊同享轨道激光（初始 0.8 格），光柱视觉随宽度加粗',
+    '修复：工坊首卡名字被 × 键残留对齐锚出框外；已选卡页球数 ×n 贴框底',
+  ]],
   ['11-04', '黑洞引力场 · 暂停图鉴改版', [
     '暗影斩杀线单一模型：四门（处决金弹/吞噬/湮蚀线/湮灭契约）合并为一条确定性斩杀线，无概率掷骰；侵蚀体系删除，湮灭反应/腐殖改键湮蚀标记',
     '湮灭黑洞新增引力场：牵引 4 格（240px）内弹道 1.2s；首领/联动水晶降级为 10% 最大生命伤',
@@ -5432,21 +5450,22 @@ function drawPauseTaken(top, bottom) {
   ctx.fillStyle = '#ffd166';
   ctx.fillText('已选 ' + Object.keys(S.taken).length + ' 张', W - 32, 112);
   ctx.textAlign = 'left';
-  // 弹舱行：普通弹 + 各特殊球（圆形球体图标）
+  // 弹舱行：普通弹 + 各特殊球（圆形球体图标）——2026-11-10 上提 4px：原 ×n 基线 142 超出头部框底边 140，看着快掉出去
   const kinds = ownedKinds();
   let bx = 56;
-  drawOrbIcon(bx, 128, 6.5, 'n');
-  ctx.fillStyle = '#cfe0ff'; ctx.font = '600 8.5px ' + F_UI;
-  ctx.fillText('×' + S.arsenal, bx - 6, 142);
+  drawOrbIcon(bx, 124, 6.5, 'n');
+  ctx.fillStyle = '#cfe0ff'; ctx.font = '600 8.5px ' + F_UI; ctx.textAlign = 'center';
+  ctx.fillText('×' + S.arsenal, bx, 137);
+  ctx.textAlign = 'left';
   bx += 20;
   for (const k of kinds.slice(0, 9)) {
-    drawOrbIcon(bx + 6, 128, 6.5, k);
+    drawOrbIcon(bx + 6, 124, 6.5, k);
     ctx.fillStyle = '#cfe0ff'; ctx.textAlign = 'center';
-    ctx.fillText('×' + ballCount(k), bx + 6, 142);
+    ctx.fillText('×' + ballCount(k), bx + 6, 137);
     ctx.textAlign = 'left';
     bx += 22;
   }
-  if (kinds.length > 9) { ctx.fillStyle = '#5d6b8c'; ctx.fillText('+' + (kinds.length - 9), bx, 132); }
+  if (kinds.length > 9) { ctx.fillStyle = '#5d6b8c'; ctx.fillText('+' + (kinds.length - 9), bx, 129); }
   // 元素等级行
   let ex = 200;
   for (const ek of Object.keys(ELEMS)) {
@@ -5982,10 +6001,11 @@ function draw() {
   drawHUD();
   if (S.flash > 0) { ctx.fillStyle = 'rgba(255,220,180,' + (S.flash * 0.5).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
   if (S.redFlash > 0) { ctx.fillStyle = 'rgba(255,60,90,' + (S.redFlash * 0.4).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
-  if (S.paused && S.mode === 'play') drawPause(); else pauseCursor(false); // 2026-11-04：非暂停态复位悬浮光标
   if (S.mode === 'over') drawOver();
   if (S.picking) drawPicking();
   if (S.shop) drawShop();
+  // 2026-11-10 暂停置顶：暂停浮层最后画，盖在选卡/工坊之上——切后台自动暂停时「继续」永远可点（输入路由同步前置）
+  if (S.paused && S.mode === 'play') drawPause(); else pauseCursor(false); // 2026-11-04：非暂停态复位悬浮光标
   if (S.mode === 'play' && !S.picking && !S.shop && !S.cardbook && !S.paused) drawBlockTooltip();
   if (S.mode === 'play' && !S.picking && !S.shop && !S.cardbook && !S.paused) drawCannonTooltip();
   if (S.cardbook) drawCardbook();
@@ -6196,74 +6216,228 @@ function drawCardbook() {
 
 /* ---------- 合成工坊面板（常驻；配方/金弹/喂树，付得起才可点） ---------- */
 let SHOP_HITS = [];
+let SHOP_FX = null; // 2026-11-10 融合动效：{t0,cx,cy,a,b,out,name,n}——点卡合成成功后 0.9s 材料汇聚→闪环→产物入库浮字（面板内绘制，不吃游戏层遮罩）
+// 待解锁缺料清单（工坊改版）：材料不足的配方不再做成按钮，收进只读清单并标注缺什么
+function shopMissingText(r) {
+  const miss = [];
+  for (const k of (r.ins || [])) if (ballCount(k) < 1) miss.push(BALL_CN[k] || k);
+  if (r.evo) { if (ballCount('gold') < 1 && S.arsenal < 10) miss.push('金弹或普通×10'); }
+  else if (S.arsenal < FUSE_COST_NORMAL) miss.push('普通×3');
+  if (ballCount(r.out) <= 0 && slotsUsed() >= SLOT_CAP) miss.push('空槽位');
+  return miss;
+}
+/* ---------- 2026-11-10 工坊改版：手里有什么融什么 ----------
+   旧版 12+1 条配方全铺成小按钮（大多「材料不足」灰块）——按钮太多、点了也没反馈；
+   新版：只有可融合的配方才做成大卡（材料球图标准备汇聚 → 产物球，点击即融合+汇聚动画+入库浮字），
+   材料不足的收进「待解锁」只读清单（标注缺料）；顶部加弹舱一览。
+   同批修复：× 关闭按钮把 textAlign 残留成 center，导致首卡（激光弹）名字被居中锚出框外。 */
 function drawShop() {
   const m = shopModel();
+  const uiT = S.uiT || 0;
+  const openT = S.shopT0 || uiT;
   SHOP_HITS = [];
-  ctx.fillStyle = 'rgba(6,10,20,0.92)';
-  ctx.fillRect(0, 0, W, H);
+  window.SHOP_HITS = SHOP_HITS; // 观测口（测试/诊断用）
+  // 底幕：竖向渐变 + 顶部青色氛围光（与选卡面板同语言）
+  const bgG = ctx.createLinearGradient(0, 0, 0, H);
+  bgG.addColorStop(0, 'rgba(12,18,40,0.94)'); bgG.addColorStop(1, 'rgba(5,8,16,0.97)');
+  ctx.fillStyle = bgG; ctx.fillRect(0, 0, W, H);
+  const tg2 = ctx.createRadialGradient(W / 2, 34, 8, W / 2, 34, 220);
+  tg2.addColorStop(0, 'rgba(0,229,255,' + (0.05 + 0.02 * Math.sin(uiT * 1.7)).toFixed(3) + ')');
+  tg2.addColorStop(1, 'rgba(0,229,255,0)');
+  ctx.fillStyle = tg2; ctx.fillRect(0, 0, W, 250);
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#e8f0ff'; ctx.font = '700 20px ' + F_UI;
   ctx.fillText('合成工坊', 20, 30);
-  ctx.font = '500 10px ' + F_UI; ctx.fillStyle = '#8fa3c8';
-  ctx.fillText('F / ESC 关闭', 20, 50);
+  ctx.fillStyle = '#8fa3c8'; ctx.font = '500 10px ' + F_UI;
+  ctx.fillText('手里有什么，融什么 · F / ESC 关闭', 20, 50);
+  // × 关闭（画完立刻复位 textAlign——旧版残留 center 把「融合」标题与首卡名字锚出框，即「激光弹超框」根因）
   const cx0 = W - 46, cy0 = 16, cw = 28, chh = 24;
-  ctx.strokeStyle = '#8fa3c8'; ctx.lineWidth = 1.5;
+  const mo = S.mouse || {};
+  const xHot = mo.x >= cx0 && mo.x <= cx0 + cw && mo.y >= cy0 && mo.y <= cy0 + chh;
+  ctx.strokeStyle = xHot ? '#e8f0ff' : '#8fa3c8'; ctx.lineWidth = 1.5;
   ctx.strokeRect(cx0, cy0, cw, chh);
-  ctx.fillStyle = '#8fa3c8'; ctx.font = '600 13px ' + F_UI; ctx.textAlign = 'center';
+  ctx.fillStyle = xHot ? '#e8f0ff' : '#8fa3c8'; ctx.font = '600 13px ' + F_UI; ctx.textAlign = 'center';
   ctx.fillText('×', cx0 + cw / 2, cy0 + chh / 2 + 1);
-  SHOP_HITS.push({ x: cx0, y: cy0, w: cw, h: chh, fn: () => toggleShop(false) });
-  // 2026-11-09 七批拍板：顶部「元素等级一览」文字下线（用户要求不显示）
-  // 融合区（2026-11-09 七批：普通/高级融合统一双列卡片网格——旧版高级融合整行×10（含三类合一）把金弹条目挤出屏幕）
-  ctx.fillStyle = '#cfe0ff'; ctx.font = '700 12px ' + F_UI;
-  ctx.fillText('融合', 20, 74);
-  const gw = 214, gh = 38, gxx = [20, 246]; // 2026-11-09 七批：卡片 44→38、行距 6→4——19 条配方双列后金弹条目仍在屏内
-  const drawRecipeCard = (r, x, y) => {
-    ctx.globalAlpha = r.ok ? 1 : 0.38;
-    ctx.fillStyle = r.ok ? (r.evo ? 'rgba(155,107,255,0.16)' : 'rgba(60,110,220,0.16)') : 'rgba(90,100,130,0.10)';
-    ctx.fillRect(x, y, gw, gh);
-    ctx.strokeStyle = r.ok ? (r.evo ? '#9b6bff' : '#5f8fe8') : '#3a4666'; ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, gw, gh);
-    ctx.fillStyle = r.ok ? '#e8f0ff' : '#9aa7c4'; ctx.font = '700 11px ' + F_UI;
-    let nm = r.name; while (ctx.measureText(nm + '…').width > 108 && nm.length) nm = nm.slice(0, -1);
-    if (nm !== r.name) nm += '…';
-    ctx.fillText(nm, x + 8, y + 10);
-    ctx.fillStyle = r.ok ? '#ffd700' : '#77839f'; ctx.font = '500 9px ' + F_UI; ctx.textAlign = 'right';
-    let ct = r.cost; while (ctx.measureText(ct + '…').width > gw - 128 && ct.length) ct = ct.slice(0, -1);
-    if (ct !== r.cost) ct += '…';
-    ctx.fillText(ct, x + gw - 8, y + 10);
-    ctx.textAlign = 'left'; ctx.fillStyle = '#8fa3c8'; ctx.font = '500 9px ' + F_UI;
-    let dtxt = r.desc; while (ctx.measureText(dtxt + '…').width > gw - 16 && dtxt.length) dtxt = dtxt.slice(0, -1);
-    if (dtxt !== r.desc) dtxt += '…';
-    ctx.fillText(dtxt, x + 8, y + 22);
-    ctx.fillStyle = r.ok ? '#7ee08a' : '#66739a';
-    ctx.fillText(r.ok ? '已持有 ' + (S.fuse[r.out] || 0) + ' · 点击合成' : '材料不足', x + 8, y + 33);
-    ctx.globalAlpha = 1;
-    if (r.ok) SHOP_HITS.push({ x, y, w: gw, h: gh, fn: r.run });
-  };
-  const r2 = m.recipes.filter(r => !r.evo), r3 = m.recipes.filter(r => r.evo);
-  r2.forEach((r, i) => drawRecipeCard(r, gxx[i % 2], 88 + ((i / 2) | 0) * (gh + 4)));
-  let yy = 88 + Math.ceil(r2.length / 2) * (gh + 4) + 4;
-  if (r3.length) {
-    ctx.fillStyle = '#ffd166'; ctx.font = '700 12px ' + F_UI;
-    ctx.fillText('高级融合（融合球+基础球）', 20, yy); yy += 14;
-    r3.forEach((r, i) => drawRecipeCard(r, gxx[i % 2], yy + ((i / 2) | 0) * (gh + 4)));
-    yy += Math.ceil(r3.length / 2) * (gh + 4) + 4;
-  }
-  // 槽位占用（V4.14：球类型清单撤下——悬浮炮塔看弹舱；此处只留槽位数）
-  ctx.fillStyle = '#cfe0ff'; ctx.font = '700 12px ' + F_UI; ctx.textAlign = 'left';
-  ctx.fillText('槽位 ' + slotsUsed() + '/' + SLOT_CAP, 20, yy); yy += 20;
-  const g = m.gold;
-  ctx.globalAlpha = g.ok ? 1 : 0.38;
-  ctx.fillStyle = g.ok ? 'rgba(255,215,0,0.10)' : 'rgba(90,100,130,0.10)';
-  ctx.fillRect(20, yy, 440, 24);
-  ctx.strokeStyle = g.ok ? '#ffd700' : '#3a4666'; ctx.lineWidth = 1;
-  ctx.strokeRect(20, yy, 440, 24);
-  ctx.fillStyle = g.ok ? '#ffd700' : '#9aa7c4'; ctx.font = '700 11px ' + F_UI; ctx.textAlign = 'left';
-  ctx.fillText('金弹 · ' + g.cost + (g.ok ? ' · 点击合成' : ' · 材料不足'), 30, yy + 12);
-  ctx.globalAlpha = 1;
-  if (g.ok) SHOP_HITS.push({ x: 20, y: yy, w: 440, h: 24, fn: g.run });
-  yy += 34;
   ctx.textAlign = 'left';
+  SHOP_HITS.push({ x: cx0, y: cy0, w: cw, h: chh, fn: () => toggleShop(false) });
+  // ===== 弹舱一览（所见即所得：先看手里有什么再决定融什么） =====
+  const invRows = [['n', S.arsenal]].concat(ownedKinds().map(k => [k, ballCount(k)]));
+  let ibx = 52;
+  ctx.font = '600 9px ' + F_UI; ctx.fillStyle = '#8fa3c8';
+  ctx.fillText('弹舱', 20, 68);
+  for (const kv of invRows.slice(0, 11)) {
+    drawOrbIcon(ibx, 68, 6, kv[0]);
+    ctx.fillStyle = '#cfe0ff'; ctx.font = '600 8.5px ' + F_UI; ctx.textAlign = 'center';
+    ctx.fillText('×' + kv[1], ibx, 81);
+    ctx.textAlign = 'left';
+    ibx += 34;
+  }
+  if (invRows.length > 11) { ctx.fillStyle = '#5d6b8c'; ctx.font = '600 8.5px ' + F_UI; ctx.fillText('+' + (invRows.length - 11), ibx, 68); }
+  // ===== 可融合区（只有可做的配方才是按钮——按钮数量从 13+ 收敛到实际可做数） =====
+  const CW = 440, CHH = 58, CX = 20;
+  const crafts = m.recipes.filter(r => r.ok);
+  if (m.gold.ok) crafts.push({ out: 'gold', name: '金弹', desc: '普通弹×10 合成（G 键同效）', ins: null, gold: true, ok: true, run: m.gold.run });
+  const locked = m.recipes.filter(r => !r.ok);
+  let yy = 102;
+  ctx.fillStyle = '#7cffcb'; ctx.font = '700 12px ' + F_UI;
+  ctx.fillText(crafts.length ? '✦ 可融合 · 点一张立即合成' : '✦ 可融合', CX, yy);
+  yy += 14;
+  if (!crafts.length) { // 空态：虚线框 + 指引文案（不再是满屏灰按钮）
+    rr(CX, yy, CW, 36, 9);
+    ctx.fillStyle = 'rgba(90,100,130,0.08)'; ctx.fill();
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = 'rgba(143,163,200,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#5d6b8c'; ctx.font = '500 10.5px ' + F_UI; ctx.textAlign = 'center';
+    ctx.fillText('暂无可融合——攒两类各 1 颗球（或普通弹×10 合金弹）', W / 2, yy + 18);
+    ctx.textAlign = 'left';
+    yy += 44;
+  }
+  crafts.forEach((r, i) => {
+    const y = yy + i * (CHH + 8);
+    const at = clamp((uiT - openT - i * 0.06) / 0.3, 0, 1); // 入场：依次浮入
+    const hot = mo.x >= CX && mo.x <= CX + CW && mo.y >= y && mo.y <= y + CHH;
+    const evo = !!r.evo;
+    const bcol = r.gold ? '#ffd700' : (evo ? '#9b6bff' : '#5f8fe8');
+    const prodN = r.ins ? Math.max(1, Math.floor((ballCount(r.ins[0]) + ballCount(r.ins[1])) / 2)) : 1;
+    ctx.save();
+    ctx.globalAlpha = at;
+    ctx.translate(0, (1 - at) * 16 - (hot ? 2 : 0));
+    rr(CX, y, CW, CHH, 10);
+    ctx.fillStyle = r.gold ? 'rgba(255,215,0,0.09)' : (evo ? 'rgba(155,107,255,0.13)' : 'rgba(60,110,220,0.13)');
+    ctx.fill();
+    ctx.strokeStyle = bcol; ctx.lineWidth = hot ? 2 : 1.2;
+    if (hot) { ctx.shadowColor = bcol; ctx.shadowBlur = 10; }
+    rr(CX, y, CW, CHH, 10); ctx.stroke();
+    ctx.shadowBlur = 0;
+    // 行① 材料 → 产物（orb 图标 + 各自数量）+ 名称 + 产出数
+    const oy = y + 19;
+    let ox = CX + 24;
+    if (r.ins) {
+      drawOrbIcon(ox, oy, 7, r.ins[0]);
+      ctx.fillStyle = '#8fa3c8'; ctx.font = '600 8.5px ' + F_UI; ctx.textAlign = 'center';
+      ctx.fillText('×' + ballCount(r.ins[0]), ox, oy + 15);
+      ox += 32;
+      drawOrbIcon(ox, oy, 7, r.ins[1]);
+      ctx.fillText('×' + ballCount(r.ins[1]), ox, oy + 15);
+      ox += 26;
+    } else {
+      drawOrbIcon(ox, oy, 7, 'n');
+      ctx.fillStyle = '#8fa3c8'; ctx.font = '600 8.5px ' + F_UI; ctx.textAlign = 'center';
+      ctx.fillText('×10', ox, oy + 15);
+      ox += 26;
+    }
+    ctx.fillStyle = '#cfe0ff'; ctx.font = '700 10px ' + F_UI;
+    ctx.fillText('→', ox - 13, oy);
+    ox += 12;
+    drawOrbIcon(ox, oy, 9, r.out);
+    ox += 18;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#e8f0ff'; ctx.font = '700 12px ' + F_UI;
+    ctx.fillText(r.name + (evo ? ' · 高级' : ''), ox, y + 14);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#ffd700'; ctx.font = '700 11px ' + F_UI;
+    ctx.fillText('产出 ×' + prodN, CX + CW - 12, y + 14);
+    // 行② 效果说明（单行截断）
+    ctx.textAlign = 'left'; ctx.fillStyle = '#8fa3c8'; ctx.font = '500 9.5px ' + F_UI;
+    let dt2 = r.desc;
+    while (ctx.measureText(dt2 + '…').width > CW - 20 && dt2.length) dt2 = dt2.slice(0, -1);
+    if (dt2 !== r.desc) dt2 += '…';
+    ctx.fillText(dt2, CX + 10, y + 34);
+    // 行③ 消耗明细 + 持有提示
+    ctx.fillStyle = '#77839f'; ctx.font = '500 9px ' + F_UI;
+    const costTxt = r.gold ? '消耗：普通弹×10' : ('消耗：' + r.ins.map(k => BALL_CN[k] + '×' + ballCount(k)).join(' + ') + ' 全部' + (evo ? ' + 金弹×1/普通×10' : ' + 普通×3'));
+    ctx.fillText(costTxt, CX + 10, y + 48);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#7ee08a'; ctx.font = '600 9px ' + F_UI;
+    ctx.fillText('已持有 ' + ballCount(r.out) + ' · 点击融合', CX + CW - 12, y + 48);
+    ctx.restore();
+    SHOP_HITS.push({
+      x: CX, y, w: CW, h: CHH,
+      fn: () => {
+        if (r.run()) { // 合成成功才播动画（材料刚耗尽等失败静默）
+          SHOP_FX = { t0: S.uiT || 0, cx: CX + 92, cy: y + CHH / 2, a: (r.ins && r.ins[0]) || 'n', b: r.ins ? r.ins[1] : null, out: r.out, name: r.name, n: prodN };
+          window.SHOP_FX = SHOP_FX; // 观测口（测试/诊断用）
+        }
+      }
+    });
+  });
+  yy += crafts.length * (CHH + 8) + 6;
+  // ===== 待解锁（只读清单：缺什么一目了然，不再是灰按钮） =====
+  const lockLines = [];
+  for (const r of locked) lockLines.push({ name: r.name, c: r.evo ? '#9b6bff' : '#5f8fe8', cost: r.ins.map(shortBall).join('+') + ' 全部' + (r.evo ? '+金弹/普通×10' : '+普通×3'), miss: shopMissingText(r) });
+  if (!m.gold.ok) lockLines.push({ name: '金弹', c: '#ffd700', cost: '普通×10', miss: S.arsenal >= 10 ? [] : ['普通弹×' + (10 - S.arsenal)] });
+  if (lockLines.length) {
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffd166'; ctx.font = '700 11px ' + F_UI;
+    ctx.fillText('待解锁 · ' + lockLines.length + ' 条（补齐材料自动上移）', CX, yy);
+    yy += 6;
+    ctx.font = '500 9px ' + F_UI;
+    for (const L of lockLines) {
+      yy += 15;
+      ctx.fillStyle = L.c;
+      ctx.beginPath(); ctx.arc(CX + 8, yy, 3, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#9aa7c4'; ctx.textAlign = 'left';
+      ctx.fillText(L.name + ' ＝ ' + L.cost, CX + 17, yy);
+      if (L.miss.length) { ctx.textAlign = 'right'; ctx.fillStyle = '#ff9f9f'; ctx.fillText('缺 ' + L.miss.join('·'), CX + CW - 4, yy); }
+    }
+    yy += 12;
+  }
+  // ===== 底部状态行 =====
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = slotsUsed() >= SLOT_CAP ? WARN : '#cfe0ff'; ctx.font = '700 12px ' + F_UI;
+  ctx.fillText('槽位 ' + slotsUsed() + '/' + SLOT_CAP, 20, yy + 6);
+  ctx.textAlign = 'right'; ctx.fillStyle = '#5d6b8c'; ctx.font = '500 10px ' + F_UI;
+  ctx.fillText('点卡即融合 · G 合成金弹', W - 14, yy + 6);
+  // ===== 融合动效（顶层）：两球汇聚 → 闪白冲击环 → 产物入库浮字 =====
+  if (SHOP_FX) {
+    const ft = uiT - SHOP_FX.t0;
+    if (ft > 1.0) SHOP_FX = null;
+    else if (ft >= 0) {
+      const ka = SHOP_FX.a, kb = SHOP_FX.b, out = SHOP_FX.out;
+      const ez = clamp(ft / 0.28, 0, 1);
+      const sm = ez * ez * (3 - 2 * ez); // smoothstep 汇聚
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      if (ft < 0.42) { // 材料球从两侧飞入
+        const al = ft < 0.28 ? 1 : 1 - (ft - 0.28) / 0.14;
+        ctx.globalAlpha = al;
+        drawOrbIcon(SHOP_FX.cx - 30 + 26 * sm, SHOP_FX.cy - 8 + 6 * sm, 7 * (0.6 + 0.4 * sm), ka);
+        drawOrbIcon(SHOP_FX.cx + 30 - 26 * sm, SHOP_FX.cy - 8 + 6 * sm, kb ? 7 * (0.6 + 0.4 * sm) : 4, kb || ka);
+        ctx.globalAlpha = 1;
+      }
+      if (ft >= 0.24 && ft < 0.55) { // 闪白冲击环（双环扩散）
+        const p2 = (ft - 0.24) / 0.31;
+        ctx.strokeStyle = 'rgba(255,255,255,' + (0.85 * (1 - p2)).toFixed(3) + ')';
+        ctx.lineWidth = 2.5 * (1 - p2) + 0.5;
+        ctx.beginPath(); ctx.arc(SHOP_FX.cx, SHOP_FX.cy, 8 + 42 * p2, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,240,180,' + (0.5 * (1 - p2)).toFixed(3) + ')';
+        ctx.lineWidth = 1.5 * (1 - p2) + 0.4;
+        ctx.beginPath(); ctx.arc(SHOP_FX.cx, SHOP_FX.cy, 6 + 26 * p2, 0, TAU); ctx.stroke();
+      }
+      if (ft >= 0.26) { // 产物球 + 呼吸光环
+        const p3 = clamp((ft - 0.26) / 0.16, 0, 1);
+        drawOrbIcon(SHOP_FX.cx, SHOP_FX.cy, 9 * p3, out);
+        const ph = 0.5 + 0.5 * Math.sin(uiT * 9);
+        ctx.strokeStyle = BALL_KIND_C[out];
+        ctx.globalAlpha = (0.5 + 0.3 * ph) * (ft > 0.7 ? Math.max(0, 1 - (ft - 0.7) / 0.3) : 1);
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(SHOP_FX.cx, SHOP_FX.cy, 12 + 3 * ph, 0, TAU); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+      if (ft >= 0.3) { // 入库浮字（上浮渐隐）
+        const p4 = clamp((ft - 0.3) / 0.7, 0, 1);
+        ctx.save();
+        ctx.globalAlpha = 1 - p4 * p4;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = BALL_KIND_C[out]; ctx.font = '800 13px ' + F_UI;
+        ctx.fillText('✦ ' + SHOP_FX.name + ' ×' + SHOP_FX.n + ' 入库', SHOP_FX.cx, SHOP_FX.cy + 28 - 20 * p4);
+        ctx.restore();
+      }
+    }
+  }
+  ctx.textBaseline = 'alphabetic';
+  window.SHOP_FX = SHOP_FX; // 观测口每帧同步（清空也同步，测试/诊断用）
+  cv.style.cursor = mo.x >= 0 && SHOP_HITS.some(h => mo.x >= h.x && mo.x <= h.x + h.w && mo.y >= h.y && mo.y <= h.y + h.h) ? 'pointer' : '';
 }
 
 /* ---------- 升级三选一卡片界面 ---------- */
@@ -6386,7 +6560,7 @@ function drawPicking() {
   ctx.globalAlpha = titleA;
   ctx.fillStyle = glowC;
   ctx.font = '700 20px ' + F_UI;
-  ctx.fillText(pk.kind === 'boss' ? '首领击破 · SSR 四选一' : (pk.kind === 'drop' ? '接住技能卡 · 追加四选一' : '过关强化 · 四选一'), W / 2 - 60, titleY);
+  ctx.fillText(pk.kind === 'boss' ? '首领击破 · 进化卡四选一' : (pk.kind === 'drop' ? '接住技能卡 · 追加四选一' : '过关强化 · 四选一'), W / 2 - 60, titleY);
   ctx.globalAlpha = 1;
   // ===== 刷新按钮（V4.2：每面板 1 次 + 卡加成；Z 键同效） =====
   const rrw = 108, rrh = 26, rrx = W - rrw - 14, rry = 26;
@@ -6662,17 +6836,21 @@ cv.addEventListener('pointerdown', e => {
   if (S.mode === 'over') { if (S.overT > 0.6) { S.menuPage = 'chars'; startGame(S.char); } return; }
   // V4.2 卡册：打开时点击任意处关闭
   if (S.cardbook) { S.cardbook = false; return; }
-  // 工坊面板全屏置顶：命中判定必须先于角落按钮——×与暂停键位置重叠，后判会被截走（2026-10-30 bug 修复）
+  // 2026-11-10 暂停层置顶：暂停浮层画在选卡/工坊之上（绘制顺序同步调整），暂停时点击先走暂停命中——
+  // 修复「切后台自动暂停后，暂停界面被选卡/工坊面板盖住点不到继续」；角落静音/暂停键照常可用
+  if (S.paused) {
+    if (inBtn(p, BTN.mute)) { toggleMute(); return; }
+    if (inBtn(p, BTN.pause)) { togglePause(); return; }
+    if (handlePauseClick(p)) return;
+    S.paused = false; return;
+  }
+  // 工坊面板全屏置顶：命中判定必须先于角落按钮——×与暂停键位置重叠，后判会被截走（2026-10-30 bug 修复；非暂停态语义不变）
   if (S.shop) {
     for (const h of SHOP_HITS) { if (p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h) { h.fn(); break; } }
     return;
   }
   if (inBtn(p, BTN.mute)) { toggleMute(); return; }
   if (inBtn(p, BTN.pause)) { togglePause(); return; }
-  if (S.paused) {
-    if (handlePauseClick(p)) return;
-    S.paused = false; return;
-  }
   if (S.mode === 'play' && !S.paused && !S.picking && p.x >= W - 84 && p.x <= W - 8 && p.y >= H - 58 && p.y <= H - 34) { toggleShop(true); return; }
   if (S.picking) {
     const pk = S.picking;
@@ -6746,7 +6924,7 @@ window.addEventListener('keydown', e => {
     // 金弹合成：普通弹 ≥10 颗时可随时合成
     if (S.mode === 'play' && !S.paused && !S.shop) makeGold(); // 2026-11-09 R6：工坊开着时 G 键不旁路合成（工坊面板自有入口）
   } else if (e.code === 'KeyP') {
-    if (!S.shop) togglePause(); // 工坊开启时不暂停：暂停浮层会藏在工坊下面
+    if (S.mode === 'play') togglePause(); // 2026-11-10：暂停层已置顶选卡/工坊之上，「工坊开着不暂停」的旧限制随层级修复取消（暂停中再按 P 也能恢复）
   } else if (e.code === 'KeyM') {
     toggleMute();
   } else if (e.code === 'KeyR') {
@@ -6839,7 +7017,7 @@ window.CB = {
     balls: () => S.balls.map(b => ({ kind: b.kind, pierce: !!b.pierce, pl: b.pierceLeft || 0, wh: (b.wheelPos || []).length, x: Math.round(b.x), y: Math.round(b.y), r: +b.r.toFixed(1), vx: Math.round(b.vx), vy: Math.round(b.vy), ret: b.ret || 0, melt: b.meltBonus || 0, gen: b.gen || 0, fromSplit: !!b.fromSplit, slug: !!b.slug })),
     rail: () => ({ mult: +railSpeedMult().toFixed(2), dmg: railHitDmg(), charge: S.railCharge || 0, killDmg: S.railKillDmg || 0, cap: railSpdCap(), capSpd: spdCap(), volleyKill: !!S.railVolleyKill }),
     ents: () => ({ rays: S.rays.length, bees: S.bees.length, bolts: S.bolts.length, beams: S.beams.length }), // 2026-11-10：beams=激光光柱实体观测口
-    beams: () => S.beams.map(bm => ({ type: bm.type || 'line', x1: Math.round(bm.x1 || 0), y1: Math.round(bm.y1 || 0), x2: Math.round(bm.x2 || 0), y2: Math.round(bm.y2 || 0), x: Math.round(bm.x || 0), y: Math.round(bm.y || 0), r: bm.r || 0, col: bm.col || null })), // 2026-11-10：光柱几何观测口（直线束/光环）
+    beams: () => S.beams.map(bm => ({ type: bm.type || 'line', x1: Math.round(bm.x1 || 0), y1: Math.round(bm.y1 || 0), x2: Math.round(bm.x2 || 0), y2: Math.round(bm.y2 || 0), x: Math.round(bm.x || 0), y: Math.round(bm.y || 0), r: bm.r || 0, col: bm.col || null, hw: bm.hw || 0 })), // 2026-11-10：光柱几何观测口（直线束/光环）；hw=走廊半宽（扩束镜/轨道激光加粗）
     queue: () => S.launchQ.map(l => l.kind), // Wave5：发射队列观测口（弹药回填金弹入队验证）
     fuse: (a, b) => doFuse(a, b),
     fuseIns: (ins) => doFuseIns(Array.isArray(ins) ? ins : [ins]),
