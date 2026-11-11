@@ -2322,7 +2322,7 @@ function playerEatFish(f){
     sfx(660, 0.1, "triangle", 0.07); sfx(880, 0.14, "triangle", 0.06);
   }
   // 饥饿
-  var hg = Math.min(38, 9 + 48 * f.size / player.size);
+  var hg = fishSatiety(f, player.size);
   player.hunger = Math.min(CONF.HUNGER_MAX, player.hunger + hg);
   player.gulp = 0.22;
   addPopup(f.x, f.y, "+" + Math.round(gain), "#a5ffb0");
@@ -2367,13 +2367,15 @@ function aiEatFish(predator, prey){
   emitRipple(prey.x, prey.y, prey.size * 2);
 }
 function playerBitten(f){
-  var loss = player.size * 0.07;
-  player.size = Math.max(CONF.P_INIT_SIZE + 2, player.size - loss);
+  if(!player.alive||gameState!=="playing"||player.spawnProt>0||player.invulnTimer>0)return;
+  if(player.buffs.shield>0){consumeShield(f);return;}
+  var loss = window.fishBiteDamage ? fishBiteDamage(f) : 12;
+  player.hunger = Math.max(0, player.hunger - loss);
   var ka = Math.atan2(player.y - f.y, player.x - f.x);
   player.vx = Math.cos(ka) * 320; player.vy = Math.sin(ka) * 320;
   player.invulnTimer = 1.4; player.hurtFlash = 0.5;
   shakeTimer = 0.3; shakeI = 6; redFlash = 0.35;
-  addPopup(player.x, player.y - player.size, "被咬掉 -" + Math.round(loss) + " 体型!", "#ff6b6b");
+  addPopup(player.x, player.y - player.size, "被" + f.spec.n + "咬中 · 饱食 -" + loss, "#ff6b6b");
   emitParticles(player.x, player.y, 12, 4);
   emitRipple(player.x, player.y, player.size * 2.4);
   sfx(140, 0.18, "sawtooth", 0.1);
@@ -2554,6 +2556,7 @@ function updateFish(f, dt){
   }
 
   if(sp.shape==="puff"&&window.handlePufferContact){handlePufferContact(f);return;}
+  if(sp.shape==="sword" && handleSwordContact(f))return;
   // 玩家接触(吃或被吃)
   if (player.alive && gameState === "playing"){
     var rr2 = (f.size + player.size) * 0.45;
@@ -3187,6 +3190,7 @@ function render(time){
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   if (qLevel > 0) ctx.drawImage(SP.vignette, 0, 0, W, H); // 低画质跳过全屏暗角
 
+  if(window.drawDepthVisibility)drawDepthVisibility(time);
   // HUD
   if (gameState === "playing" || gameState === "paused") drawHUD(time);
   if (gameState === "start") drawStartScreen(time);
@@ -3642,6 +3646,7 @@ function resetGame(){
 <script src="ocean-world.js"></script>
 <script src="ocean-biomes.js"></script>
 <script src="wildlife.js"></script>
+<script src="reef-polish.js"></script>
 <script src="streaming.js"></script>
 <script>
 // ==================== 分阶段启动 ====================

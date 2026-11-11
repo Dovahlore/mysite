@@ -84,8 +84,8 @@ function handlePufferContact(f){
  rkCollide(player,true);
  if(player.spawnProt>0||player.invulnTimer>0)return;
  if(player.buffs.shield>0){consumeShield(f);return;}
- player.hunger=Math.max(0,player.hunger-10);player.invulnTimer=1.1;player.hurtFlash=.5;
- addPopup(player.x,player.y-35,'刺豚扎伤 · 饱食 -10','#ffac93',true);sfx(155,.12,'sawtooth',.05);
+ player.hunger=Math.max(0,player.hunger-20);player.invulnTimer=1.1;player.hurtFlash=.5;
+ addPopup(player.x,player.y-35,'刺豚扎伤 · 饱食 -20','#ffac93',true);sfx(155,.12,'sawtooth',.05);
 }
 var eatBeforeWildlife=playerEatFish;
 playerEatFish=function(f){
@@ -129,3 +129,7 @@ drawFishSprite=function(f,x,y,size,angle,tail,inflate,isPlayer,time){
   ctx.fillText(label,x,y-r-size*.2-12);ctx.restore();
  }
 };
+
+// Non-lethal contact attacks reduce satiety, with a distinct bite strength per species.
+var FISH_BITE_DAMAGE={'梭鱼':12,'海鳗':14,'石斑鱼':10,'鮟鱇鱼':18,'剑鱼':24,'鲨鱼':26,'哥布林鲨':28,'冰牙鲨':30,'深海巨鲨':36,'皇带鱼':12,'蝠鲼':8};
+function fishBiteDamage(f){var sp=f.spec;if(Object.prototype.hasOwnProperty.call(FISH_BITE_DAMAGE,sp.n))return FISH_BITE_DAMAGE[sp.n];return sp.aggr>=1?22:sp.aggr?14:8;}
