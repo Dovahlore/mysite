@@ -3062,7 +3062,7 @@ function render(time){
     ctx.save();
     ctx.translate(sp3.x, sp3.y);
     ctx.rotate(Math.sin(time * 0.3 + sp3.ph) * 0.018);
-    ctx.drawImage(spr3, -(spr3.logicalWidth||spr3.width) / 2 * sp3.s, -(spr3.logicalHeight||spr3.height) * sp3.s, (spr3.logicalWidth||spr3.width) * sp3.s, spr3.height * sp3.s);
+    ctx.drawImage(spr3, -(spr3.logicalWidth||spr3.width) / 2 * sp3.s, -(spr3.logicalHeight||spr3.height) * sp3.s, (spr3.logicalWidth||spr3.width) * sp3.s, (spr3.logicalHeight||spr3.height) * sp3.s);
     ctx.restore();
   }
 
