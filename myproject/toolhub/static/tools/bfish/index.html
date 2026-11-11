@@ -2883,7 +2883,7 @@ function updateFoods(dt){
         ensurePlayerSprite();
         player.gulp = 0.18;
         if (f.type !== "crab" && f.type !== "bluecrab") addCombo();
-        var label = f.type === "pearl" ? "珍珠 +" + Math.round(50 * mult) : (f.type === "star" ? "★ +" + Math.round(12 * mult) : (f.type === "starfish" ? "海星 +" + Math.round(8 * mult) : (f.type === "crab" ? "螃蟹 +" + Math.round(10 * mult) : f.type === "bluecrab" ? "梭子蟹 +" + Math.round(info.score * mult) : "+" + Math.round(info.score * mult))));
+        var label = f.type === "pearl" ? "珍珠 +" + Math.round(50 * mult) : (f.type === "star" ? "★ +" + Math.round(info.score * mult) : (f.type === "starfish" ? "海星 +" + Math.round(8 * mult) : (f.type === "crab" ? "螃蟹 +" + Math.round(10 * mult) : f.type === "bluecrab" ? "梭子蟹 +" + Math.round(info.score * mult) : "+" + Math.round(info.score * mult))));
         addPopup(f.x, f.y, label, f.type === "pearl" ? "#f3e6f7" : "#ffe082");
         emitParticles(f.x, f.y, 6, info.pIdx);
         sfx(f.type === "pearl" ? 880 : 740, 0.09, "sine", 0.05, f.type === "pearl" ? 1320 : undefined);
@@ -3654,6 +3654,7 @@ function resetGame(){
 <script src="mobile-controls.js"></script>
 <script src="field-guide.js"></script>
 <script src="ocean-life.js"></script>
+<script src="treasure-art.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){
