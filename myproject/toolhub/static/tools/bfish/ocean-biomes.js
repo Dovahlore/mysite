@@ -95,8 +95,12 @@ RK_init=function(){
   RK_list.push({name:'浅海珊瑚礁',ax:x,ay:y,blobs:[-130,80,210,60,20,180,180,60,140],caves:[],k:50,z:1,tint:[105,115,109],hang:false});
  }
  // Floating ice is a physical roof, not just a blue colour filter.
- var ice=shelf('浮冰顶盖',23900,190,8500,450,3,[173,215,232]);ice.ice=true;
- for(i=0;i<6;i++)RK_list.push({name:'冰下倒挂冰柱',ax:20100+i*1270,ay:410,blobs:[0,0,155,20,170,105,35,310,55],caves:[],k:35,z:3,tint:[150,199,224],ice:true,hang:false});
+ var ice={name:'冰冠主冰盖',ax:23900,ay:0,blobs:[-3850,260,350,-3000,370,480,-2050,230,380,-1150,540,580,0,350,460,950,650,650,1900,400,520,2950,300,440,3650,440,550,-2500,-20,170,1550,-25,190],boxes:[0,-5,4050,130,120],caves:[],k:85,z:3,tint:[173,215,232],ice:true,hang:false};
+ RK_list.push(ice);
+ // Open undercuts divide deep ice tongues; the body extends well beneath the surface.
+ carvePath(ice,[[22550,1360],[22550,920],[23000,690]],175);
+ carvePath(ice,[[24950,1510],[24950,1150],[25300,1000]],190);
+ [{x:17700,r:165},{x:18600,r:240},{x:19350,r:185}].forEach(function(b,i){RK_list.push({name:'漂浮小冰山 '+(i+1),ax:b.x,ay:0,blobs:[0,70,b.r,25,210,b.r*.75,40,315,b.r*.4,-b.r*.35,-5,b.r*.55,-b.r*.2,-b.r*.5,b.r*.32],boxes:[],caves:[],k:35,z:3,tint:[180,222,235],ice:true,iceberg:true,hang:false});});
  var volcano={name:'深层火山',ax:23200,ay:14200,blobs:[0,700,2100,0,-100,1300,0,-1000,900,0,-1500,500],boxes:[],caves:[],k:100,z:2,tint:[81,49,54],glow:true,hang:false};
  carvePath(volcano,[[23200,11900],[23200,14300]],200);carvePath(volcano,WORLD_ROUTES[9].points,330);carvePath(volcano,WORLD_ROUTES[8].points,400);RK_list.push(volcano);
  var tube=shelf('熔岩管外壳',23200,13200,6400,1200,2,[71,43,54]);carvePath(tube,WORLD_ROUTES[9].points,330);carvePath(tube,[[23200,11900],[23200,14300]],220);carvePath(tube,WORLD_ROUTES[8].points,400);
@@ -221,9 +225,9 @@ spawnFish=function(){
   if(Math.abs(x-cam.x)<W/(2*cam.z)+90&&Math.abs(y-cam.y)<H/(2*cam.z)+90)continue;
   if(y>floorAt(x)-180||rkInside(x,y,110))continue;
   var sp=chooseHabitatSpecies(x,y,false),size=rand(sp.sMin,sp.sMax),region=oceanRegion(x,y);
-  if(region===3)size=Math.max(size,48);
-  if(region>=4)size=Math.max(size,70);
-  if(region===5)size=Math.max(size,90);
+  if(region===3&&!sp.nativeSize)size=Math.max(size,48);
+  if(region>=4&&!sp.nativeSize)size=Math.max(size,70);
+  if(region===5&&!sp.nativeSize)size=Math.max(size,90);
   if(sp.flying)y=Math.min(y,350);
   if(rkInside(x,y,size*.4+20))continue;
   var f=fishPool.length?fishPool.pop():newFish();initHabitatFish(f,sp,x,y,size);fishes.push(f);return;
@@ -339,8 +343,8 @@ update=function(dt){
   // Deep water never acquires lanternfish through a small-prey fallback or an old shoal.
   for(var i=0;i<fishes.length;i++){
    var f=fishes[i];if(f.dead||f.spec.leviathan||f.spec.rareDugong)continue;
-   if(f.size<45&&f.y>8200){
-    if(Math.abs(f.x-cam.x)>W/(2*cam.z)+100||Math.abs(f.y-cam.y)>H/(2*cam.z)+100)f.dead=true;
+   if(f.size<45&&f.y>8200&&!f.spec.deepNative){
+    if(canRecycleFish(f))f.dead=true;
     else{f.vy=-Math.max(100,Math.abs(f.vy));f.wanderA=-Math.PI/2;}
    }
   }

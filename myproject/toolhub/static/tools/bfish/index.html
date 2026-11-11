@@ -2552,7 +2552,7 @@ function updateFish(f, dt){
   {
     var halfW2 = W / (2 * cam.z) + 200, halfH2 = H / (2 * cam.z) + 200;
     var offscreen = f.x < cam.x - halfW2 || f.x > cam.x + halfW2 || f.y < cam.y - halfH2 || f.y > cam.y + halfH2;
-    if (offscreen && hd2 > 1500 * 1500) f.dead = true; // 由 sweep 回收并补刷
+    if (offscreen && hd2 > 1500 * 1500 && canRecycleFish(f)) f.dead = true; // 由 sweep 回收并补刷
   }
 
   if(sp.shape==="puff"&&window.handlePufferContact){handlePufferContact(f);return;}
@@ -2680,7 +2680,7 @@ function update(dt){
   FF_update(dt);
 
   // ---- 活水层(LOD): 只模拟玩家周围一圈的鱼, 远处冻结省 AI/网格开销 ----
-  var actR = Math.max(1750, Math.sqrt(W * W + H * H) / (2 * cam.z) + 500);
+  var actR = Math.max(1750, Math.sqrt(W * W + H * H) / (2 * cam.z) + 1100);
   var actR2 = actR * actR;
   gridClear();
   var i;
@@ -2688,9 +2688,10 @@ function update(dt){
   for (i = 0; i < fishes.length; i++){
     var fg = fishes[i];
     var fd2 = dist2(fg.x, fg.y, player.x, player.y);
-    fg._act = !fg.dead && fd2 <= actR2;
+    if(!fg.dead&&fd2<Math.pow(Math.hypot(W,H)/(2*cam.z)+300,2))fg.lastPlayerEncounter=survivalTime;
+    fg._act = !fg.dead && (fd2 <= actR2 || ((fg.chasingPlayer||fg.state==="flee")&&survivalTime-(fg.lastPlayerEncounter===undefined?-100:fg.lastPlayerEncounter)<20&&fd2<Math.pow(fishRetentionRadius(),2)));
     if (fg._act){ gridInsert(fg); if (fg.huntT > 0) huntCount++; }
-    else if (!fg.dead && fd2 > 4600 * 4600){
+    else if (!fg.dead && canRecycleFish(fg)){
       fg.dead = true; // 动态加载: 游离太远的鱼回收, 由流送环带再生
     }
   }
@@ -3656,6 +3657,7 @@ function resetGame(){
 <script src="ocean-life.js"></script>
 <script src="treasure-art.js"></script>
 <script src="prey-markers.js"></script>
+<script src="living-ocean.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){

@@ -124,7 +124,7 @@ function rkBake(rk){
   var c = newCanvas(w, h), g = c.getContext("2d");
   g.drawImage(small, 0, 0, gw, gh, 0, 0, w, h);
   // 表面斑点(浅处亮典/深处暗点)
-  var nSp = Math.round(w * h / 4800);
+  var nSp = rk.ice ? 0 : Math.round(w * h / 4800);
   for (i = 0; i < nSp; i++){
     var sx = rand(x0 + 10, x1 - 10), sy = rand(y0 + 10, y1 - 10);
     var dd2 = rkField(rk, sx, sy);
@@ -137,7 +137,7 @@ function rkBake(rk){
   for (i = 0; i < nCr; i++){
     var crx = rand(x0 + 40, x1 - 40), cry = rand(y0 + 40, y1 - 40);
     if (rkField(rk, crx, cry) > -20) continue;
-    g.strokeStyle = "rgba(0,0,0,0.28)"; g.lineWidth = 2.5; g.lineCap = "round";
+    g.strokeStyle = rk.ice ? "rgba(205,244,255,0.5)" : "rgba(0,0,0,0.28)"; g.lineWidth = 2.5; g.lineCap = "round";
     g.beginPath(); g.moveTo(crx - x0, cry - y0);
     var ang = rand(0, Math.PI * 2);
     for (var st = 0; st < 6; st++){
@@ -167,7 +167,7 @@ function rkBake(rk){
   }
   // 顶部植被(表面朝上取样)
   var nf2 = 8 + Math.floor(bl.length / 5), placed = 0;
-  for (i = 0; i < 60 && placed < nf2; i++){
+  for (i = 0; !rk.ice && i < 60 && placed < nf2; i++){
     var fx = rand(x0 + 20, x1 - 20), fy = rand(y0 + 10, y0 + h * 0.6);
     var fd = rkField(rk, fx, fy);
     if (fd > -10 || fd < -26) continue;
