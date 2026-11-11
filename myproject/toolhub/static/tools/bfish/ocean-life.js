@@ -105,3 +105,45 @@ function prepareGuideImage(entry){
 function refreshGuideImages(){GUIDE_ENTRIES.forEach(function(entry){entry.image=GUIDE_RECORDS[guideKey(entry)]?entry.art:entry.silhouette;});var unlocked=GUIDE_ENTRIES.filter(function(e){return GUIDE_RECORDS[guideKey(e)];}).length;guide.querySelector('h2').textContent='海洋图鉴 · 已解锁 '+unlocked+' / '+GUIDE_ENTRIES.length;}
 // Correct the species notes without making locked entries reveal their data.
 var lifeGuideEntries=buildGuideEntries;buildGuideEntries=function(){var entries=lifeGuideEntries();entries.forEach(function(e){if(e.food==='bluecrab'){e.lines[1]='体长至少 36 可吃 · 不足时钳伤 -18';e.lines[2]='饱食 +11 · 基础成长 +0.065 · 刷新 32 秒';}if(e.spec&&e.spec.cuttle){e.lines=['陆架下方与暮光岩礁 · 避开冰海和火山热区','体长 42–70 · 遇到更大猎手会喷墨','每只仅能喷墨一次 · 墨团约 7.5 秒消散','喷墨后高速逃跑 · 绕出墨团追踪'];}});return entries;};
+// Rock-crevice morays: wait at an actual solid boundary, lunge briefly, then retreat.
+function findMorayDen(x,y,size){
+ for(var ring=100;ring<=600;ring+=100){for(var i=0;i<16;i++){var a=i*Math.PI/8,dx=Math.cos(a),dy=Math.sin(a),rx=x+dx*ring,ry=y+dy*ring;if(ry<400||ry>10500||!rkInside(rx,ry,0))continue;var lo=Math.max(0,ring-100),hi=ring;if(rkInside(x+dx*lo,y+dy*lo,0))continue;for(var k=0;k<9;k++){var mid=(lo+hi)/2;if(rkInside(x+dx*mid,y+dy*mid,0))hi=mid;else lo=mid;}var px=x+dx*(lo-size*.6-18),py=y+dy*(lo-size*.6-18);if(!rkInside(px,py,size*.43+10))return {x:px,y:py,angle:Math.atan2(-dy,-dx)};}}return null;
+}
+var denInit=initHabitatFish;initHabitatFish=function(f,sp,x,y,size){denInit(f,sp,x,y,size);f.morayDen=null;f.morayState='wait';f.morayTimer=rand(1,3);f.morayCooldown=0;if(sp.n==='海鳗'){f.morayDen=findMorayDen(x,y,f.size);if(f.morayDen){f.x=f.hx=f.morayDen.x;f.y=f.hy=f.morayDen.y;f.angle=f.morayDen.angle;}}return f;};
+function morayLineClear(x,y,tx,ty){var len=Math.hypot(tx-x,ty-y);for(var d=25;d<len;d+=25)if(rkInside(x+(tx-x)*d/len,y+(ty-y)*d/len,9))return false;return true;}
+function updateMoray(f,dt){
+ if(dist2(f.x,f.y,player.x,player.y)>3500*3500){f.dead=true;return;}var den=f.morayDen;f.morayCooldown=Math.max(0,f.morayCooldown-dt);f.morayTimer-=dt;f.tailPhase+=dt*(f.morayState==='wait'?1.5:9);var target=null;
+ if(player.alive&&player.spawnProt<=0&&f.size>=player.size*CONF.EAT_RATIO&&dist2(den.x,den.y,player.x,player.y)<430*430&&morayLineClear(f.x,f.y,player.x,player.y))target=player;
+ if(!target){for(var i=0;i<fishes.length;i++){var other=fishes[i];if(other===f||other.dead||other.puffBlocked||other.size>f.size*.75||dist2(den.x,den.y,other.x,other.y)>320*320||!morayLineClear(f.x,f.y,other.x,other.y))continue;target=other;break;}}
+ f.chasingPlayer=target===player;f.targetKind=target===player?'player':target?'fish':null;
+ if(f.morayState==='wait'&&target&&f.morayCooldown<=0){f.morayState='warning';f.morayTimer=.45;}
+ if(f.morayState==='warning'&&f.morayTimer<=0){f.morayState='strike';f.morayTimer=.9;}
+ if(f.morayState==='strike'&&(f.morayTimer<=0||!target||dist2(f.x,f.y,den.x,den.y)>390*390)){f.morayState='return';f.morayCooldown=3.5;}
+ var tx=den.x,ty=den.y,speed=145*fishDepthSpeed(f);if(f.morayState==='strike'&&target){tx=target.x;ty=target.y;speed=260*fishDepthSpeed(f);}
+ var dx=tx-f.x,dy=ty-f.y,d=Math.hypot(dx,dy);if(f.morayState==='wait'||f.morayState==='warning'){f.vx=f.vy=0;f.angle=lerpAngle(f.angle,den.angle,Math.min(1,dt*4));}else if(d>5){f.vx=dx/d*speed;f.vy=dy/d*speed;f.x+=f.vx*dt;f.y+=f.vy*dt;f.angle=lerpAngle(f.angle,Math.atan2(dy,dx),Math.min(1,dt*9));rkCollide(f,false);}else{f.morayState='wait';f.vx=f.vy=0;}
+ if(target&&target!==player&&f.morayState==='strike'&&dist2(f.x,f.y,target.x,target.y)<Math.pow((f.size+target.size)*.4,2)){target.dead=true;f.morayState='return';f.morayCooldown=3.5;}
+ if(player.alive&&gameState==='playing'&&dist2(f.x,f.y,player.x,player.y)<Math.pow((f.size+player.size)*.45,2)){
+  if(f.size<player.size*CONF.EAT_RATIO){playerEatFish(f);f.dead=true;}
+  else if(f.size>player.size*CONF.KILL_RATIO){if(player.invulnTimer<=0&&player.spawnProt<=0){if(player.buffs.shield>0)consumeShield(f);else playerDie('被洞口海鳗吞掉了');}}
+  else if(f.morayState==='strike'){playerBitten(f);f.morayState='return';f.morayCooldown=3.5;}
+ }
+}
+var denFishUpdate=updateFish;updateFish=function(f,dt){if(f.spec.n==='海鳗'&&f.morayDen){updateMoray(f,dt);return;}denFishUpdate(f,dt);};
+// Angler anatomy: dark mantle, cavernous jaw, irregular needle teeth and a flexible lure.
+var lifeAnglerBody=bakeFishBody;bakeFishBody=function(g,sp,R){
+ if(sp.shape!=='angler'){lifeAnglerBody(g,sp,R);return;}
+ g.save();var grad=g.createRadialGradient(-R*.3,-R*.3,R*.1,0,0,R*1.15);grad.addColorStop(0,'#60676f');grad.addColorStop(.6,'#2e3b46');grad.addColorStop(1,'#101f2b');g.fillStyle=grad;g.strokeStyle='#71939c';g.lineWidth=R*.022;g.beginPath();g.moveTo(R*.9,-R*.16);g.bezierCurveTo(R*.72,-R*1.02,-R*.85,-R*.98,-R*1.04,-R*.12);g.bezierCurveTo(-R*1.15,R*.65,R*.05,R*.91,R*.86,R*.42);g.lineTo(R*.53,R*.17);g.closePath();g.fill();g.stroke();
+ g.fillStyle='#70939a55';for(var i=0;i<38;i++){var a=i*2.399,rr=R*(.2+(i%5)*.13),x=-R*.2+Math.cos(a)*rr,y=Math.sin(a)*rr*.8;g.beginPath();g.arc(x,y,R*(.012+(i%3)*.006),0,Math.PI*2);g.fill();}
+ g.fillStyle='#46616b';g.beginPath();g.moveTo(-R*.4,R*.4);g.quadraticCurveTo(-R*.85,R*1.1,R*.06,R*.66);g.closePath();g.fill();g.stroke();g.beginPath();g.moveTo(-R*.5,-R*.5);g.lineTo(-R*.75,-R*.97);g.lineTo(-R*.1,-R*.66);g.closePath();g.fill();
+ g.fillStyle='#07131d';g.beginPath();g.moveTo(R*.95,-R*.17);g.quadraticCurveTo(R*.13,-R*.09,R*.37,R*.52);g.quadraticCurveTo(R*.78,R*.62,R*1.02,R*.36);g.quadraticCurveTo(R*.7,R*.18,R*.95,-R*.17);g.fill();g.strokeStyle='#8b9894';g.lineWidth=R*.037;g.beginPath();g.moveTo(R*.97,-R*.18);g.quadraticCurveTo(R*.17,-R*.04,R*.39,R*.51);g.quadraticCurveTo(R*.82,R*.67,R*1.02,R*.36);g.stroke();
+ g.fillStyle='#d3dfc5';for(var i=0;i<9;i++){var u=i/8,x=R*(.43+u*.5),top=-R*.1+Math.sin(u*Math.PI)*R*.045,len=R*(.14+(i%3)*.055);g.beginPath();g.moveTo(x,top);g.lineTo(x-R*.025,top+len);g.lineTo(x+R*.035,top+R*.02);g.closePath();g.fill();var bx=R*(.42+u*.55),by=R*(.48+Math.sin(u*Math.PI)*.06);g.beginPath();g.moveTo(bx,by);g.lineTo(bx+R*.015,by-len*.8);g.lineTo(bx+R*.045,by);g.fill();}
+ g.fillStyle='#b5b999';g.beginPath();g.arc(R*.39,-R*.33,R*.105,0,Math.PI*2);g.fill();g.fillStyle='#05131c';g.beginPath();g.arc(R*.41,-R*.32,R*.055,0,Math.PI*2);g.fill();g.fillStyle='#dcffe4';g.beginPath();g.arc(R*.43,-R*.35,R*.018,0,Math.PI*2);g.fill();
+ g.strokeStyle='#9cb7b5';g.lineWidth=R*.045;g.beginPath();g.moveTo(-R*.08,-R*.67);g.bezierCurveTo(R*.07,-R*1.48,R*.81,-R*1.48,R*.95,-R*sp.ry*1.3);g.stroke();var lx=R*.95,ly=-R*sp.ry*1.3,glow=g.createRadialGradient(lx,ly,0,lx,ly,R*.28);glow.addColorStop(0,'#efffdc');glow.addColorStop(.3,'#b6ffbcbb');glow.addColorStop(1,'#87f0c000');g.fillStyle=glow;g.beginPath();g.arc(lx,ly,R*.28,0,Math.PI*2);g.fill();g.fillStyle='#e7ffd6';g.beginPath();g.ellipse(lx,ly,R*.09,R*.13,0,0,Math.PI*2);g.fill();g.restore();
+};
+var denArt=drawFishSprite;drawFishSprite=function(f,x,y,s,a,t,inflate,isPlayer,time){
+ if(!isPlayer&&f.spec.n==='海鳗'&&f.morayDen&&(f.morayState==='wait'||f.morayState==='warning')){ctx.save();ctx.translate(x,y);ctx.rotate(a);if(Math.cos(a)<0)ctx.scale(1,-1);ctx.beginPath();ctx.rect(-s*.4,-s,s*1.4,s*2);ctx.clip();drawRibbonFish(ctx,s,t,false);ctx.restore();if(f.morayState==='warning'){ctx.save();ctx.fillStyle='#ffb694';ctx.font='13px system-ui';ctx.textAlign='center';ctx.fillText('海鳗蓄势 · 避开洞口',x,y-s-15);ctx.restore();}return;}
+ denArt(f,x,y,s,a,t,inflate,isPlayer,time);
+};
+var denGuide=buildGuideEntries;buildGuideEntries=function(){var entries=denGuide();entries.forEach(function(e){if(e.spec&&e.spec.n==='海鳗')e.lines=['岩壁裂隙与洞口 · 平时探头守候','猎物靠近会蓄势短扑，随后退回洞口','同体型扑咬 -14 饱食 · 大体型会吞食你','先避开扑击，再从侧面捕食'];});return entries;};
+
+var denChoose=chooseHabitatSpecies;chooseHabitatSpecies=function(x,y,small){var sp=denChoose(x,y,small);if(sp.n==='海鳗'&&!findMorayDen(x,y,sp.sMax))return SPECIES[9];return sp;};
