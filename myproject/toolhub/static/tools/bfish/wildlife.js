@@ -123,7 +123,7 @@ drawFishSprite=function(f,x,y,size,angle,tail,inflate,isPlayer,time){
  ctx.fillStyle='#fffde2';ctx.beginPath();ctx.arc(eyeX+eyeR*.24,eyeY-eyeR*.3,eyeR*.32,0,Math.PI*2);ctx.fill();
  ctx.strokeStyle='#3c5c46';ctx.lineWidth=Math.max(.8,size*.025);ctx.beginPath();ctx.arc(rx*.87,ry*.17,size*.07,-1,1);ctx.stroke();ctx.restore();
  if(dist2(x,y,player.x,player.y)<650*650){
-  ctx.save();ctx.strokeStyle=f.puffBlocked?'rgba(255,140,100,.8)':warn?'rgba(255,215,100,.8)':size<player.size*CONF.EAT_RATIO?'rgba(126,236,176,.6)':'rgba(180,210,160,.3)';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(x,y,rx+spikeLength+size*.16,ry+spikeLength+size*.16,angle,0,Math.PI*2);ctx.stroke();ctx.font='12px system-ui';ctx.fillStyle=size>player.size*CONF.KILL_RATIO?'#ffad98':f.puffBlocked?'#ffc09a':warn?'#ffe2a0':'#cce8b1';ctx.textAlign='center';
+  ctx.save();ctx.strokeStyle=f.puffBlocked?'rgba(255,140,100,.8)':warn?'rgba(255,215,100,.8)':size<player.size*CONF.EAT_RATIO?'rgba(126,236,176,.6)':'rgba(180,210,160,.3)';ctx.lineWidth=1.5;if(f.puffBlocked||size>=player.size*CONF.EAT_RATIO){ctx.beginPath();ctx.ellipse(x,y,rx+spikeLength+size*.16,ry+spikeLength+size*.16,angle,0,Math.PI*2);ctx.stroke();}ctx.font='12px system-ui';ctx.fillStyle=size>player.size*CONF.KILL_RATIO?'#ffad98':f.puffBlocked?'#ffc09a':warn?'#ffe2a0':'#cce8b1';ctx.textAlign='center';
   var label=f.puffBlocked?'膨胀 · 不可吞食 '+Math.max(0,f.puffTimer).toFixed(1)+'s':warn?'刺豚即将膨胀！':f.puffCooldown>0?'刺豚恢复 · 可吞食窗口 '+f.puffCooldown.toFixed(1)+'s':'刺豚 · 靠近会膨胀';
   if(size>player.size*CONF.KILL_RATIO)label='危险刺豚 · 能吞食你'+(f.puffBlocked?' · 已膨胀':'');
   ctx.fillText(label,x,y-r-size*.2-12);ctx.restore();

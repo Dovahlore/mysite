@@ -168,7 +168,6 @@ render=function(time){oldRender(time);syncUI();};
 // Readable prey affordance, drawn behind the fish rather than over its silhouette.
 var baseFishDraw=drawFishSprite;
 drawFishSprite=function(f,x,y,s,a,t,inflated,isPlayer,time){
- if(!isPlayer && player.alive && s<player.size*CONF.EAT_RATIO && dist2(x,y,player.x,player.y)<650*650){ctx.save();ctx.strokeStyle='rgba(131,242,192,.5)';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(x,y,s*1.6+5,s*.9+5,0,0,Math.PI*2);ctx.stroke();ctx.restore();}
  baseFishDraw(f,x,y,s,a,t,inflated,isPlayer,time);
 };
 // Rich reef dressing uses the very same SDF surface as collision.
