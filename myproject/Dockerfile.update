@@ -1,2 +1,2 @@
-FROM docker-mysite-app:bfish-v6-20261111
+FROM docker-mysite-app:bfish-v6.7-20261111
 COPY . /mysite/
