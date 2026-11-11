@@ -1573,7 +1573,7 @@ function spawnRay(ball) {
     const a = n > 1 ? Math.random() * TAU : Math.atan2(ball.vy, ball.vx) + rnd(-0.3, 0.3);
     S.rays.push({
       x: ball.x, y: ball.y, vx: Math.cos(a) * sp2, vy: Math.sin(a) * sp2,
-      budget, life: 12, hits: new Set(), dead: false // life=最长 12s 兑底（防纯水平弹射永续；常规光远早于此死于预算/触底）
+      budget, life: 12, hits: new Map(), dead: false // life=最长 12s 兑底（防纯水平弹射永续；常规光远早于此死于预算/触底）；hits=同块再命中冷却表（2026-11-11 无限次命中改版）
     });
   }
   sfx.zap();
@@ -1581,7 +1581,7 @@ function spawnRay(ball) {
 // 2026-11-10 测试直通口：指定角度/位置发射一颗棱镜光（伤径走真实 updateRays；budget=∞ 隔离射程变量——触底消散/反弹行为另有行为测）
 function spawnRayAt(x, y, ang) {
   const sp2 = 520;
-  S.rays.push({ x, y, vx: Math.cos(ang) * sp2, vy: Math.sin(ang) * sp2, budget: Infinity, life: 12, hits: new Set(), dead: false });
+  S.rays.push({ x, y, vx: Math.cos(ang) * sp2, vy: Math.sin(ang) * sp2, budget: Infinity, life: 12, hits: new Map(), dead: false });
 }
 // 蜂群弹：撞击放出追踪蜂（存在 4s，追踪最近块，命中咬 1 伤 ×2 口；树：增巢 +1/层/蜂巢 6 只 3 口；Wave3：ssr1 双倍蜂→蜂咬施毒下线）
 function spawnBees(ball) {
@@ -2022,8 +2022,8 @@ function ignite(b, srcKind, addL) {
   let layers = addL || 1; // 2026-11-06 逐层独立：一次点燃加 layers 层，每层各自满时长独立倒计时（再点燃不再制剩旧层）；2026-11-09 热冲击重做后待施层先与冰冻对冲
   // R2fireice 2026-11-04 真火（fire ssr1 三味真火改）：燃烧弹点燃的燃烧变为「真火」——跳伤/时长/叠层照普通燃烧（烧尽层清），不可被冰熄灭/消耗
   const trueFire = srcKind === 'fire' && treeOn('fire', 'ssr1');
-  // R2fireice 2026-11-04 核弹：真火施加到冻结块 → 两者抵消 + 全场所有块 hp−30（本次点燃随之取消，不落地）
-  if (trueFire && (b.frz || 0) > 0) { nukeFireIce(b); return; }
+  // 2026-11-11 拍板改版：真火施加到冻结块 → 不再互毁核弹，改「真热冲击」：以冲突点为中心 1.5 格范围热冲击，伤 = 热冲击 ×1.5（本次点燃随之取消，不落地）
+  if (trueFire && (b.frz || 0) > 0) { b.frz = 0; trueHeatNova(b); return; }
   // 2026-11-09 热冲击重做（火→冰冻块，全局机制）：待施燃层与冰冻层逐层 1:1 对冲——每对冲 1 层 1 次热冲击（3+synFI）；
   // 冰冻耗尽后剩余燃层照常施加；冰冻未耗尽则本次不落燃（普通冰燃不共存，用户拍板例：2 燃 vs 1 冰 = 1 次热冲击 + 1 层燃烧落地）
   // 2026-11-10 层次拍板：三味真火高于对冲层——真火点燃不与冰冻对冲（冰冻照常保留，两者可共存；冰也施不上真火块，见 applyFrost）；
@@ -2038,12 +2038,12 @@ function ignite(b, srcKind, addL) {
   // 2026-11-09 热冲击重做：燃层全部被对冲消耗时不落燃不点火（burnTick/燃爆层/火星均不触发）
   if (layers > 0) {
     if (trueFire || b.trueFire > 0) {
-      // 2026-11-10 真火重做（用户拍板）：不走 2s 秒表——施加立即烧 1 跳，buff 持续 2 波不消失、每波开始再烧 1 跳（见 endVolley 钩）；
-      // 同块普通燃层一并并入真火统一走波表；burn/burnL 镜像层数=视为燃烧，全部燃烧联动/加成照吃（毒燃/沸腾之血/猎燃弹/燃爆层等）
+      // 2026-11-11 真火二改（用户拍板）：持续燃烧直到本波结束（endVolley 波结算清空）——无秒表、不随时间燃尽；
+      // 施加立即烧 1 跳，之后按燃烧跳频实时跳伤（见 step 真火分支）；同块普通燃层并入真火；
+      // burn/burnL 镜像层数=视为燃烧，全部燃烧联动/加成照吃（毒燃/沸腾之血/猎燃弹/燃爆层等）
       const burnL0 = b.burnQ ? b.burnQ.length : 0;
       b.burnQ = [];
       b.trueFire = (b.trueFire || 0) + layers + burnL0;
-      b.tfW = 2; // 再点燃叠加并刷新剩余波数
       b.burnL = b.trueFire; b.burn = Math.max(1, b.trueFire);
       if (srcKind) b.burnDmg = Math.max(b.burnDmg || 1, burnDmgOf(srcKind));
       else if (!(b.burnDmg > 0)) b.burnDmg = burnDmgOf(srcKind);
@@ -2103,8 +2103,8 @@ let FRZ_WAVING = false; // 2026-11-09 冻结爆发波及互斥标记（防 apply
 // R2fireice 2026-11-04 施加 1 层冻结（绝对零度直冻 / 冰冻叠满门槛共用入口）；含核弹判定与冻结爆发链
 function applyFreeze(b) {
   if (b.dead) return;
-  // 核弹：施加冻结的命中打到真火块 → 两者抵消 + 全场所有块 hp−30（冻结不落地）
-  if (b.trueFire) { nukeFireIce(b); return; }
+  // 2026-11-11 拍板改版：施加冻结的命中打到真火块 → 真热冲击（1.5 格范围热冲击 ×1.5；真火清空、冻结不落地）
+  if (b.trueFire) { trueHeatNova(b); return; }
   b.frz = (b.frz || 0) + 1;
   spark(b.x + b.w / 2, b.y + b.h / 2, '#e8f7ff');
   burst(b.x + b.w / 2, b.y + b.h / 2, '#dff4ff', REDUCED ? 5 : 9, 130); // 2026-11-09 拍板：冻结转化加冰晶进溅（原来只有单点 spark）
@@ -2127,27 +2127,33 @@ function applyFreeze(b) {
     spark(cx2, cy2, '#8fff5a');
   }
 }
-// R2fireice 2026-11-04 核弹：冻结与真火相遇两者抵消 → 全场所有块 hp−30（VFX 全屏冲击；无视灵体期）
-function nukeFireIce(b) {
+// 2026-11-11 拍板改版（取代旧核弹）：真火×冻结相遇 → 「真热冲击」——以冲突点为中心 1.5 格范围，每块伤 = 热冲击 ×1.5（含热冲击卡加成：基础 3+synFI 每层 +1，先吃加成再 ×1.5）；
+// 专属特效：烈焰红爆 + 蒸汽喷发 + 火色冲击环 + 「真热冲击！」浮字；冲突块真火清空、冻结被消耗；无视灵体期（force 伤）
+function trueHeatNova(b) {
   const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-  if (b.trueFire) burnClear(b); // 真火侧抵消：燃层一并清（真火被冻结湮灭；2026-11-06 逐层队列同步清）
-  b.frz = 0; // 冻结侧抵消（含本次未落地的施加）
-  addFloat(W / 2, H * 0.35, '真冰核爆！全场 hp −30', DANGER, 26);
-  S.shocks.push({ x: cx, y: cy, r0: 20, r1: 480, t: 0 });
-  if (!REDUCED) { S.shake = Math.min(15, S.shake + 12); S.flash = Math.min(0.35, S.flash + 0.3); }
-  burst(cx, cy, '#ff9a4d', REDUCED ? 12 : 30, 320);
-  burst(cx, cy, '#8fd7ff', REDUCED ? 10 : 24, 260);
-  sfx.boom();
-  slowmo(0.5);
+  const R = cells(1.5);
+  const dmg = Math.round((3 + (S.up.synFI || 0)) * 1.5); // 热冲击卡（synFI）加成在乘区内——真热冲击吃全套热冲击卡加成
+  if (b.trueFire) burnClear(b); // 真火侧随冲突清空
+  b.frz = 0; // 冻结侧被消耗
+  addFloat(W / 2, H * 0.35, '真热冲击！', '#ff4500', 24);
+  S.shocks.push({ x: cx, y: cy, r0: 10, r1: R + 60, t: 0 });
+  if (!REDUCED) { S.shake = Math.min(12, S.shake + 8); S.flash = Math.min(0.3, S.flash + 0.22); }
+  burst(cx, cy, '#ff4500', REDUCED ? 10 : 22, 260);
+  burst(cx, cy, '#ffb45c', REDUCED ? 8 : 16, 200);
+  steamBurst(cx, cy, REDUCED ? 10 : 20); // 蒸汽爆（热冲击族特效加强版）
+  sfx.heat();
+  sfx.boom(); // 真热冲击更重（热冲击族音 + 闷爆）
+  slowmo(0.3);
   for (const p of S.blocks) {
     if (p.dead) continue;
-    damage(p, 30, false, true); // 全场所有块 hp−30（force=true：全场口径，无视灵体期）
+    const pad2 = (p.shape === 'circle' || p.shape === 'tri') ? p.w / 2 : Math.max(p.w, p.h) / 2;
+    if (Math.hypot(p.x + p.w / 2 - cx, p.y + p.h / 2 - cy) <= R + pad2) damage(p, dmg, false, true);
   }
 }
 function applyFrost(b, n) {
   if (b.dead) return;
   // R2fireice 2026-11-04 绝对零度（ice ssr1 接线，原死节点）：施加冰冻时 10% 几率直接施加 1 层冻结（跳过本次叠层）；
-  // 掷骰先于真火免疫——直冻命中真火块时经 applyFreeze 触发核弹（两者抵消 + 全场 hp−30）
+  // 掷骰先于真火免疫——直冻命中真火块时经 applyFreeze 触发真热冲击（2026-11-11 改版：1.5 格范围热冲击 ×1.5）
   if (treeOn('ice', 'ssr1') && Math.random() < 0.10) { applyFreeze(b); return; }
   // R2fireice 2026-11-04 真火：冰无法熄灭真火、也无法施加——真火块上冰冻层/热冲击全部无效
   if (b.trueFire) return;
@@ -2862,7 +2868,7 @@ const TREE_COMMON = [
   { id: 'dmg', rarity: 'N', name: '硬芯弹头', desc: '该类球撞击伤害 +1' }
 ];
 const TREE_SSR = {
-  fire:      [{ id: 'ssr1', rarity: 'SSR', name: '三味真火', desc: '燃烧弹点燃变为真火：施加立即烧 1 跳，持续 2 波不消失、每波开始再烧 1 跳（伤×层数）；高层次——不与冰冻对冲、冰不可熄灭/施加；遇冻结两抵全场 hp−30；视为燃烧可联动（毒燃/沸腾之血/燃爆层等）' }, { id: 'ssr2', rarity: 'SSR', name: '火蛇', desc: '任意球撞击/穿透命中后从块背后伸出约 2 格扭曲火舌，经过的方块点燃（每块 0.3s 一次）' }], // 2026-11-10 真火重做：持续 2 波、波始烧跳、视为燃烧联动（原「跳伤/时长照燃烧」随秒表路线下线）
+  fire:      [{ id: 'ssr1', rarity: 'SSR', name: '三味真火', desc: '燃烧弹点燃变为真火：施加立即烧 1 跳，随后持续燃烧直到本波结束（每跳同燃烧口径，伤×层数）；高层次——不与冰冻对冲、冰不可熄灭/施加；遇冻结引发真热冲击：1.5 格范围热冲击 ×1.5（吃热冲击卡加成）；视为燃烧可联动（毒燃/沸腾之血/燃爆层等）' }, { id: 'ssr2', rarity: 'SSR', name: '火蛇', desc: '任意球撞击/穿透命中后从块背后伸出约 2 格扭曲火舌，经过的方块点燃（每块 0.3s 一次）' }], // 2026-11-11 真火二改：持续燃烧至本波结束 + 遇冻结改真热冲击（旧互毁核弹下线）
   ice:       [{ id: 'ssr1', rarity: 'SSR', name: '绝对零度', desc: '施加冰冻时 10% 几率直接施加 1 层冻结（冻结=永久易伤，受伤 +1/层）' }, { id: 'ssr2', rarity: 'SSR', name: '冰川崩解', desc: '带冰冻或冻结的块被击碎时波及 2 格内邻近块（各 +1 层冰冻）' }], // R2fireice 2026-11-04：ssr1 原死节点接线（10% 直冻）；ssr2 触发扩至冰冻或冻结
   bolt:      [{ id: 'ssr1', rarity: 'SSR', name: '雷暴', desc: '雷电球碰撞 2% 召唤雷暴：10 道落雷 + 5 道闪电链', dyn: () => '雷暴：落雷 10 道 · 闪电链 5 道' }, { id: 'ssr2', rarity: 'SSR', name: '雷神风暴', desc: '闪电链伤害 ×2' }], // R2bolt 2026-11-05：ssr1 限雷电球触发（批注）
   poison:    [{ id: 'ssr1', rarity: 'SSR', name: '致病性', desc: '中毒结算伤 ×2' }, { id: 'ssr2', rarity: 'SSR', name: '腐败尸爆', desc: '中毒块死亡时 1.5 格毒爆 2 伤，并向 2 格内随机 1 块传染 2 层中毒' }],
@@ -3272,8 +3278,8 @@ function pickFallback3() {
   return out;
 }
 
-// 折射激光实体（棱镜弹产物）：直线飞行、遇方块/顶侧壁反射；每块限一次；life 12s 防水平乒乓永续的兑底。
-// 2026-11-10 拍板改规：触底即消散（不反弹）——无论射程档位；旧版底墙折返（2026-11-09 曾拍板「无限射程不触底消失」）随本批作废
+// 折射激光实体（棱镜弹产物）：直线飞行、遇方块/顶侧壁反射；同一块可反复命中（每块 0.12s 冷却防贴边连跳）；life 12s 防水平乒乓永续的兑底。
+// 2026-11-11 拍板：每束光对同一块不再限一次——无限次命中（反弹折返再碰到两伤两弹）；2026-11-10 触底消散（不反弹，无论射程档位）继续生效
 function updateRays(dt) {
   for (const r of S.rays) {
     if (r.dead) continue;
@@ -3291,10 +3297,11 @@ function updateRays(dt) {
       if (r.y < TOP + 3) { r.y = TOP + 3; r.vy = Math.abs(r.vy); }
       else if (r.y > H - 3) { r.dead = true; break; } // 2026-11-10 拍板：棱镜光触底消散（不反弹）——无论普通/无限射程
       for (const b of S.blocks) {
-        if (b.dead || r.hits.has(b.id)) continue;
+        if (b.dead) continue;
+        if ((r.hits.get(b.id) || 0) > gameT) continue; // 同块反复命中：仅留 0.12s 冷却（防贴边滑行每子步连跳；跨弹道往返不受限）
         const cx = clamp(r.x, b.x, b.x + b.w), cy = clamp(r.y, b.y, b.y + b.h);
         if ((r.x - cx) * (r.x - cx) + (r.y - cy) * (r.y - cy) < 49) {
-          r.hits.add(b.id);
+          r.hits.set(b.id, gameT + 0.12);
           // V3 棱镜光（批注射线化）：基础伤 1 + 高纯晶格 +1/层；寒光聚焦：对冰冻/冻结 ×2
           let rd = (1 + treeCount('prism', 'n2')) * (1 + 0.2 * (S.up.synP1 || 0)); // V4.7 光棱共鸣
           if ((b.frost || 0) > 0 || (b.frz || 0) > 0) rd *= treeOn('prism', 'ssr2') ? 2 : 1; // 寒光聚焦：冰冻/冻结块（R2fireice：冻结=永久易伤态）
@@ -3545,6 +3552,12 @@ function endVolley() {
   }
   BLEED_SETTLING = false;
   for (const b of S.blocks) { b.bleedDefer = 0; b.snapSt = null; } // defer 标/快照清零（层已留存 b.bleed，下一轮正常爆发）
+  // 2026-11-11 真火二改：真火持续燃烧直到本波结束——波结算完成即全部熄灭（不带入下一波）
+  for (const b of S.blocks) {
+    if (b.dead || !((b.trueFire || 0) > 0)) continue;
+    addFloat(b.x + b.w / 2, Math.max(TOP + 12, b.y - 4), '真火熄灭', '#ff9a4d', 12);
+    burnClear(b);
+  }
   // 2026-11-10 拍板：回血块治疗/护盾块回盾改回合结束后立刻触发（原在 fire() 发射瞬间）；回合计数同移，幽灵相位公式随去掉 +1
   S.rounds = (S.rounds || 0) + 1;
   for (const b of S.blocks) {
@@ -3647,14 +3660,6 @@ function endVolley() {
     b.intang = ((S.rounds + 1 + (b.phaseOff || 0)) % 2) === 0; // +1 保留：切的是下一回合相位（S.rounds 已在本 endVolley 开头推进，2026-11-10 时机投迁后语义不变）
   }
   // 毒云/坏死区滴注：2026-11-09 R4 移至下移前执行（见上），此处不再重复调用
-  // 2026-11-10 真火重做：每波开始烧 1 跳（伤×层数），剩余波数递减、归零熄灭（施加时已立即烧过 1 跳）
-  for (const b of S.blocks) {
-    if (b.dead || !(b.trueFire > 0)) continue;
-    trueFireTick(b);
-    if (b.dead) continue;
-    b.tfW = (b.tfW || 1) - 1;
-    if (b.tfW <= 0) { addFloat(b.x + b.w / 2, Math.max(TOP + 12, b.y - 4), '真火燃尽', '#ff9a4d', 12); burnClear(b); }
-  }
   // 毒性滋养（2026-11-03 批注·疫病进化选项）：每波结束——带中毒或病毒层数的块 +2 层病毒
   if (treeOn('plague', 'ssr2')) {
     for (const b of S.blocks) {
@@ -3763,7 +3768,17 @@ function step(rdt) {
   for (const b of S.blocks) { b.flash = Math.max(0, b.flash - dt * 5); if (b.critT > 0) b.critT = Math.max(0, b.critT - dt); } // 2026-11-10 暴击震动计时衰减（纯视效，见 drawBlock）
   for (const b of S.blocks) {
     // 2026-11-06 燃烧逐层独立计时：burnQ=每层剩余时长，各自倒计时，到点的层单独移除（burn=剩余最大值，仅显示/判定用）
-    // 2026-11-10 真火重做：真火块不走秒表（无每秒跳伤/不随时间燃尽）——烧跳改施加时+每波开始（trueFireTick/endVolley 钩）
+    // 2026-11-11 真火二改：真火块不走秒表也不随时间燃尽——按燃烧跳频实时跳伤，持续到本波结束（endVolley 波结算清空）
+    if (!b.dead && (b.trueFire || 0) > 0 && b.burn > 0) {
+      b.burnTick -= dt;
+      if (Math.random() < dt * 5) spark(b.x + rnd(4, Math.max(5, b.w - 4)), b.y + rnd(2, Math.max(3, b.h - 2)), '#ff4500');
+      if (b.burnTick <= 0 && (b.burnL || 0) > 0) {
+        b.burnTick = b.burnPer || 0.45;
+        let tick = (b.burnDmg || 1) * (b.burnL || 1); // 跳伤口径同普通燃烧（平坦伤×存活层）
+        if ((b.poison || 0) > 0 && S.up.synFP > 0) tick *= 1 + 0.25 * S.up.synFP; // 毒燃联动（真火算燃烧）
+        damage(b, Math.max(1, Math.round(tick)));
+      }
+    }
     if (!b.dead && b.burn > 0 && !(b.trueFire > 0) && !b.burnQ) b.burnQ = new Array(Math.max(1, b.burnL || 1)).fill(b.burn); // 兼容直构/旧状态：按剩余时长建队
     if (!b.dead && !(b.trueFire > 0) && b.burnQ && b.burnQ.length) {
       for (let i = 0; i < b.burnQ.length; i++) b.burnQ[i] -= dt;
@@ -5025,9 +5040,10 @@ const GLOSSARY = [
   ['走廊（激光）', '激光命中判定宽度：基础 0.1 格、扩束镜 +0.5 格/层；轨道激光初始 0.8 格且同吃扩束镜，光柱随宽度变粗'], // 2026-11-10 扩束镜拍板
   ['易伤', '受到的伤害按层数加深的机制（如冻结：每层 +1）'],
   ['热冲击', '冰火互施逐层对冲：每消 1 层 1 次热冲击（基础 3 伤+卡）；真火不参与，普通冰燃不共存'],
-  ['真火', '三味真火点燃：施加即烧 1 跳、持续 2 波每波开始烧 1 跳（伤×层）；冰不可熄灭，遇冻结两抵全场 hp−30'], // 2026-11-10 真火重做：持续 2 波波始烧跳
+  ['真热冲击', '真火×冻结相遇引发：以冲突点为中心 1.5 格范围，每块伤=热冲击 ×1.5（吃热冲击卡加成）；真火清空、冻结被消耗'], // 2026-11-11 真火二改新增（旧互毁核弹下线）
+  ['真火', '三味真火点燃：施加即烧 1 跳、持续燃烧至本波结束（每跳伤×层）；冰不可熄灭，遇冻结引发 1.5 格真热冲击 ×1.5'], // 2026-11-11 真火二改：波内持续燃烧 + 真热冲击改版
   ['光照', '光伤族统称（旧称灼耀）：激光束 / 棱镜光 / 太阳光照造成的伤害'],
-  ['棱镜光', '棱镜弹击发的折射光：遇方块/侧顶壁反弹、触底消散，每束每块限一次；射程 260+50%/层，光棱矩阵=无限射程'], // 2026-11-10 改规：触底消散
+  ['棱镜光', '棱镜弹击发的折射光：遇方块/侧顶壁反弹、触底消散，同块可反复命中；射程 260+50%/层，光棱矩阵=无限射程'], // 2026-11-11 改规：同块无限次命中（仅 0.12s 冷却）；2026-11-10 触底消散
   ['圣愈', '太阳弹·圣辉：光照每累计命中 N 次回 1 层护盾（N=24−光属性等级，下限 8）'],
   ['狂热', '增益：持续期间伤害 ×1.5（按波计：狂热试剂 1 波；掉落接住 2 波/落底 1 波）'], // 2026-11-10：计时增益改按波（原 12s/14s/8s 文案下线）
   ['巨球', '增益：持续 2 波内弹珠体型与判定半径 ×1.5'],
@@ -5066,6 +5082,11 @@ const GLOSSARY = [
 ];
 /* 2026-11-04 更新日志页（内容取自引擎源码内的版本批注，新→旧） */
 const CHANGELOG = [
+  ['11-11', '体验批三 · 棱镜无限命中/真火二改/真热冲击', [
+    '棱镜光对同一方块改为可无限次命中（原每束每块限一次下线；仅留 0.12s 冷却防贴边连跳）',
+    '真火二改：施加即烧 1 跳后持续燃烧直到本波结束（每跳同燃烧口径），波结算全部熄灭；不再按 2 波计数',
+    '真火×冻结不再互毁核弹：改为真热冲击——以冲突点为中心 1.5 格范围，每块伤 = 热冲击 ×1.5，带专属特效',
+  ]],
   ['11-10', '体验批二 · 棱镜触底/减速永久/真火重做/回血护盾时机', [
     '棱镜光触底消散不再反弹（无论射程档位）；减速块减速永久不恢复（更慢坠底更早属预期代价）',
     '真火重做：施加即烧 1 跳、持续 2 波每波开始再烧 1 跳，视为燃烧可联动；毒牙升 SR、放血升 R（叠层卡按 buff 强度定档）',
@@ -7044,7 +7065,7 @@ window.CB = {
     hp: () => { let mn = 99, s = 0, n = 0; for (const b of S.blocks) { mn = Math.min(mn, b.hp); s += b.hp; n++; } return { min: mn === 99 ? 0 : mn, avg: n ? +(s / n).toFixed(1) : 0, n }; },
     hpBase: (w) => hpBase(w),
     perm: () => S.perm,
-    blocks: () => S.blocks.map(b => ({ x: Math.round(b.x), y: Math.round(b.y), w: b.w, h: b.h, shape: b.shape, hp: b.hp, maxHp: b.maxHp, type: b.type, gid: b.gid, rot: b.rot, drift: !!b.driftA, boss: !!b.boss, bossType: b.bossType || null, shield: b.shieldCur || 0, shieldMax: b.shieldMax || 0, intang: !!b.intang, frozen: b.frozen || 0, critT: +(b.critT || 0).toFixed(3), frail: b.frail || 0, frailG: b.frailG || 0, burn: +(b.burn || 0).toFixed(2), burnL: b.burnL || 0, burnPer: +(b.burnPer || 0).toFixed(3), trueFire: b.trueFire || 0, tfW: b.tfW || 0, poison: b.poison || 0, frost: b.frost || 0, frz: b.frz || 0, virus: b.virus || 0, bleed: b.bleed || 0, annih: b.annih || 0, charge: b.charge || 0, mark: b.mark || 0, tid: b.tid || 0, summoned: !!b.summoned })), // R2fireice 2026-11-04：快照改 frz（冻结易伤层）+trueFire（真火）；旧 freeze 计时/freezeL/burnFire 随机制下线 // 2026-11-03 暗影斩杀改版：annih=湮蚀标记层；R2dark：corrode 快照键随侵蚀体系删除
+    blocks: () => S.blocks.map(b => ({ x: Math.round(b.x), y: Math.round(b.y), w: b.w, h: b.h, shape: b.shape, hp: b.hp, maxHp: b.maxHp, type: b.type, gid: b.gid, rot: b.rot, drift: !!b.driftA, boss: !!b.boss, bossType: b.bossType || null, shield: b.shieldCur || 0, shieldMax: b.shieldMax || 0, intang: !!b.intang, frozen: b.frozen || 0, critT: +(b.critT || 0).toFixed(3), frail: b.frail || 0, frailG: b.frailG || 0, burn: +(b.burn || 0).toFixed(2), burnL: b.burnL || 0, burnPer: +(b.burnPer || 0).toFixed(3), trueFire: b.trueFire || 0, poison: b.poison || 0, frost: b.frost || 0, frz: b.frz || 0, virus: b.virus || 0, bleed: b.bleed || 0, annih: b.annih || 0, charge: b.charge || 0, mark: b.mark || 0, tid: b.tid || 0, summoned: !!b.summoned })), // R2fireice 2026-11-04：快照改 frz（冻结易伤层）+trueFire（真火）；旧 freeze 计时/freezeL/burnFire 随机制下线 // 2026-11-03 暗影斩杀改版：annih=湮蚀标记层；R2dark：corrode 快照键随侵蚀体系删除
     block: (t, x, y, extra) => {
       // 测试直通口：指定类型/位置造块（不检测重叠，便于靶场实验）
       const hp0 = extra && extra.hp ? extra.hp : Math.max(2, hpBase(S.wave));
