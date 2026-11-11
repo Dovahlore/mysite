@@ -59,7 +59,7 @@ toolhub/static/tools/<id>/
 
 ## 活样例
 
-`static/tools/g2048/` —— 2048 小游戏（键盘/触屏 + 局末 AI 毒舌点评），
+`static/tools/cball/` —— 连锁弹珠小游戏（纯前端、无 ai 配置），
 新工具照它的目录结构抄即可。
 
 ## 部署注意

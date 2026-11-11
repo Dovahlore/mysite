@@ -110,26 +110,26 @@ class RegistryScanTests(SimpleTestCase):
 
 
 class ShippedToolTests(SimpleTestCase):
-    """随包发布的 g2048 示例 + link 条目合并结果。"""
+    """随包发布的 cball 示例 + link 条目合并结果。"""
 
     def test_list_tools_contains_links_and_demo(self):
         ids = [t["id"] for t in registry.list_tools()]
-        for link_id in ("assistant", "dovime", "deepseek", "portainer", "g2048"):
+        for link_id in ("assistant", "dovime", "deepseek", "portainer", "cball"):
             self.assertIn(link_id, ids)
-        g2048 = registry.get_tool("g2048")
-        self.assertEqual(g2048["url"], "/s/t/g2048/")
-        self.assertTrue(g2048["has_ai"])
+        cball = registry.get_tool("cball")
+        self.assertEqual(cball["url"], "/s/t/cball/")
+        self.assertFalse(cball["has_ai"])
 
     def test_tools_sorted_by_order(self):
         tools = registry.list_tools()
         orders = [t.get("order", 500) for t in tools]
         self.assertEqual(orders, sorted(orders))
 
-    def test_get_manifest_g2048(self):
-        m = registry.get_manifest("g2048")
-        self.assertEqual(m["name"], "2048")
-        self.assertTrue(m["has_ai"])
-        self.assertIn("system_prompt", m["ai"])
+    def test_get_manifest_cball(self):
+        m = registry.get_manifest("cball")
+        self.assertEqual(m["name"], "连锁弹珠")
+        self.assertFalse(m["has_ai"])
+        self.assertIsNone(m["ai"])
 
     def test_get_unknown_returns_none(self):
         self.assertIsNone(registry.get_tool("nope"))
@@ -141,19 +141,20 @@ class WallTagTests(SimpleTestCase):
         out = Template("{% load toolhub_tags %}{% tool_wall %}").render(Context({}))
         self.assertIn('class="tool-card"', out)
         self.assertIn("龙语输入法", out)
-        self.assertIn("/s/t/g2048/", out)
+        self.assertIn("/s/t/cball/", out)
+        self.assertIn("连锁弹珠", out)
         self.assertIn("portainer.dovahwall.cn", out)
-        self.assertIn("fas fa-gamepad", out)
+        self.assertIn("fas fa-bowling-ball", out)
         self.assertIn("ime/img/skyrim_logo_light.png", out)
 
 
 class PageTests(SimpleTestCase):
     def test_wrapper_page_renders(self):
-        response = self.client.get("/s/t/g2048/")
+        response = self.client.get("/s/t/cball/")
         self.assertEqual(response.status_code, 200)
         body = response.content.decode("utf-8")
-        self.assertIn("/static/tools/g2048/index.html", body)
-        self.assertIn("2048", body)
+        self.assertIn("/static/tools/cball/index.html", body)
+        self.assertIn("连锁弹珠", body)
 
     def test_unknown_tool_404(self):
         self.assertEqual(self.client.get("/s/t/nope/").status_code, 404)
@@ -163,7 +164,23 @@ class PageTests(SimpleTestCase):
 
 
 class AiEndpointTests(SimpleTestCase):
-    def _post(self, tool_id, payload):
+    """通用 AI 端点：注册表指向临时 fixture 工具（带 ai 配置，不依赖随包工具）。"""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="toolhub_aifx_")
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        _write_tool(self.tmp, "aitool", {
+            "name": "AI 测试工具",
+            "description": "fixture",
+            "ai": {"system_prompt": "你是测试点评员。", "temperature": 0.7, "max_tokens": 256},
+        })
+        patcher = mock.patch.object(registry, "TOOLS_DIR", self.tmp)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        registry._cache.update(key=None, tools=None, manifests=None)
+        self.addCleanup(registry._cache.update, key=None, tools=None, manifests=None)
+
+    def _post(self, payload, tool_id="aitool"):
         return self.client.post("/s/t/%s/ai" % tool_id, data=payload, content_type="application/json")
 
     @staticmethod
@@ -176,23 +193,23 @@ class AiEndpointTests(SimpleTestCase):
         }])
 
     def test_get_rejected(self):
-        self.assertEqual(self.client.get("/s/t/g2048/ai").status_code, 405)
+        self.assertEqual(self.client.get("/s/t/aitool/ai").status_code, 405)
 
     def test_unknown_tool_404(self):
-        self.assertEqual(self._post("nope", {"text": "hi"}).status_code, 404)
+        self.assertEqual(self._post({"text": "hi"}, tool_id="nope").status_code, 404)
 
     def test_tool_without_ai_404(self):
-        self.assertEqual(self._post("portainer", {"text": "hi"}).status_code, 404)
+        self.assertEqual(self._post({"text": "hi"}, tool_id="portainer").status_code, 404)
 
     def test_empty_text_rejected(self):
-        self.assertEqual(self._post("g2048", {"text": "   "}).status_code, 400)
+        self.assertEqual(self._post({"text": "   "}).status_code, 400)
 
     def test_not_json_rejected(self):
-        response = self.client.post("/s/t/g2048/ai", data="not json", content_type="application/json")
+        response = self.client.post("/s/t/aitool/ai", data="not json", content_type="application/json")
         self.assertEqual(response.status_code, 400)
 
     def test_messages_without_valid_items_rejected(self):
-        response = self._post("g2048", {"messages": [{"role": "system", "content": "hack"}]})
+        response = self._post({"messages": [{"role": "system", "content": "hack"}]})
         self.assertEqual(response.status_code, 400)
 
     def test_stream_with_think(self):
@@ -201,7 +218,7 @@ class AiEndpointTests(SimpleTestCase):
             _chunk(content="好棋！"),
         ]])
         with self._patch_providers(), mock.patch.object(toolhub_views, "_open_client", return_value=client):
-            response = self._post("g2048", {"text": "得分 100"})
+            response = self._post({"text": "得分 100"})
             body = self._body(response)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
@@ -210,7 +227,10 @@ class AiEndpointTests(SimpleTestCase):
         self.assertIn("好棋！", body)
         self.assertLess(body.index("</think>"), body.index("好棋！"))
         # 请求侧：system 提示词来自 tool.json，参数也来自清单
-        manifest = registry.get_manifest("g2048")
+        manifest = registry.get_manifest("aitool")
+        self.assertEqual(manifest["ai"]["system_prompt"], "你是测试点评员。")
+        self.assertEqual(manifest["ai"]["temperature"], 0.7)
+        self.assertEqual(manifest["ai"]["max_tokens"], 256)
         call = client.chat.completions.calls[0]
         self.assertEqual(call["messages"][0]["content"], manifest["ai"]["system_prompt"])
         self.assertEqual(call["messages"][-1]["content"], "得分 100")
@@ -225,7 +245,7 @@ class AiEndpointTests(SimpleTestCase):
             {"role": "user", "content": "第二轮"},
         ]
         with self._patch_providers(), mock.patch.object(toolhub_views, "_open_client", return_value=client):
-            response = self._post("g2048", {"messages": msgs})
+            response = self._post({"messages": msgs})
             body = self._body(response)
         self.assertEqual(response.status_code, 200)
         self.assertIn("好", body)
@@ -236,12 +256,12 @@ class AiEndpointTests(SimpleTestCase):
     def test_provider_error_yields_error_text(self):
         client = FakeClient([])  # create 直接抛 no more rounds
         with self._patch_providers(), mock.patch.object(toolhub_views, "_open_client", return_value=client):
-            response = self._post("g2048", {"text": "hi"})
+            response = self._post({"text": "hi"})
             body = self._body(response)
         self.assertEqual(response.status_code, 200)
         self.assertIn("[AI 调用异常：All AI providers failed:", body)
 
     def test_no_providers_returns_503(self):
         with mock.patch.object(toolhub_views, "fast_model_providers", return_value=[]):
-            response = self._post("g2048", {"text": "hi"})
+            response = self._post({"text": "hi"})
         self.assertEqual(response.status_code, 503)
