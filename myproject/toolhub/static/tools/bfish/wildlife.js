@@ -131,5 +131,5 @@ drawFishSprite=function(f,x,y,size,angle,tail,inflate,isPlayer,time){
 };
 
 // Non-lethal contact attacks reduce satiety, with a distinct bite strength per species.
-var FISH_BITE_DAMAGE={'梭鱼':12,'海鳗':14,'石斑鱼':10,'鮟鱇鱼':18,'剑鱼':24,'鲨鱼':26,'哥布林鲨':28,'冰牙鲨':30,'深海巨鲨':36,'皇带鱼':12,'蝠鲼':8};
-function fishBiteDamage(f){var sp=f.spec;if(Object.prototype.hasOwnProperty.call(FISH_BITE_DAMAGE,sp.n))return FISH_BITE_DAMAGE[sp.n];return sp.aggr>=1?22:sp.aggr?14:8;}
+var FISH_BITE_DAMAGE={'梭鱼':16,'海鳗':20,'石斑鱼':18,'鮟鱇鱼':18,'剑鱼':24,'鲨鱼':26,'哥布林鲨':28,'冰牙鲨':30,'深海巨鲨':36,'皇带鱼':16,'蝠鲼':15};
+function fishBiteDamage(f){var sp=f.spec;if(Object.prototype.hasOwnProperty.call(FISH_BITE_DAMAGE,sp.n))return FISH_BITE_DAMAGE[sp.n];return sp.aggr>=1?22:sp.aggr?18:15;}

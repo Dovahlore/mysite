@@ -1,0 +1,46 @@
+/* Shared, cached high-resolution decorative assets. World dimensions remain unchanged. */
+var DECOR_CATALOGUE=[];
+function decorNoise(i,seed){var n=Math.sin(i*127.1+seed*311.7)*43758.5453;return n-Math.floor(n);}
+function decorCanvas(w,h,paint){var scale=h>300?2:3,c=document.createElement('canvas');c.width=Math.ceil(w*scale);c.height=Math.ceil(h*scale);c.logicalWidth=w;c.logicalHeight=h;var g=c.getContext('2d');g.scale(c.width/120,c.height/160);paint(g);return c;}
+function paintRibbonWeed(g,seed,cold,wide){
+ var base=cold?'#245c61':'#306f54',light=cold?'#89b7a6':'#9ac88a';
+ for(var i=0;i<9;i++){var x=35+i*6,tip=9+decorNoise(i,seed)*60,lean=(decorNoise(i+20,seed)-.5)*45,width=wide?6+decorNoise(i+40,seed)*6:2.5+decorNoise(i+40,seed)*3;var grad=g.createLinearGradient(x,tip,x,160);grad.addColorStop(0,light);grad.addColorStop(.48,base);grad.addColorStop(1,'#22483f');g.fillStyle=grad;g.strokeStyle='#b3dca044';g.lineWidth=.6;g.beginPath();g.moveTo(x,158);g.bezierCurveTo(x-14,112,x+lean+15,54,x+lean,tip);g.bezierCurveTo(x+lean-width,55,x-width+9,104,x-2,158);g.closePath();g.fill();g.stroke();g.strokeStyle='#d0e5b24d';g.beginPath();g.moveTo(x-1,155);g.bezierCurveTo(x-7,105,x+lean+3,63,x+lean,tip+7);g.stroke();}
+ g.fillStyle='#4a6651';g.beginPath();g.ellipse(60,157,27,3,0,0,Math.PI*2);g.fill();
+}
+function paintBranchCoral(g,seed,orange,fan){
+ var dark=orange?'#965a49':'#935c7c',mid=orange?'#d99464':'#cd8bab',tip=orange?'#f0d0a1':'#f3c5d3';g.lineCap='round';
+ function branch(x,y,len,ang,width,depth){var bend=(decorNoise(depth+x,seed)-.5)*.22,nx=x+Math.cos(ang+bend)*len,ny=y+Math.sin(ang+bend)*len;g.strokeStyle=dark;g.lineWidth=width+1.7;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo((x+nx)/2-2,(y+ny)/2,nx,ny);g.stroke();g.strokeStyle=mid;g.lineWidth=width;g.stroke();g.strokeStyle=tip;g.lineWidth=Math.max(.7,width*.2);g.beginPath();g.moveTo(x-1,y);g.lineTo(nx-1,ny);g.stroke();if(depth>0){branch(nx,ny,len*.7,ang-.4,width*.68,depth-1);branch(nx,ny,len*.66,ang+.43,width*.65,depth-1);}else{g.fillStyle=tip;g.beginPath();g.arc(nx,ny,1.5,0,Math.PI*2);g.fill();}}
+ if(fan){g.strokeStyle=mid;g.lineWidth=.8;for(var i=0;i<9;i++){var a=-2.65+i*.27;branch(60,155,34,a,3,2);}g.strokeStyle=tip+'77';g.lineWidth=.6;for(var r=32;r<99;r+=12){g.beginPath();g.ellipse(60,125,r*.52,r*.8,0,Math.PI,Math.PI*2);g.stroke();}}
+ else{branch(60,157,40,-Math.PI/2,9,3);branch(55,142,30,-2.22,6,2);branch(64,145,31,-.9,6,2);}
+ g.fillStyle=dark;g.beginPath();g.ellipse(60,157,24,3,0,0,Math.PI*2);g.fill();
+}
+function paintStone(g,seed,cold,basalt){
+ var points=[[10,156],[8,130],[23,84],[42,57],[81,61],[108,101],[115,147],[99,158]],grad=g.createLinearGradient(20,60,90,160);grad.addColorStop(0,cold?'#a5bac2':basalt?'#526375':'#879798');grad.addColorStop(.45,cold?'#718f9c':basalt?'#304359':'#536c71');grad.addColorStop(1,'#263c4c');g.fillStyle=grad;g.strokeStyle='#b6c7c04d';g.lineWidth=1.1;g.beginPath();points.forEach(function(p,i){if(!i)g.moveTo(p[0],p[1]);else g.lineTo(p[0],p[1]);});g.closePath();g.fill();g.stroke();g.fillStyle='#d6e2d41d';g.beginPath();g.moveTo(23,84);g.lineTo(42,57);g.lineTo(81,61);g.lineTo(68,104);g.lineTo(25,115);g.fill();g.fillStyle='#11253644';g.beginPath();g.moveTo(68,104);g.lineTo(108,101);g.lineTo(115,147);g.lineTo(76,155);g.closePath();g.fill();g.strokeStyle='#1c344d88';g.lineWidth=1.2;g.beginPath();g.moveTo(43,62);g.lineTo(49,92);g.lineTo(37,116);g.lineTo(48,140);g.stroke();g.strokeStyle='#c5d5d055';g.lineWidth=.6;g.beginPath();g.moveTo(50,90);g.lineTo(68,104);g.lineTo(93,116);g.stroke();for(var i=0;i<30;i++){var x=20+decorNoise(i,seed)*80,y=93+decorNoise(i+40,seed)*53;g.fillStyle=i%2?'#afc0b126':'#102c4133';g.beginPath();g.ellipse(x,y,.7+decorNoise(i+70,seed)*1.3,.6,0,0,Math.PI*2);g.fill();}
+}
+function paintPillar(g,seed){
+ for(var i=0;i<6;i++){var x=24+i*14,h=60+decorNoise(i,seed)*66,y=157-h,w=9+decorNoise(i+10,seed)*4;var grad=g.createLinearGradient(x-w,y,x+w,157);grad.addColorStop(0,'#e2b8a0');grad.addColorStop(.45,'#b97e77');grad.addColorStop(1,'#765664');g.fillStyle=grad;g.beginPath();g.moveTo(x-w,158);g.bezierCurveTo(x-w-3,105,x-w,y+12,x-w,y+5);g.ellipse(x,y+5,w,5,0,Math.PI,Math.PI*2);g.lineTo(x+w,157);g.closePath();g.fill();g.fillStyle='#574654';g.beginPath();g.ellipse(x,y+5,w*.67,2.5,0,0,Math.PI*2);g.fill();g.strokeStyle='#ecd0ad88';g.lineWidth=.8;for(var j=0;j<3;j++){g.beginPath();g.moveTo(x-w*.5+j*w*.45,y+14);g.lineTo(x-w*.5+j*w*.45,150);g.stroke();}for(var j=0;j<12;j++){g.fillStyle='#ebc6ac55';g.beginPath();g.arc(x-w*.7+decorNoise(j,i+seed)*w*1.4,y+18+decorNoise(j+20,i+seed)*(h-22),.8,0,Math.PI*2);g.fill();}}
+}
+function paintTableCoral(g,seed){
+ g.strokeStyle='#815b70';g.lineWidth=7;g.lineCap='round';for(var i=0;i<4;i++){g.beginPath();g.moveTo(42+i*12,157);g.lineTo(35+i*15,102-i%2*14);g.stroke();}
+ for(var i=0;i<3;i++){var x=60+(i-1)*12,y=105-i*29,rx=47-i*9;var grad=g.createLinearGradient(0,y-11,0,y+13);grad.addColorStop(0,'#e0aab9');grad.addColorStop(.4,'#c483a1');grad.addColorStop(1,'#754d72');g.fillStyle=grad;g.strokeStyle='#efc0c6';g.lineWidth=1;g.beginPath();g.ellipse(x,y,rx,13,0,0,Math.PI*2);g.fill();g.stroke();for(var j=0;j<80;j++){var a=j*2.4,r=Math.sqrt((j+.5)/80);g.fillStyle=j%3?'#f0c8c488':'#935e85aa';g.beginPath();g.arc(x+Math.cos(a)*rx*r*.94,y+Math.sin(a)*10*r,.7,0,Math.PI*2);g.fill();}}
+}
+function paintAnemone(g,seed){
+ for(var i=0;i<24;i++){var a=-Math.PI+.12+i*Math.PI/24,x=60+Math.cos(a)*38,y=145+Math.sin(a)*85,grad=g.createLinearGradient(60,155,x,y);grad.addColorStop(0,'#35525d');grad.addColorStop(.7,'#569792');grad.addColorStop(1,'#b3e2be');g.strokeStyle=grad;g.lineWidth=2.3;g.lineCap='round';g.beginPath();g.moveTo(60,155);g.bezierCurveTo(x,132,x+Math.sin(i)*7,y+16,x,y);g.stroke();g.fillStyle='#c8f1d5';g.beginPath();g.arc(x,y,1.4,0,Math.PI*2);g.fill();}g.fillStyle='#3d5d68';g.beginPath();g.ellipse(60,155,23,4,0,0,Math.PI*2);g.fill();
+}
+function paintLeafKelp(g,seed,cold){
+ for(var i=0;i<4;i++){var x=26+i*23,lean=Math.sin(i+seed)*9,tip=7+i*6;g.strokeStyle=cold?'#527d72':'#496d4c';g.lineWidth=2.2;g.lineCap='round';g.beginPath();g.moveTo(x,158);g.bezierCurveTo(x-8,112,x+lean+8,51,x+lean,tip);g.stroke();for(var j=0;j<12;j++){var y=146-j*10.5,xx=x+Math.sin(j*.35)*4,side=j%2?1:-1,len=10+Math.sin(j*.25+1)*10;var grad=g.createLinearGradient(xx,y,xx+side*len,y-9);grad.addColorStop(0,cold?'#406e65':'#507345');grad.addColorStop(1,cold?'#99bcb0':'#b0ca7b');g.fillStyle=grad;g.strokeStyle='#d0ddb84d';g.lineWidth=.45;g.beginPath();g.moveTo(xx,y);g.bezierCurveTo(xx+side*len*.3,y-13,xx+side*len,y-14,xx+side*len,y-6);g.quadraticCurveTo(xx+side*len*.5,y+2,xx,y);g.fill();g.stroke();}}
+ g.fillStyle='#5a6956';g.beginPath();g.ellipse(60,157,30,2.5,0,0,Math.PI*2);g.fill();
+}
+function makeDecorAsset(kind,w,h,seed){return decorCanvas(w,h,function(g){if(kind==='branch'||kind==='staghorn'||kind==='fan')paintBranchCoral(g,seed,kind==='staghorn',kind==='fan');else if(kind==='rock'||kind==='basalt'||kind==='iceRock')paintStone(g,seed,kind==='iceRock',kind==='basalt');else if(kind==='pillar')paintPillar(g,seed);else if(kind==='table')paintTableCoral(g,seed);else if(kind==='anemone')paintAnemone(g,seed);else if(kind==='kelp'||kind==='coldKelp')paintLeafKelp(g,seed,kind==='coldKelp');else paintRibbonWeed(g,seed,kind==='coldWeed',kind==='ribbon');});}
+var bakeBeforeDecorArt=bakeBackgrounds;bakeBackgrounds=function(){
+ bakeBeforeDecorArt();DECOR_CATALOGUE=[];var defs=[
+ [0,0,'羽状浅海草','weed',46,90,'水草','浅海'],[0,1,'浅海层理石','rock',44,31,'石块','浅海'],[0,2,'宽叶海草','ribbon',46,70,'水草','浅海'],
+ [1,0,'粉枝珊瑚','branch',60,52,'珊瑚','珊瑚礁'],[1,1,'暖橙鹿角珊瑚','staghorn',60,52,'珊瑚','珊瑚礁'],[1,2,'礁岸岩块','rock',38,27,'石块','陆架'],[1,3,'翡翠丝带草','ribbon',46,78,'水草','陆架'],[1,4,'管状海绵群','pillar',110,200,'珊瑚','陆架'],[1,5,'层叠桌形珊瑚','table',160,130,'珊瑚','陆架'],
+ [2,0,'深水荧光海葵','anemone',40,60,'水草','暮光海域'],[2,1,'深海玄武岩','basalt',52,37,'石块','深海'],[2,2,'玄武岩碎块','basalt',34,24,'石块','深海'],
+ [3,0,'冷水丝状海草','coldWeed',46,100,'水草','冷水岩床'],[3,1,'冷水礁石','iceRock',40,28,'石块','冷水岩床'],[3,2,'复叶海带丛','coldKelp',90,340,'水草','冷水岩床']];
+ defs.forEach(function(d,i){var c=makeDecorAsset(d[3],d[4],d[5],i+1);DECOR[d[0]][d[1]]=c;DECOR_CATALOGUE.push({name:d[2],kind:d[6],region:d[7],canvas:c,width:d[4],height:d[5],note:'新版绘图 · 与游戏共用缓存精灵'});});
+ SP.giantKelp=makeDecorAsset('kelp',70,840,31);DECOR_CATALOGUE.push({name:'巨型复叶海带',kind:'水草',region:'海带森林',canvas:SP.giantKelp,width:70,height:840,note:'长条叶片与叶脉 · 根部贴合岩床'});
+ for(var i=0;i<SP.sarg.length;i++){var old=SP.sarg[i];SP.sarg[i]=makeDecorAsset('kelp',old.width,old.height,i+50);DECOR_CATALOGUE.push({name:'漂浮马尾藻 '+(i+1),kind:'水草',region:'浅层暖水',canvas:SP.sarg[i],width:old.width,height:old.height,note:'漂浮藻团 · 保留原有世界显示尺寸'});}
+ for(var i=0;i<SP.spires.length;i++){var old=SP.spires[i];SP.spires[i]=makeDecorAsset(i%2?'table':'fan',old.width,old.height,i+80);DECOR_CATALOGUE.push({name:i%2?'巨型层叠珊瑚':'扇形珊瑚林',kind:'珊瑚',region:'陆架礁林',canvas:SP.spires[i],width:old.width,height:old.height,note:'多层分支与珊瑚虫纹理'});}
+ SHALLOW_SCENERY.sprites.forEach(function(c,i){DECOR_CATALOGUE.push({name:'浅海宽叶巨藻 '+(i+1),kind:'水草',region:'浅海海草带',canvas:c,width:192,height:1536,note:'保留新版长海草 · 根部贴合真实地形'});});
+};

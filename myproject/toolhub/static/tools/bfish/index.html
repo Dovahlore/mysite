@@ -1097,6 +1097,7 @@ var RK_TINT = [[96, 112, 116], [98, 104, 120], [54, 72, 94], [80, 98, 112]];
 var RK_grad = { x: 0, y: 0 };
 
 function rkField(rk, px, py){
+  if(rk.organic){var xx=px,yy=py;px+=Math.sin((yy+rk.ay)*.007)*rk.organic;py+=Math.sin((xx+rk.ax)*.006+1.3)*rk.organic;}
   var bl = rk.blobs, d = 1e9, k = rk.k, i;
   for (i = 0; i < bl.length; i += 3){
     var dx = px - bl[i], dy = py - bl[i + 1];
@@ -2369,7 +2370,7 @@ function aiEatFish(predator, prey){
 function playerBitten(f){
   if(!player.alive||gameState!=="playing"||player.spawnProt>0||player.invulnTimer>0)return;
   if(player.buffs.shield>0){consumeShield(f);return;}
-  var loss = window.fishBiteDamage ? fishBiteDamage(f) : 12;
+  var loss = window.fishBiteDamage ? fishBiteDamage(f) : 15;
   player.hunger = Math.max(0, player.hunger - loss);
   var ka = Math.atan2(player.y - f.y, player.x - f.x);
   player.vx = Math.cos(ka) * 320; player.vy = Math.sin(ka) * 320;
@@ -2514,6 +2515,7 @@ function updateFish(f, dt){
   if (farHome && f.state !== "flee" && f.state !== "chase"){
     var homeDist=Math.sqrt(hd2)||1;desiredX=desiredX*.15+(f.hx-f.x)/homeDist*.85;desiredY=desiredY*.15+(f.hy-f.y)/homeDist*.85;
   }
+  if(window.fishSpacingSteer){var spaced=fishSpacingSteer(f,desiredX,desiredY);desiredX=spaced.x;desiredY=spaced.y;}
   if(window.ecologySteering){var eco=ecologySteering(f,desiredX,desiredY);desiredX=eco.x;desiredY=eco.y;}
   if (window.steerAroundTerrain) steerAroundTerrain(f, desiredX, desiredY, dt);
   if (f.terrainSteer){desiredX=f.terrainSteer.x;desiredY=f.terrainSteer.y;}
@@ -2597,8 +2599,7 @@ function update(dt){
   if (keys.KeyD || keys.ArrowRight) kdx += 1;
   if (keys.KeyW || keys.ArrowUp) kdy -= 1;
   if (keys.KeyS || keys.ArrowDown) kdy += 1;
-  var sprint = (sprintPointer || (window.MOBILE_INPUT && MOBILE_INPUT.dash) || keys.ShiftLeft || keys.ShiftRight) && expedition.stamina > 4;
-  expedition.stamina = clamp(expedition.stamina + (sprint ? -30 : 19) * dt, 0, 100);
+  var sprint = advanceSprint(dt, !!(sprintPointer || (window.MOBILE_INPUT && MOBILE_INPUT.dash) || keys.ShiftLeft || keys.ShiftRight));
   var useKeys = (kdx !== 0 || kdy !== 0);
 
   motionScale = clamp(Math.pow(1 / cam.z, 0.7), 1, 1.8);
@@ -2881,6 +2882,7 @@ function updateFoods(dt){
         player.hunger = Math.min(CONF.HUNGER_MAX, player.hunger + foodNutrition(f.type, info.hunger));
         player.size = Math.min(CONF.P_MAX_SIZE, player.size + foodGrowth(f.type));
         if(window.unlockFoodGuide)unlockFoodGuide(f.type);
+        if(f.type==="pearl"&&window.leaveEmptyOyster)leaveEmptyOyster(f);
         ensurePlayerSprite();
         player.gulp = 0.18;
         if (f.type !== "crab" && f.type !== "bluecrab") addCombo();
@@ -3026,7 +3028,8 @@ function render(time){
     ctx.save();
     ctx.translate(dc.x, dc.y);
     if (swayOn) ctx.rotate(Math.sin(time * 0.8 + dc.ph) * 0.05);
-    ctx.drawImage(spr, -spr.width / 2 * dc.s, -spr.height * dc.s, spr.width * dc.s, spr.height * dc.s);
+    var dw=spr.logicalWidth||spr.width,dh=spr.logicalHeight||spr.height;
+    ctx.drawImage(spr, -dw / 2 * dc.s, -dh * dc.s, dw * dc.s, dh * dc.s);
     ctx.restore();
   }
 
@@ -3039,7 +3042,7 @@ function render(time){
     ctx.translate(sg.x + Math.sin(time * 0.22 + sg.ph) * 14, sg.y + Math.sin(time * 0.5 + sg.ph * 2) * 10);
     ctx.rotate(Math.sin(time * 0.4 + sg.ph) * 0.12);
     ctx.globalAlpha = 0.92;
-    ctx.drawImage(sprS, -sprS.width / 2 * sg.s, -sprS.height / 2 * sg.s, sprS.width * sg.s, sprS.height * sg.s);
+    ctx.drawImage(sprS, -(sprS.logicalWidth||sprS.width) / 2 * sg.s, -(sprS.logicalHeight||sprS.height) / 2 * sg.s, (sprS.logicalWidth||sprS.width) * sg.s, (sprS.logicalHeight||sprS.height) * sg.s);
     ctx.restore();
   }
   ctx.globalAlpha = 1;
@@ -3059,7 +3062,7 @@ function render(time){
     ctx.save();
     ctx.translate(sp3.x, sp3.y);
     ctx.rotate(Math.sin(time * 0.3 + sp3.ph) * 0.018);
-    ctx.drawImage(spr3, -spr3.width / 2 * sp3.s, -spr3.height * sp3.s, spr3.width * sp3.s, spr3.height * sp3.s);
+    ctx.drawImage(spr3, -(spr3.logicalWidth||spr3.width) / 2 * sp3.s, -(spr3.logicalHeight||spr3.height) * sp3.s, (spr3.logicalWidth||spr3.width) * sp3.s, spr3.height * sp3.s);
     ctx.restore();
   }
 
@@ -3658,6 +3661,9 @@ function resetGame(){
 <script src="treasure-art.js"></script>
 <script src="prey-markers.js"></script>
 <script src="living-ocean.js"></script>
+<script src="ocean-refinement.js"></script>
+<script src="decor-art.js"></script>
+<script src="world-details.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){

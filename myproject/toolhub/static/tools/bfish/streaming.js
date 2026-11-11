@@ -8,7 +8,7 @@ function rockBounds(r){
  for(var i=0;i<r.blobs.length;i+=3){var x=r.blobs[i],y=r.blobs[i+1],radius=r.blobs[i+2];x0=Math.min(x0,x-radius);y0=Math.min(y0,y-radius);x1=Math.max(x1,x+radius);y1=Math.max(y1,y+radius);}
  var boxes=r.boxes||[];
  for(var j=0;j<boxes.length;j+=5){x0=Math.min(x0,boxes[j]-boxes[j+2]);y0=Math.min(y0,boxes[j+1]-boxes[j+3]);x1=Math.max(x1,boxes[j]+boxes[j+2]);y1=Math.max(y1,boxes[j+1]+boxes[j+3]);}
- var pad=Math.max(26,r.k*.5+10)+(r.terrainWave?r.terrainWave[0]*1.3:0);
+ var pad=(r.organic||0)*2+Math.max(26,r.k*.5+10)+(r.terrainWave?r.terrainWave[0]*1.3:0);
  r.ox=x0-pad;r.oy=y0-pad;r.w=Math.ceil(x1-x0+pad*2);r.h=Math.ceil(y1-y0+pad*2);
  r.wx0=r.ax+r.ox;r.wy0=r.ay+r.oy;r.wx1=r.wx0+r.w;r.wy1=r.wy0+r.h;
 }
@@ -49,7 +49,7 @@ function buildTerrainTiles(){
   if(r.w*r.h<1100000){terrainTiles.push(r);return;}
   r.tiles=[];
   for(var y=0;y<r.h;y+=768)for(var x=0;x<r.w;x+=768){
-   var t={ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,tint:r.tint,ice:!!r.ice,terrainWave:r.terrainWave,caves:r.caves,k:r.k,glow:r.glow,z:r.z,ox:r.ox+x,oy:r.oy+y,w:Math.min(768,r.w-x),h:Math.min(768,r.h-y),wx0:r.wx0+x,wy0:r.wy0+y,tile:true,textureScale:.8,streamBytes:0,streamPending:false,streamTouch:0,preview:null,spr:null};
+   var t={ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,tint:r.tint,organic:r.organic,ice:!!r.ice,terrainWave:r.terrainWave,caves:r.caves,k:r.k,glow:r.glow,z:r.z,ox:r.ox+x,oy:r.oy+y,w:Math.min(768,r.w-x),h:Math.min(768,r.h-y),wx0:r.wx0+x,wy0:r.wy0+y,tile:true,textureScale:.8,streamBytes:0,streamPending:false,streamTouch:0,preview:null,spr:null};
    t.wx1=t.wx0+t.w;t.wy1=t.wy0+t.h;
    // Skip rectangles entirely outside a rock or wholly within a large cave.
    var padding=Math.hypot(t.w,t.h)/2,centerDistance=rkField(r,t.ox+t.w/2,t.oy+t.h/2);
@@ -107,7 +107,7 @@ function requestStreamTexture(e){
  if(STREAM.worker){
   var id=++STREAM.job;STREAM.busy={id:id,entry:e,time:performance.now()};
   var m={id:id,seed:((e.ax||e.x)*1009+(e.ay||0)*917)|0};
-  if(e.blobs){m.type=e.tile?'rockTile':'rock';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=e.textureScale||1;}
+  if(e.blobs){m.type=e.tile?'rockTile':'rock';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,organic:e.organic,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=e.textureScale||1;}
   else{m.type='seabed';m.x=e.x;m.w=e.w;}
   try{STREAM.worker.postMessage(m);}catch(_){e.streamPending=false;disableStreamWorker();}
  }else if(e.blobs){

@@ -169,11 +169,11 @@ spawnFood=function(type,bx,by){
  var hit;
  if(type==='pearl'){
   var x=clamp(player.x+rand(-1800,1800),180,CONF.WORLD_W-180),probe=clamp(player.y+rand(-250,250),80,14800);
-  if(rkInside(x,probe,20))return;hit=foodSurfaceAt(x,probe);hit.x=x;hit.y=hit.surface-20;
+  if(rkInside(x,probe,20))return;hit=foodSurfaceAt(x,probe);hit.x=x;hit.y=hit.surface-10;
   if(Math.abs(hit.y-player.y)>1800)return;
  }else{hit=chooseShrimpHabitat();if(!hit)return;}
  if(rkInside(hit.x,hit.y,20))return;
- var f=foodPool.length?foodPool.pop():newFood();Object.assign(f,{type:type,x:hit.x,y:hit.y,r:type==='crab'?13:11,t:rand(0,6),seed:rand(0,10),life:-1,biome:zoneAt(hit.x,hit.y),dead:false,stingCd:0,dir:Math.random()<.5?-1:1,dartT:0,turnT:rand(1,3),groundRef:hit.reef,floorHint:hit.surface});foods.push(f);
+ var f=foodPool.length?foodPool.pop():newFood();Object.assign(f,{type:type,x:hit.x,y:hit.y,r:type==='crab'?9:11,t:rand(0,6),seed:rand(0,10),life:-1,biome:zoneAt(hit.x,hit.y),dead:false,stingCd:0,dir:Math.random()<.5?-1:1,dartT:0,turnT:rand(1,3),groundRef:hit.reef,floorHint:hit.surface});foods.push(f);
 };
 function oceanFoodFloor(f){if(f.groundRef){var y=shrimpSurface(f.groundRef,f.x,f.floorHint);if(y!==null){f.floorHint=y;return y;}f.dir=-f.dir;return f.floorHint;}return floorAt(f.x);}
 var foodsBeforeBiomes=updateFoods;
@@ -229,7 +229,7 @@ spawnFish=function(){
   if(region>=4&&!sp.nativeSize)size=Math.max(size,70);
   if(region===5&&!sp.nativeSize)size=Math.max(size,90);
   if(sp.flying)y=Math.min(y,350);
-  if(rkInside(x,y,size*.4+20))continue;
+  if(rkInside(x,y,size*.4+20)||window.fishSpawnCrowded&&fishSpawnCrowded(x,y,size))continue;
   var f=fishPool.length?fishPool.pop():newFish();initHabitatFish(f,sp,x,y,size);fishes.push(f);return;
  }
 };
@@ -381,7 +381,7 @@ var growthBeforeV6Rare=fishGrowth;
 fishGrowth=function(f){return f.spec.rareDugong?(f.nutrition||4.5):growthBeforeV6Rare(f);};
 playerEatFish=function(f){
  var before=player.size;eatBeforeDugong(f);
- if(f.spec.rareDugong){OCEAN.harvested[f.rareDen]=true;expedition.species['儒艮']=true;score+=f.vault?70:120;addPopup(player.x,player.y-50,'秘境营养 · 体长 +'+(f.nutrition||4.5),'#c3f1bb',true);}
+ if(f.spec.rareDugong){OCEAN.harvested[f.rareDen]=true;expedition.species['儒艮']=true;score+=f.vault?70:120;addPopup(player.x,player.y-50,'秘境营养 · 体长 +'+(player.size-before).toFixed(2),'#c3f1bb',true);}
  if(Math.floor(before/10)!==Math.floor(player.size/10)||f.spec.rareDugong){
   V6.growthUntil=survivalTime+8;
   V6.growthText='体长 '+player.size.toFixed(1)+' · '+(player.size>70?'窄缝捷径已不适合；走宽阔主道与东侧出口':'迷宫主道和返程口均可容纳最大体型');
@@ -601,7 +601,7 @@ function replaceWorldAtlas(canvas){OCEAN.atlas=canvas;MINIMAP_BASE.getContext('2
 function requestWorldAtlas(forceFallback){
  if(V6.atlasRequested&&!forceFallback)return;V6.atlasRequested=true;
  if(STREAM.worker&&!forceFallback){
-  var rocks=RK_list.map(function(r){return {ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,caves:r.caves,k:r.k,z:r.z,tint:r.tint,terrainWave:r.terrainWave,wx0:r.wx0,wx1:r.wx1,wy0:r.wy0,wy1:r.wy1};});
+  var rocks=RK_list.map(function(r){return {ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,organic:r.organic,caves:r.caves,k:r.k,z:r.z,tint:r.tint,terrainWave:r.terrainWave,wx0:r.wx0,wx1:r.wx1,wy0:r.wy0,wy1:r.wy1};});
   STREAM.worker.postMessage({type:'atlas',id:-1,rocks:rocks});return;
  }
  if(V6.atlasFallbackStarted)return;V6.atlasFallbackStarted=true;

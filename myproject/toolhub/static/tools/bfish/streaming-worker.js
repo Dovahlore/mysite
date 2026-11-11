@@ -25,6 +25,7 @@ function zoneW(x, y){
 }
 function zoneAt(x,y){if(x>=19500&&y<6800)return 3;if(y<3200)return 0;if(y<6900)return 1;return 2;}
 function rkField(rk, px, py){
+  if(rk.organic){var xx=px,yy=py;px+=Math.sin((yy+rk.ay)*.007)*rk.organic;py+=Math.sin((xx+rk.ax)*.006+1.3)*rk.organic;}
   var bl = rk.blobs, d = 1e9, k = rk.k, i;
   for (i = 0; i < bl.length; i += 3){
     var dx = px - bl[i], dy = py - bl[i + 1];

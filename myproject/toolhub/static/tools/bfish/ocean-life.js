@@ -30,7 +30,7 @@ function releaseCuttleInk(f){
  if(f.inkUsed||f.dead)return false;f.inkUsed=true;f.inkEscape=2.8;f.inkAngle=Math.atan2(f.y-player.y,f.x-player.x);INK_CLOUDS.push({x:f.x,y:f.y,r:460,age:0,life:7.5,seed:f.seed||0});if(INK_CLOUDS.length>8)INK_CLOUDS.shift();addPopup(f.x,f.y-f.size,'墨鱼喷墨！绕出墨团追踪','#e4bbdf',true);return true;
 }
 var lifeFishUpdate=updateFish;updateFish=function(f,dt){
- if(f.spec.cuttle&&!f.inkUsed&&player.alive&&player.size>f.size*1.05&&dist2(f.x,f.y,player.x,player.y)<410*410&&fishCanSeePlayer(f))releaseCuttleInk(f);
+ if(f.spec.cuttle&&!f.inkUsed&&player.alive&&shouldCuttleReleaseInk(f))releaseCuttleInk(f);
  lifeFishUpdate(f,dt);if(!f.spec.cuttle||f.dead)return;
  if(f.inkEscape>0){f.inkEscape=Math.max(0,f.inkEscape-dt);var speed=f.spec.spd*fishDepthSpeed(f)*2.8;f.vx=Math.cos(f.inkAngle)*speed;f.vy=Math.sin(f.inkAngle)*speed;f.angle=lerpAngle(f.angle,f.inkAngle,Math.min(1,dt*9));}
 };
@@ -61,7 +61,7 @@ function paintJelly(g,x,y,s,t,toxic){
 }
 var lifeFoodDraw=drawFood;drawFood=function(f,t){
  if(f.type==='jelly'||f.type==='toxicjelly'){paintJelly(ctx,f.x,f.y,f.type==='toxicjelly'?29:22,t+f.seed,f.type==='toxicjelly');return;}
- if(f.type==='crab'){ctx.save();ctx.translate(f.x,f.y);ctx.scale(.78,.78);ctx.filter='sepia(.7) saturate(1.4) hue-rotate(320deg)';drawBlueCrab(ctx,0,0,1,t,f.dir);ctx.restore();return;}
+ if(f.type==='crab'){ctx.save();ctx.translate(f.x,f.y);ctx.scale(.5,.5);ctx.filter='sepia(.7) saturate(1.4) hue-rotate(320deg)';drawBlueCrab(ctx,0,0,1,t,f.dir);ctx.restore();return;}
  lifeFoodDraw(f,t);
  if(f.type==='bluecrab'&&dist2(f.x,f.y,player.x,player.y)<450*450){ctx.save();ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillStyle=player.size<36?'#ffb59b':'#adebdc';ctx.fillText(player.size<36?'蓝冰梭子蟹 · 体长 36 可吃 · 钳伤 -18':'蓝冰梭子蟹 · 可捕食',f.x,f.y-38);ctx.restore();}
 };
