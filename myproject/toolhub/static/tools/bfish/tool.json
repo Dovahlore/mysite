@@ -1,7 +1,7 @@
 {
-    "name": "大鱼吃小鱼",
-    "description": "海洋世界 V3 · 生存成长 · 键盘",
+    "name": "潮汐 · 大鱼吃小鱼",
+    "description": "深蓝远征 V4 · 生态成长 / 遗迹探索 / 体力冲刺 / 鼠标与触屏",
     "icon": "fas fa-fish",
-    "icon_color": "#5fd4a2",
+    "icon_color": "#65e0c3",
     "order": 320
 }

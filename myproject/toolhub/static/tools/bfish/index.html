@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>大鱼吃小鱼 - 海洋世界 V3</title>
+<title>潮汐 · 深蓝远征</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #02060d; }
@@ -1133,7 +1133,7 @@ function rkCollide(e, isPlayer){
     d = rkGrad(rk, e.x - rk.ax, e.y - rk.ay, RK_grad);
     if (d >= margin) continue;
     it = 0;
-    while (d < margin && it++ < 2){
+    while (d < margin && it++ < 8){
       e.x += RK_grad.x * (margin - d + 2);
       e.y += RK_grad.y * (margin - d + 2);
       d = rkGrad(rk, e.x - rk.ax, e.y - rk.ay, RK_grad);
@@ -1198,7 +1198,7 @@ function rkBake(rk){
   }
   x0 -= 26; y0 -= 26; x1 += 26; y1 += 26;
   var w = Math.ceil(x1 - x0), h = Math.ceil(y1 - y0);
-  var step = w * h > 2400000 ? 3 : 2; // 精度翻倍: 中小岩体 2px 采样
+  var step = w * h > 2400000 ? 3 : (w * h > 1000000 ? 2 : 1); // 精度翻倍: 中小岩体 2px 采样
   var gw = Math.ceil(w / step), gh = Math.ceil(h / step);
   var small = newCanvas(gw, gh), sg = small.getContext("2d");
   var img = sg.createImageData(gw, gh), data = img.data;
@@ -1210,9 +1210,10 @@ function rkBake(rk){
       var px = x0 + (cx2 + 0.5) * step;
       var d = rkField(rk, px, py);
       if (d < 0){
-        var sh = (1 + d / 300) * strata;
+        var sh = (0.72 + 0.28 * Math.exp(d / 180)) * strata;
+        sh *= 0.96 + 0.04 * Math.sin(px * 0.035 + Math.sin(py * 0.022) * 2);
         if (sh < 0.36) sh = 0.36;
-        var rim = d > -8 ? 1.55 : 1;          // 受光边
+        var rim = 1 + 0.22 * Math.exp(d / 14);          // 受光边
         data[idx] = Math.min(255, tint[0] * sh * rim);
         data[idx + 1] = Math.min(255, tint[1] * sh * rim);
         data[idx + 2] = Math.min(255, tint[2] * sh * rim);
@@ -2097,7 +2098,7 @@ function spawnFish(avoidPlayer){
   // 动态流送取点: 围绕玩家环带生成(屏外潜入, 屏内永远有鱼)
   var px = 0, py = 0, ok = false;
   for (var t2 = 0; t2 < 14; t2++){
-    var sa = rand(0, Math.PI * 2), sr = rand(1650, 2850);
+    var sa = rand(0, Math.PI * 2), sr = rand(Math.max(740, Math.hypot(W,H) / (2 * Math.max(cam.z,0.52)) + 130), 2300);
     px = clamp(player.x + Math.cos(sa) * sr, 140, CONF.WORLD_W - 140);
     py = clamp(player.y + Math.sin(sa) * sr * 0.85, 140, floorAt(px) - 120);
     if (py < 140) py = 140;
@@ -2137,7 +2138,7 @@ function spawnFish(avoidPlayer){
   f.state = "wander"; f.fleeTimer = 0; f.lungeT = 0; f.huntT = 0; f.huntCd = rand(0, 6);
   f.aggroTimer = 0; f.aggroCd = rand(0, 4);
   f.turnTimer = 0; f.turnInterval = rand(1, 3.5);
-  f.biome = zone; f.dead = false; f.inflated = 0; f.born = survivalTime;
+  f.biome = zoneAt(px, py); f.dead = false; f.inflated = 0; f.born = survivalTime;
   f.hx = px; f.hy = py;
   fishes.push(f);
 }
@@ -2353,7 +2354,7 @@ function playerEatFish(f){
   if (f.size > biggestCatch) biggestCatch = f.size;
   addCombo();
   // 成长
-  player.size = Math.min(CONF.P_MAX_SIZE, player.size + f.size * CONF.GROW_FISH);
+  player.size = Math.min(CONF.P_MAX_SIZE, player.size + fishGrowth(f));
   ensurePlayerSprite();
   var ns = stageOf(player.size);
   if (ns !== stageIdx){
@@ -2630,7 +2631,8 @@ function update(dt){
   if (keys.KeyD || keys.ArrowRight) kdx += 1;
   if (keys.KeyW || keys.ArrowUp) kdy -= 1;
   if (keys.KeyS || keys.ArrowDown) kdy += 1;
-  var sprint = sprintPointer || keys.ShiftLeft || keys.ShiftRight;
+  var sprint = (sprintPointer || keys.ShiftLeft || keys.ShiftRight) && expedition.stamina > 4;
+  expedition.stamina = clamp(expedition.stamina + (sprint ? -30 : 19) * dt, 0, 100);
   var useKeys = (kdx !== 0 || kdy !== 0);
 
   motionScale = clamp(Math.pow(1 / cam.z, 0.7), 1, 1.8);
@@ -2884,6 +2886,10 @@ function updateFoods(dt){
     } else if (f.type === "star"){
       f.y += Math.sin(f.t * 2 + f.seed) * 6 * dt;
     }
+    if (f.type === "crab" || f.type === "shrimp"){
+      var foodBody={x:f.x,y:f.y,size:f.r,vx:0,vy:0};
+      rkCollide(foodBody,false);f.x=foodBody.x;f.y=foodBody.y;
+    }
     // 磁铁
     if (player.alive && player.buffs.magnet > 0 && f.type !== "jelly"){
       var d2v = dist2(f.x, f.y, player.x, player.y);
@@ -2900,11 +2906,11 @@ function updateFoods(dt){
         var info = FOOD_INFO[f.type];
         var mult = comboMult() * (player.buffs.double > 0 ? 2 : 1);
         score += info.score * mult;
-        player.hunger = Math.min(CONF.HUNGER_MAX, player.hunger + info.hunger);
-        player.size = Math.min(CONF.P_MAX_SIZE, player.size + info.grow);
+        player.hunger = Math.min(CONF.HUNGER_MAX, player.hunger + foodNutrition(f.type, info.hunger));
+        player.size = Math.min(CONF.P_MAX_SIZE, player.size + foodGrowth(f.type));
         ensurePlayerSprite();
         player.gulp = 0.18;
-        addCombo();
+        if (f.type !== "crab") addCombo();
         var label = f.type === "pearl" ? "珍珠 +" + Math.round(50 * mult) : (f.type === "star" ? "★ +" + Math.round(12 * mult) : (f.type === "starfish" ? "海星 +" + Math.round(8 * mult) : (f.type === "crab" ? "螃蟹 +" + Math.round(10 * mult) : "+" + Math.round(info.score * mult))));
         addPopup(f.x, f.y, label, f.type === "pearl" ? "#f3e6f7" : "#ffe082");
         emitParticles(f.x, f.y, 6, info.pIdx);
@@ -2986,6 +2992,8 @@ function render(time){
   FF_draw(time);
   SN_draw(time);
 
+  drawOceanRelief(time);
+
   // 世界边缘: 左右岩石峭壁(含向内暗化过渡, 取代空气墙边框)
   if (vL < 460 && SP.cliffL) ctx.drawImage(SP.cliffL, 0, 0, 460, CONF.WORLD_H);
   if (vR > CONF.WORLD_W - 460 && SP.cliffR) ctx.drawImage(SP.cliffR, CONF.WORLD_W - 460, 0, 460, CONF.WORLD_H);
@@ -3037,7 +3045,7 @@ function render(time){
   var swayOn = qLevel > 0;
   for (i = 0; i < WORLD_DECORS.length; i++){
     var dc = WORLD_DECORS[i];
-    if (dc.x < vL || dc.x > vR || dc.y < vT || dc.y > vB) continue;
+    if (dc.x < vL - 240 || dc.x > vR + 240 || dc.y < vT - 30 || dc.y > vB + 500) continue;
     var spr = DECOR[dc.z][dc.spr];
     ctx.save();
     ctx.translate(dc.x, dc.y);
@@ -3104,6 +3112,8 @@ function render(time){
     }
   }
   ctx.globalAlpha = 1;
+
+  drawExpeditionWorld(time);
 
   // 食物
   for (i = 0; i < foods.length; i++){
@@ -3305,7 +3315,7 @@ function drawFishSprite(f, x, y, s, angle, tailPhase, inflate, isPlayer, time){
   ctx.translate(s * (spr.tailX || -0.78), 0);
   ctx.rotate(sw);
   if (vector) bakeTail(ctx, spec.tail, s, spec.c3);
-  else ctx.drawImage(spr.tail, -spr.tailLen, -spr.tail.height / 2, spr.tailLen, spr.tail.height);
+  else ctx.drawImage(spr.tail, -spr.tailLen * k, -spr.tail.height * k / 2, spr.tailLen * k, spr.tail.height * k);
   ctx.restore();
   if (vector){
     if (inflate) ctx.scale(1 + inflate * 0.35, 1 + inflate * 0.35);
@@ -3657,6 +3667,9 @@ function resetGame(){
   for (i = 0; i < QBUB[qLevel]; i++) spawnBubble();
 }
 
+</script>
+<script src="expedition.js"></script>
+<script>
 // ==================== 启动 ====================
 try {
   bakeAllSprites();

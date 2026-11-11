@@ -1,5 +1,2 @@
-# 增量更新镜像：以本地已验证的基础镜像为底，覆盖最新代码。
-# （完整 Dockerfile 的 apt 层在本机受镜像源网络影响，此方式与其等效：
-#   基础镜像已含全部系统依赖与 Python 依赖，requirements 未变。）
-FROM docker-mysite-app:local-douban-fix
+FROM docker-mysite-app:toolhub-20261111
 COPY . /mysite/
