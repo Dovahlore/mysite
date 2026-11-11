@@ -5086,6 +5086,7 @@ const CHANGELOG = [
     '棱镜光对同一方块改为可无限次命中（原每束每块限一次下线；仅留 0.12s 冷却防贴边连跳）',
     '真火二改：施加即烧 1 跳后持续燃烧直到本波结束（每跳同燃烧口径），波结算全部熄灭；不再按 2 波计数',
     '真火×冻结不再互毁核弹：改为真热冲击——以冲突点为中心 1.5 格范围，每块伤 = 热冲击 ×1.5，带专属特效',
+    '修复：选卡面板开着时下层不可再点——刷新按钮顶部与角落静音/暂停键命中区重叠，点刷新曾误触静音/暂停（选卡中静音/暂停用 M/P 键）',
   ]],
   ['11-10', '体验批二 · 棱镜触底/减速永久/真火重做/回血护盾时机', [
     '棱镜光触底消散不再反弹（无论射程档位）；减速块减速永久不恢复（更慢坠底更早属预期代价）',
@@ -6917,9 +6918,9 @@ cv.addEventListener('pointerdown', e => {
     for (const h of SHOP_HITS) { if (p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h) { h.fn(); break; } }
     return;
   }
-  if (inBtn(p, BTN.mute)) { toggleMute(); return; }
-  if (inBtn(p, BTN.pause)) { togglePause(); return; }
-  if (S.mode === 'play' && !S.paused && !S.picking && p.x >= W - 84 && p.x <= W - 8 && p.y >= H - 58 && p.y <= H - 34) { toggleShop(true); return; }
+  // 选卡面板全屏置顶（同工坊先例）：面板背景（近全遮罩）盖住角落静音/暂停键，选卡期间下层不可点。
+  // 命中判定必须先于角落按钮——刷新按钮（[W-122,W-14]×[26,52]）顶部与静音/暂停键（y12-38）命中区重叠约 12px 高，
+  // 后判会被截走（2026-11-11 bug：点刷新顶部误触静音/暂停）；选卡中静音/暂停仍可用 M/P 键
   if (S.picking) {
     const pk = S.picking;
     // ⓪ 刷新（V4.2）
@@ -6934,8 +6935,11 @@ cv.addEventListener('pointerdown', e => {
     }
     // ② 「不选卡+1属性」已下线（2026-11-09 拍板）：每面板任意+1属性令属性卡无价值——元素成长改由卡池元素卡承担（单系+2/双系各+1/单系+4/全属性+1）
     // ③ 面板内融合已下线（2026-11-09 拍板）：融合功能由 F 合成工坊常驻承担，选卡期间也可按 F 临时开工坊、ESC 关闭回到选卡
-    return;
+    return; // 点面板其余区域（含被背景盖住的角落键/开坞口位置）=下层不可点，静默吞掉
   }
+  if (inBtn(p, BTN.mute)) { toggleMute(); return; }
+  if (inBtn(p, BTN.pause)) { togglePause(); return; }
+  if (S.mode === 'play' && !S.paused && p.x >= W - 84 && p.x <= W - 8 && p.y >= H - 58 && p.y <= H - 34) { toggleShop(true); return; }
   if (S.canFire && !S.volley) {
     S.aimOn = true;
     updateAim(p);
@@ -7035,7 +7039,7 @@ window.CB = {
     const tree = {};
     for (const k of Object.keys(S.tree)) tree[k] = (S.tree[k] || []).slice();
     return {
-      mode: S.mode, paused: S.paused, pausePage: S.pausePage || null, pauseSel: S.pauseSel || null, pauseScroll: S.pauseScroll || 0, score: S.score, wave: S.wave, arsenal: S.arsenal, stage: Math.floor((S.wave - 1) / 10) % STAGES.length, volley: S.volley, canFire: S.canFire, waveKills: S.waveKills || 0, levelQN: S.levelQ.length, // 2026-11-10 清屏奖励批：volley/canFire/waveKills/levelQ 观测口（测试诊断）
+      mode: S.mode, paused: S.paused, muted: S.muted, pausePage: S.pausePage || null, pauseSel: S.pauseSel || null, pauseScroll: S.pauseScroll || 0, score: S.score, wave: S.wave, arsenal: S.arsenal, stage: Math.floor((S.wave - 1) / 10) % STAGES.length, volley: S.volley, canFire: S.canFire, waveKills: S.waveKills || 0, levelQN: S.levelQ.length, // 2026-11-10 清屏奖励批：volley/canFire/waveKills/levelQ 观测口（测试诊断）
       level: S.level, xp: Math.floor(S.xp), xpNext: xpNeed(S.level + S.levelQ.length + (S.picking ? 1 : 0)), up: Object.assign({}, S.up),
       luck: S.luck, pity: { sr: S.pity.sr, ssr: S.pity.ssr }, buffs: S.buffs.map(bf => ({ id: bf.id, t: bf.t })), fuse: Object.assign({}, S.fuse),
       tree,
