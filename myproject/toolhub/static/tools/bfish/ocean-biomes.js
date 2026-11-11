@@ -456,7 +456,7 @@ drawExpeditionWorld=function(time){
  worldDrawBeforeCaves(time);ctx.save();
  CAVE_HINTS.forEach(function(p){if(Math.abs(p.x-cam.x)>W/(2*cam.z)+100||Math.abs(p.y-cam.y)>H/(2*cam.z)+100)return;ctx.textAlign='center';ctx.font='600 16px system-ui';ctx.fillStyle=player.size<p.min?'#f1bc91':'#abdcd9';ctx.fillText(p.title,p.x,p.y-35);ctx.font='12px system-ui';ctx.fillText(p.sub+' · 建议 '+p.min+'+',p.x,p.y-12);});
  OCEAN_CURRENTS.forEach(function(flow){drawCurrentArrows(flow,time);});
- JELLY_GATES.forEach(function(gate){if(Math.abs(gate.x-cam.x)>W/(2*cam.z)+550||Math.abs(gate.y-cam.y)>H/(2*cam.z)+850)return;var jellies=gateJellies(gate,survivalTime);jellies.forEach(function(j){ctx.globalAlpha=.8;ctx.drawImage(SP.jelly,j.x-j.r,j.y-j.r,j.r*2,j.r*2.5);});ctx.globalAlpha=1;ctx.font='12px system-ui';ctx.fillStyle='#dfb9f4';ctx.textAlign='center';ctx.fillText(gate.name+' · 等待空隙',gate.x,gate.y-gate.span/2-80);});
+ JELLY_GATES.forEach(function(gate){if(Math.abs(gate.x-cam.x)>W/(2*cam.z)+550||Math.abs(gate.y-cam.y)>H/(2*cam.z)+850)return;var jellies=gateJellies(gate,survivalTime);jellies.forEach(function(j){ctx.globalAlpha=.8;paintJelly(ctx,j.x,j.y,j.r*.7,survivalTime,false);});ctx.globalAlpha=1;ctx.font='12px system-ui';ctx.fillStyle='#dfb9f4';ctx.textAlign='center';ctx.fillText(gate.name+' · 等待空隙',gate.x,gate.y-gate.span/2-80);});
  var phase=volcanoPhase();
  if(Math.abs(VOLCANO.x-cam.x)<W/(2*cam.z)+900&&Math.abs(VOLCANO.y-cam.y)<H/(2*cam.z)+1800){
   ctx.fillStyle=phase.active?'rgba(255,109,39,.55)':phase.warning?'rgba(255,153,75,.3)':'rgba(230,88,36,.16)';

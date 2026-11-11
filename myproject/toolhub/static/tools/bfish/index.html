@@ -2862,7 +2862,7 @@ function updateFoods(dt){
       rkCollide(foodBody,false);f.x=foodBody.x;f.y=foodBody.y;
     }
     // 磁铁
-    if (player.alive && player.buffs.magnet > 0 && f.type !== "jelly"){
+    if (player.alive && player.buffs.magnet > 0 && f.type !== "jelly" && f.type !== "toxicjelly"){
       var d2v = dist2(f.x, f.y, player.x, player.y);
       if (d2v < 300 * 300){
         var d = Math.sqrt(d2v) || 1;
@@ -2871,7 +2871,7 @@ function updateFoods(dt){
       }
     }
     // 采集
-    if (player.alive && f.type !== "jelly"){
+    if (player.alive && f.type !== "jelly" && (!window.canCollectOceanFood || canCollectOceanFood(f))){
       var rr = player.size * 0.5 + f.r;
       if (dist2(f.x, f.y, player.x, player.y) < rr * rr){
         var info = FOOD_INFO[f.type];
@@ -2879,6 +2879,7 @@ function updateFoods(dt){
         score += info.score * mult;
         player.hunger = Math.min(CONF.HUNGER_MAX, player.hunger + foodNutrition(f.type, info.hunger));
         player.size = Math.min(CONF.P_MAX_SIZE, player.size + foodGrowth(f.type));
+        if(window.unlockFoodGuide)unlockFoodGuide(f.type);
         ensurePlayerSprite();
         player.gulp = 0.18;
         if (f.type !== "crab" && f.type !== "bluecrab") addCombo();
@@ -3652,6 +3653,7 @@ function resetGame(){
 <script src="streaming.js"></script>
 <script src="mobile-controls.js"></script>
 <script src="field-guide.js"></script>
+<script src="ocean-life.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){
