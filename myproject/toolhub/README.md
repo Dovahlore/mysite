@@ -60,7 +60,8 @@ toolhub/static/tools/<id>/
 ## 活样例
 
 `static/tools/cball/` —— 连锁弹珠小游戏（纯前端、无 ai 配置），
-新工具照它的目录结构抄即可。
+`static/tools/bfish/` —— 大鱼吃小鱼·海洋世界 V3（同为纯前端成品）。
+新工具照它们的目录结构抄即可。
 
 ## 部署注意
 
