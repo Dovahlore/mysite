@@ -66,3 +66,42 @@ function drawDepthVisibility(time){
  for(var i=0;i<fishes.length;i++){var f=fishes[i];if(f.dead||f.spec.shape!=='angler')continue;var l=anglerLamp(f);light(l.x,l.y,240+f.size*2,.98);}
  g.globalCompositeOperation='source-over';ctx.save();ctx.setTransform(DPR,0,0,DPR,0,0);ctx.drawImage(depthMask,0,0,W,H);ctx.restore();
 }
+// Species-specific anatomy: tapered caudal peduncle, swept pectoral fins and bill.
+SPECIES.forEach(function(sp){if(sp.shape==='shark')sp.tail='shark-real';if(sp.shape==='sword')sp.tail='sword-real';});
+var illustratedTail=bakeTail;
+bakeTail=function(g,type,R,col){
+ if(type!=='shark-real'&&type!=='sword-real'){illustratedTail(g,type,R,col);return;}
+ g.save();g.fillStyle=col;g.strokeStyle='rgba(206,236,246,.5)';g.lineWidth=R*.018;
+ g.beginPath();g.moveTo(0,0);g.bezierCurveTo(-R*.25,-R*.09,-R*.5,-R*.44,-R*.76,-R*.59);g.quadraticCurveTo(-R*.65,-R*.16,-R*.32,0);g.quadraticCurveTo(-R*.55,R*.18,-R*.71,R*(type==='shark-real'?.36:.56));g.quadraticCurveTo(-R*.25,R*.23,0,0);g.closePath();g.fill();g.stroke();g.restore();
+};
+var illustratedBody=bakeFishBody;
+bakeFishBody=function(g,sp,R){
+ if(sp.shape!=='shark'&&sp.shape!=='sword'){illustratedBody(g,sp,R);return;}
+ var sword=sp.shape==='sword',ry=R*(sword?.26:sp.ry*.9),tip=R*(sword?1.08:1.18);
+ g.save();var grad=g.createLinearGradient(0,-ry,0,ry);grad.addColorStop(0,sp.c3);grad.addColorStop(.38,sp.c1);grad.addColorStop(.62,'#b9d1d7');grad.addColorStop(.9,sp.c2);grad.addColorStop(1,'#819eac');g.fillStyle=grad;g.strokeStyle=sp.c3;g.lineWidth=R*.018;
+ // Lower lobe, upper muscular back and a pointed snout instead of an oval body.
+ g.beginPath();g.moveTo(-R*.91,0);g.bezierCurveTo(-R*.5,-ry*.6,-R*.18,-ry*1.2,R*.37,-ry*.94);g.bezierCurveTo(R*.8,-ry*.69,tip,-ry*.18,tip,ry*.06);g.quadraticCurveTo(R*.94,ry*.43,R*.73,ry*.49);g.bezierCurveTo(R*.32,ry*1.06,-R*.2,ry*.78,-R*.91,0);g.closePath();g.fill();g.stroke();
+ // Tall swept dorsal and long paired pectoral fins.
+ g.fillStyle=sp.c3;g.beginPath();g.moveTo(-R*.35,-ry*.75);g.quadraticCurveTo(-R*.2,-R*(sword?.94:.98),-R*.05,-R*(sword?.78:.93));g.quadraticCurveTo(-R*.01,-ry*1.16,R*.25,-ry*.9);g.closePath();g.fill();g.stroke();
+ g.beginPath();g.moveTo(-R*.66,-ry*.24);g.lineTo(-R*.59,-ry*.75);g.lineTo(-R*.43,-ry*.4);g.closePath();g.fill();
+ g.beginPath();g.moveTo(R*.26,ry*.48);g.quadraticCurveTo(-R*.18,R*.79,-R*.45,R*.81);g.quadraticCurveTo(-R*.18,ry*.6,-R*.12,ry*.42);g.closePath();g.fill();g.stroke();
+ g.beginPath();g.moveTo(-R*.4,ry*.38);g.lineTo(-R*.65,ry*.95);g.lineTo(-R*.6,ry*.2);g.closePath();g.fill();
+ // Lateral sheen and five separate gill slits.
+ g.strokeStyle='rgba(236,253,255,.35)';g.lineWidth=R*.022;g.beginPath();g.moveTo(-R*.68,-ry*.1);g.quadraticCurveTo(R*.1,-ry*.7,R*.74,-ry*.35);g.stroke();
+ g.strokeStyle='#314852';g.lineWidth=R*.022;for(var i=0;i<(sword?1:5);i++){var x=R*(.18+i*.078);g.beginPath();g.moveTo(x,-ry*.37);g.quadraticCurveTo(x+R*.05,ry*.04,x-R*.025,ry*.47);g.stroke();}
+ if(sword){var bill=g.createLinearGradient(R,0,R*1.7,0);bill.addColorStop(0,sp.c3);bill.addColorStop(1,'#c5e4ed');g.fillStyle=bill;g.beginPath();g.moveTo(R*1.05,-R*sp.ry*.1-R*.035);g.lineTo(R*1.7,-R*sp.ry*.35);g.lineTo(R*1.05,-R*sp.ry*.1+R*.035);g.closePath();g.fill();g.stroke();}
+ g.fillStyle='#0a1c23';g.beginPath();g.arc(R*(sword?.79:.88),-ry*.29,R*.041,0,Math.PI*2);g.fill();g.fillStyle='#d4eef4';g.beginPath();g.arc(R*(sword?.8:.89),-ry*.32,R*.013,0,Math.PI*2);g.fill();
+ g.strokeStyle='#344d58';g.lineWidth=R*.019;g.beginPath();g.moveTo(tip-R*.03,ry*.18);g.quadraticCurveTo(R*.9,ry*.28,R*.71,ry*.25);g.stroke();
+ if(!sword){g.fillStyle='#eef4e9';for(var j=0;j<5;j++){var tx=R*(.76+j*.055);g.beginPath();g.moveTo(tx,ry*.27);g.lineTo(tx+R*.018,ry*.36);g.lineTo(tx+R*.036,ry*.27);g.fill();}}
+ g.restore();
+};
+// Nutrition differences reward varied prey while keeping all meals far below the old +38 cap.
+var FISH_MEAL_PROFILES={
+ '蓝灯鱼':[.8,.95],'金灯鱼':[.9,1],'红莓鱼':[1.05,1.1],'小丑鱼':[.95,1.05],'蝴蝶鱼':[.85,1.15],
+ '刺豚':[1.05,1.2],'紫罗兰鱼':[1,1.15],'梭鱼':[1.05,1.1],'海鳗':[1.15,1.05],'石斑鱼':[1.25,1.1],
+ '鮟鱇鱼':[1.1,1.25],'剑鱼':[1.1,1.3],'鲨鱼':[1.2,1.35],'蝠鲼':[1.15,1.15],'皇带鱼':[1,1.3],
+ '哥布林鲨':[1.15,1.4],'儒艮':[1.3,1],'飞鱼':[.85,1.2],'冰牙鲨':[1.25,1.4],'深海巨鲨':[1.3,1.5]
+};
+function fishMealProfile(sp){return FISH_MEAL_PROFILES[sp.n]||[1,1];}
+var baseSatiety=fishSatiety;fishSatiety=function(f,size){return baseSatiety(f,size)*fishMealProfile(f.spec)[0];};
+var differentiatedGrowth=fishGrowth;fishGrowth=function(f){return differentiatedGrowth(f)*(f.spec.rareDugong?1:fishMealProfile(f.spec)[1]);};

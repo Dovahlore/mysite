@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>潮汐 · 深蓝远征</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -2597,7 +2597,7 @@ function update(dt){
   if (keys.KeyD || keys.ArrowRight) kdx += 1;
   if (keys.KeyW || keys.ArrowUp) kdy -= 1;
   if (keys.KeyS || keys.ArrowDown) kdy += 1;
-  var sprint = (sprintPointer || keys.ShiftLeft || keys.ShiftRight) && expedition.stamina > 4;
+  var sprint = (sprintPointer || (window.MOBILE_INPUT && MOBILE_INPUT.dash) || keys.ShiftLeft || keys.ShiftRight) && expedition.stamina > 4;
   expedition.stamina = clamp(expedition.stamina + (sprint ? -30 : 19) * dt, 0, 100);
   var useKeys = (kdx !== 0 || kdy !== 0);
 
@@ -2610,7 +2610,9 @@ function update(dt){
 
   if(window.oceanSpeedFactor)maxSpd*=oceanSpeedFactor(player.x,player.y);
   var dirX = 0, dirY = 0;
-  if (useKeys){
+  if (window.MOBILE_INPUT && MOBILE_INPUT.enabled && !useKeys){
+    dirX = MOBILE_INPUT.x; dirY = MOBILE_INPUT.y;
+  } else if (useKeys){
     var kl = Math.sqrt(kdx * kdx + kdy * kdy);
     dirX = kdx / kl; dirY = kdy / kl;
   } else {
@@ -2879,8 +2881,8 @@ function updateFoods(dt){
         player.size = Math.min(CONF.P_MAX_SIZE, player.size + foodGrowth(f.type));
         ensurePlayerSprite();
         player.gulp = 0.18;
-        if (f.type !== "crab") addCombo();
-        var label = f.type === "pearl" ? "珍珠 +" + Math.round(50 * mult) : (f.type === "star" ? "★ +" + Math.round(12 * mult) : (f.type === "starfish" ? "海星 +" + Math.round(8 * mult) : (f.type === "crab" ? "螃蟹 +" + Math.round(10 * mult) : "+" + Math.round(info.score * mult))));
+        if (f.type !== "crab" && f.type !== "bluecrab") addCombo();
+        var label = f.type === "pearl" ? "珍珠 +" + Math.round(50 * mult) : (f.type === "star" ? "★ +" + Math.round(12 * mult) : (f.type === "starfish" ? "海星 +" + Math.round(8 * mult) : (f.type === "crab" ? "螃蟹 +" + Math.round(10 * mult) : f.type === "bluecrab" ? "梭子蟹 +" + Math.round(info.score * mult) : "+" + Math.round(info.score * mult))));
         addPopup(f.x, f.y, label, f.type === "pearl" ? "#f3e6f7" : "#ffe082");
         emitParticles(f.x, f.y, 6, info.pIdx);
         sfx(f.type === "pearl" ? 880 : 740, 0.09, "sine", 0.05, f.type === "pearl" ? 1320 : undefined);
@@ -3648,6 +3650,8 @@ function resetGame(){
 <script src="wildlife.js"></script>
 <script src="reef-polish.js"></script>
 <script src="streaming.js"></script>
+<script src="mobile-controls.js"></script>
+<script src="field-guide.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){

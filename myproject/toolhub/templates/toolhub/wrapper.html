@@ -46,6 +46,6 @@
         {% if tool.desc %}<span class="tdesc">{{ tool.desc }}</span>{% endif %}
         <span class="hint">Dovahlore Tools</span>
     </div>
-    <iframe id="tool-frame" src="{% static 'tools' %}/{{ tool.id }}/index.html" title="{{ tool.name }}"></iframe>
+    <iframe id="tool-frame" src="{% static 'tools' %}/{{ tool.id }}/index.html" title="{{ tool.name }}" allow="fullscreen" allowfullscreen></iframe>
 </body>
 </html>
