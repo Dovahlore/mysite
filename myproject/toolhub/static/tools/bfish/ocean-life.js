@@ -119,7 +119,7 @@ function updateMoray(f,dt){
  if(f.morayState==='wait'&&target&&f.morayCooldown<=0){f.morayState='warning';f.morayTimer=1.15;f.morayAim=target?Math.atan2(target.y-f.y,target.x-f.x):den.angle;}
  if(f.morayState==='warning'&&f.morayTimer<=0){f.morayState='strike';f.morayTimer=.95;f.morayStrikeX=f.x;f.morayStrikeY=f.y;}
  if(f.morayState==='strike'&&(f.morayTimer<=0||!target||dist2(f.x,f.y,den.x,den.y)>235*235)){f.morayState='return';f.morayCooldown=5.5;}
- var tx=den.x,ty=den.y,speed=95*Math.min(1.15,fishDepthSpeed(f));if(f.morayState==='strike'&&target){tx=f.morayStrikeX+Math.cos(f.morayAim)*240;ty=f.morayStrikeY+Math.sin(f.morayAim)*240;speed=145*Math.min(1.15,fishDepthSpeed(f));}
+ var tx=den.x,ty=den.y,speed=95*Math.min(1.15,fishDepthSpeed(f));if(f.morayState==='strike'&&target){tx=f.morayStrikeX+Math.cos(f.morayAim)*240;ty=f.morayStrikeY+Math.sin(f.morayAim)*240;speed=165*Math.min(1.15,fishDepthSpeed(f));}
  var dx=tx-f.x,dy=ty-f.y,d=Math.hypot(dx,dy);if(f.morayState==='wait'||f.morayState==='warning'){f.vx=f.vy=0;f.angle=lerpAngle(f.angle,den.angle,Math.min(1,dt*4));}else if(d>5){f.vx=dx/d*speed;f.vy=dy/d*speed;f.x+=f.vx*dt;f.y+=f.vy*dt;f.angle=lerpAngle(f.angle,Math.atan2(dy,dx),Math.min(1,dt*9));rkCollide(f,false);}else{f.morayState='wait';f.vx=f.vy=0;}
  if(target&&target!==player&&f.morayState==='strike'&&dist2(f.x,f.y,target.x,target.y)<Math.pow((f.size+target.size)*.4,2)){target.dead=true;f.morayState='return';f.morayCooldown=3.5;}
  if(player.alive&&gameState==='playing'&&dist2(f.x,f.y,player.x,player.y)<Math.pow((f.size+player.size)*.45,2)){

@@ -988,7 +988,7 @@ function SF_draw(time){  // render() 内调用; 天空位于背景之上、一�
       cx = cam.x + (SF_isles[i][0] - cam.x) * 0.9;
       if (cx < vL - 300 || cx > vR + 300) continue;
       s = SF_isles[i][1];
-      ctx.drawImage(SF_isleSpr[i], cx - 150 * s, -260 - 128 * s, 300 * s, 130 * s);
+      ctx.drawImage(SF_isleSpr[i], cx - 150 * s, -128 * s, 300 * s, 130 * s);
     }
     for (i = 0; i < 3; i++){                   // 云 par=0.85, 慢漂移 + 水平环绕世界
       cx = (SF_clouds[i][0] + time * SF_clouds[i][3]) % CONF.WORLD_W;
@@ -999,15 +999,6 @@ function SF_draw(time){  // render() 内调用; 天空位于背景之上、一�
       ctx.globalAlpha = 0.85;
       ctx.drawImage(SF_cloudSpr[i], cx - 130 * s, SF_clouds[i][1], 260 * s, 110 * s);
       ctx.globalAlpha = 1;
-    }
-  }
-  if (qLevel >= 2){                            // 海鸥: 两帧扇翅+正弦滑翔 par=0.8, 仅 q2
-    for (i = 0; i < 2; i++){
-      cx = cam.x + (SF_gulls[i][0] - cam.x) * 0.8 + Math.sin(time * 0.13 + SF_gulls[i][2]) * 220;
-      if (cx < vL - 60 || cx > vR + 60) continue;
-      cy = SF_gulls[i][1] + Math.sin(time * 0.7 + SF_gulls[i][2] * 1.7) * 26;
-      x = ((time * 5 + SF_gulls[i][2] * 3) | 0) % 2;
-      ctx.drawImage(SF_gullSpr[x], cx - 28, cy - 11);
     }
   }
   // ---- (b) 波面泡沫线: 2px 白, 透明度随 sin 呼吸; q0 单 sin ----
@@ -2627,14 +2618,14 @@ function update(dt){
     }
   }
   var rate = Math.min(1, dt * CONF.P_STEER);
-  player.vx += (dirX * maxSpd - player.vx) * rate;
-  player.vy += (dirY * maxSpd - player.vy) * rate;
+  if(player.surfaceFlight){player.vx=player.vx*Math.exp(-.12*dt)+dirX*30*dt;player.vy+=SURFACE_GRAVITY*dt;}
+  else{player.vx += (dirX * maxSpd - player.vx) * rate;player.vy += (dirY * maxSpd - player.vy) * rate;}
   player.x += player.vx * dt;
   player.y += player.vy * dt;
   if(window.applyOceanCurrents)applyOceanCurrents(player,dt);
   var m2 = player.size;
   player.x = clamp(player.x, m2 + 130, CONF.WORLD_W - m2 - 130);
-  player.y = clamp(player.y, player.breachT > 0 ? -90 : player.size * 0.35, CONF.WORLD_H - m2);
+  player.y = clamp(player.y, player.surfaceFlight ? -1600 : player.size * 0.35, CONF.WORLD_H - m2);
   // 热泉暖流托举玩家
   var vl = ventLift(player.x, player.y, survivalTime);
   if (vl > 0){ player.vy -= 300 * vl * dt; player.y -= 90 * vl * dt; }
@@ -3683,6 +3674,9 @@ function resetGame(){
 <script src="cavern-world.js"></script>
 <script src="surface-attachments.js"></script>
 <script src="cave-air.js"></script>
+<script src="coral-expansion.js"></script>
+<script src="surface-wildlife.js"></script>
+<script src="stable-a-landscape.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){
