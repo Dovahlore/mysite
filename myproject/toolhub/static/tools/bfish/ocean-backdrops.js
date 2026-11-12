@@ -1,6 +1,7 @@
 /* Distant relief is visual only: three cached parallax planes, no collision. */
 var BACKDROP_CACHE=new Map(),BACKDROP_STATE=null,SHIP_BACKDROP=null;
 var BACKDROP_LAYERS=[{p:.18,alpha:.32},{p:.43,alpha:.4},{p:.7,alpha:.48}];
+function backdropRootY(x,seed,layer){return 455-Math.sin(x*Math.PI/640)*(35+decorNoise(seed,layer+73)*34)+Math.sin(x*Math.PI/320)*18;}
 function paintOceanBackdrop(g,zone,layer,seed){
  var noise=i=>decorNoise(i+seed*17,93+layer),deep=zone==='deep'||zone==='volcano',cold=zone==='ice';
  var palette=deep?['#081e30','#102c3c','#193a48']:cold?['#335e73','#497c89','#639b9c']:['#17414c','#25575c','#356965'];
@@ -12,8 +13,10 @@ function paintOceanBackdrop(g,zone,layer,seed){
   g.fillStyle=palette[layer];for(var i=0;i<10;i++){var x=120+i*45,len=35+noise(i+40)*110;g.beginPath();g.moveTo(x-12,120);g.quadraticCurveTo(x,165,x+4,120+len);g.quadraticCurveTo(x+7,150,x+22,120);g.closePath();g.fill();}
   g.strokeStyle=zone==='volcano'?'#aa65413a':'#66899b33';for(var i=0;i<8;i++){var x=80+i*67;g.beginPath();g.moveTo(x,160);g.lineTo(x+28,220);g.lineTo(x+8,275);g.lineTo(x+45,325);g.stroke();}
  }else{
-  // Rooted vegetation belongs to the rear rock plane, not floating in open water.
-  for(var i=0;i<18;i++){var x=55+i*30,y=415+Math.sin(i*.8)*24,height=zone==='kelp'?100+noise(i+70)*220:35+noise(i+70)*95;if(cold)height*=.12;g.strokeStyle=cold?'#92c5c244':'#6b9d7c66';g.lineWidth=2+layer;g.beginPath();g.moveTo(x,y);g.bezierCurveTo(x-14,y-height*.4,x+16,y-height*.7,x+8,y-height);g.stroke();if(!cold)for(var j=0;j<6;j++){var yy=y-j*height/7,side=j%2?1:-1;g.fillStyle='#68907844';g.beginPath();g.ellipse(x+side*10,yy,15,4,side*.5,0,Math.PI*2);g.fill();}}
+  // The same sampled silhouette defines the stone surface and every plant root.
+  g.fillStyle=palette[layer];g.beginPath();g.moveTo(0,backdropRootY(0,seed,layer));for(var rx=8;rx<=640;rx+=8)g.lineTo(rx,backdropRootY(rx,seed,layer));g.lineTo(640,590);g.quadraticCurveTo(320,620,0,590);g.closePath();g.fill();g.strokeStyle='#90b7a533';g.lineWidth=2;g.beginPath();for(var rx=0;rx<=640;rx+=8){var ry=backdropRootY(rx,seed,layer);if(rx===0)g.moveTo(rx,ry);else g.lineTo(rx,ry);}g.stroke();
+  if(cold)return;
+  for(var i=0;i<18;i++){var x=55+i*30,y=backdropRootY(x,seed,layer)+2,height=zone==='kelp'?100+noise(i+70)*220:35+noise(i+70)*95;if(cold)height*=.12;g.strokeStyle=cold?'#92c5c244':'#6b9d7c66';g.lineWidth=2+layer;g.beginPath();g.moveTo(x,y);g.bezierCurveTo(x-14,y-height*.4,x+16,y-height*.7,x+8,y-height);g.stroke();if(!cold)for(var j=0;j<6;j++){var yy=y-j*height/7,side=j%2?1:-1;g.fillStyle='#68907844';g.beginPath();g.ellipse(x+side*10,yy,15,4,side*.5,0,Math.PI*2);g.fill();}}
  }
 }
 function oceanBackdropTile(zone,layer,seed){var key=zone+':'+layer+':'+seed;if(BACKDROP_CACHE.has(key))return BACKDROP_CACHE.get(key);var c=document.createElement('canvas');c.width=c.height=384;var g=c.getContext('2d');g.scale(.6,.6);paintOceanBackdrop(g,zone,layer,seed);BACKDROP_CACHE.set(key,c);while(BACKDROP_CACHE.size>36)BACKDROP_CACHE.delete(BACKDROP_CACHE.keys().next().value);return c;}
