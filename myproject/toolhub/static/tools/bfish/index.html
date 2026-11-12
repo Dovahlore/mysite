@@ -69,13 +69,13 @@ function newCanvas(w, h){
 var canvas = document.getElementById("gameCanvas");
 var ctx = canvas.getContext("2d");
 var W = 0, H = 0, DPR = 1;
-var QDPR = [1, 1.5, 2];               // 低/中/高 画质对应 DPR 上限
+var QDPR = [1.5, 2, 2.5];               // 低/中/高 画质对应 DPR 上限
 var qLevel = (window.devicePixelRatio || 1) > 1.5 ? 2 : 1;
 var qTimer = 0, frameEMA = 0.016;
 var QBUB = [14, 26, 42], QPART = [90, 170, 260], QRAY = [0, 2, 4];
 
 function resizeCanvas(){
-  DPR = Math.min(window.devicePixelRatio || 1, QDPR[qLevel]);
+  DPR = Math.max(1.25, Math.min(window.devicePixelRatio || 1.25, QDPR[qLevel]));
   W = window.innerWidth; H = window.innerHeight;
   canvas.width = Math.round(W * DPR);
   canvas.height = Math.round(H * DPR);
@@ -2924,6 +2924,7 @@ function banner(t){ bannerText = t; bannerTimer = 2.6; }
 var raySprites = null;
 function render(time){
   var i;
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = "#02060d";
   ctx.fillRect(0, 0, W, H);
@@ -3155,6 +3156,8 @@ function render(time){
 
   // 玩家
   if (player.alive && (gameState === "playing" || gameState === "paused")) drawPlayer(time);
+
+  if(window.drawOceanForeground)drawOceanForeground(time);
 
   // 粒子
   for (i = 0; i < particles.length; i++){
@@ -3668,6 +3671,7 @@ function resetGame(){
 <script src="habitat-scenery.js"></script>
 <script src="seabed-life.js"></script>
 <script src="ocean-backdrops.js"></script>
+<script src="ocean-foreground.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){

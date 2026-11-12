@@ -1,6 +1,6 @@
 /* V4.2 viewport streaming: collision data is permanent; visual assets are disposable. */
 'use strict';
-var STREAM={worker:null,busy:null,disabled:false,job:0,resident:0,maxBytes:24*1024*1024,loaded:0,evicted:0,failed:0,fallback:null,frame:0};
+var STREAM={worker:null,busy:null,disabled:false,job:0,resident:0,maxBytes:(window.innerWidth<700?32:64)*1024*1024,loaded:0,evicted:0,failed:0,fallback:null,frame:0};
 var streamWorkerURL=new URL('streaming-worker.js',document.currentScript.src).href;
 var originalRockBake=rkBake;
 function rockBounds(r){
@@ -20,17 +20,17 @@ function fillRockRows(r,im,from,to){
  var tint=r.tint||RK_TINT[r.z];
  for(var y=from;y<to;y++)for(var x=0;x<im.width;x++){
   var px=r.ox+(x+.5)*r.w/im.width,py=r.oy+(y+.5)*r.h/im.height,d=rkField(r,px,py),i=(y*im.width+x)*4;
-  if(d>2)continue;
+  if(d>Math.max(r.w/im.width,r.h/im.height))continue;
   var shade=(.72+.28*Math.exp(Math.min(d,0)/180))*(1+.06*Math.sin(py*.017+r.ax*.013));
   shade*=.96+.04*Math.sin(px*.035+Math.sin(py*.022)*2);
   var rim=1+.22*Math.exp(Math.min(d,0)/14);
   im.data[i]=tint[0]*shade*rim;im.data[i+1]=tint[1]*shade*rim;im.data[i+2]=tint[2]*shade*rim;
-  im.data[i+3]=clamp(1-d/(r.w/im.width),0,1)*255;
+  im.data[i+3]=clamp(.5-d/Math.max(r.w/im.width,r.h/im.height),0,1)*255;
  }
 }
 rkBake=function(r){
  rockBounds(r);
- var scale=Math.min(1,64/Math.max(r.w,r.h));
+ var scale=Math.min(1,128/Math.max(r.w,r.h));
  r.preview=rockPixels(r,Math.max(8,Math.ceil(r.w*scale)),Math.max(8,Math.ceil(r.h*scale)));
  r.spr=r.preview;r.streamBytes=0;r.streamTouch=0;r.streamPending=false;
 };
@@ -46,10 +46,10 @@ var terrainTiles=[];
 function buildTerrainTiles(){
  terrainTiles=[];
  RK_list.forEach(function(r){
-  if(r.w*r.h<1100000){terrainTiles.push(r);return;}
+  if(r.w*r.h<1100000){r.textureScale=window.innerWidth<700?1:1.35;terrainTiles.push(r);return;}
   r.tiles=[];
   for(var y=0;y<r.h;y+=768)for(var x=0;x<r.w;x+=768){
-   var t={ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,tint:r.tint,organic:r.organic,ice:!!r.ice,terrainWave:r.terrainWave,caves:r.caves,k:r.k,glow:r.glow,z:r.z,ox:r.ox+x,oy:r.oy+y,w:Math.min(768,r.w-x),h:Math.min(768,r.h-y),wx0:r.wx0+x,wy0:r.wy0+y,tile:true,textureScale:.8,streamBytes:0,streamPending:false,streamTouch:0,preview:null,spr:null};
+   var t={ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,tint:r.tint,organic:r.organic,ice:!!r.ice,terrainWave:r.terrainWave,caves:r.caves,k:r.k,glow:r.glow,z:r.z,ox:r.ox+x,oy:r.oy+y,w:Math.min(768,r.w-x),h:Math.min(768,r.h-y),wx0:r.wx0+x,wy0:r.wy0+y,tile:true,textureScale:window.innerWidth<700?1:1.35,streamBytes:0,streamPending:false,streamTouch:0,preview:null,spr:null};
    t.wx1=t.wx0+t.w;t.wy1=t.wy0+t.h;
    // Skip rectangles entirely outside a rock or wholly within a large cave.
    var padding=Math.hypot(t.w,t.h)/2,centerDistance=rkField(r,t.ox+t.w/2,t.oy+t.h/2);
@@ -107,12 +107,12 @@ function requestStreamTexture(e){
  if(STREAM.worker){
   var id=++STREAM.job;STREAM.busy={id:id,entry:e,time:performance.now()};
   var m={id:id,seed:((e.ax||e.x)*1009+(e.ay||0)*917)|0};
-  if(e.blobs){m.type=e.tile?'rockTile':'rock';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,organic:e.organic,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=e.textureScale||1;}
+  if(e.blobs){m.type='rockTile';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,organic:e.organic,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=e.textureScale||1;}
   else{m.type='seabed';m.x=e.x;m.w=e.w;}
   try{STREAM.worker.postMessage(m);}catch(_){e.streamPending=false;disableStreamWorker();}
  }else if(e.blobs){
   // Unsupported/CSP-blocked workers: yield between small raster row batches.
-  var scale=Math.min(.65,900/Math.max(e.w,e.h));
+  var scale=Math.min(1,1280/Math.max(e.w,e.h));
   var c=newCanvas(e.w*scale,e.h*scale),g=c.getContext('2d');
   STREAM.fallback={entry:e,canvas:c,g:g,image:g.createImageData(c.width,c.height),row:0};
  }else{

@@ -253,12 +253,12 @@ function fillRockRows(r,im,from,to){
  var tint=r.tint||RK_TINT[r.z];
  for(var y=from;y<to;y++)for(var x=0;x<im.width;x++){
   var px=r.ox+(x+.5)*r.w/im.width,py=r.oy+(y+.5)*r.h/im.height,d=rkField(r,px,py),i=(y*im.width+x)*4;
-  if(d>2)continue;
+  if(d>Math.max(r.w/im.width,r.h/im.height))continue;
   var shade=(.72+.28*Math.exp(Math.min(d,0)/180))*(1+.06*Math.sin(py*.017+r.ax*.013));
   shade*=.96+.04*Math.sin(px*.035+Math.sin(py*.022)*2);
   var rim=1+.22*Math.exp(Math.min(d,0)/14);
   im.data[i]=tint[0]*shade*rim;im.data[i+1]=tint[1]*shade*rim;im.data[i+2]=tint[2]*shade*rim;
-  im.data[i+3]=clamp(1-d/(r.w/im.width),0,1)*255;
+  im.data[i+3]=clamp(.5-d/Math.max(r.w/im.width,r.h/im.height),0,1)*255;
  }
 }
 
