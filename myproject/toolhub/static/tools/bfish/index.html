@@ -2976,7 +2976,8 @@ function render(time){
   if (vL < 460 && SP.cliffL) ctx.drawImage(SP.cliffL, 0, 0, 460, CONF.WORLD_H);
   if (vR > CONF.WORLD_W - 460 && SP.cliffR) ctx.drawImage(SP.cliffR, CONF.WORLD_W - 460, 0, 460, CONF.WORLD_H);
 
-  // 光柱
+  // Light shafts remain underwater, including at a local cave waterline.
+  ctx.save();if(window.clipToCaveWater)clipToCaveWater(ctx);
   if (QRAY[qLevel] > 0 && vT < 1000){
     if (!raySprites) raySprites = [makeRaySprite(150, 620), makeRaySprite(220, 760)];
     ctx.globalCompositeOperation = "lighter";
@@ -2990,6 +2991,8 @@ function render(time){
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
   }
+
+  ctx.restore();
 
   // 洞穴(画在装饰与鱼后面)
   for (i = 0; i < WORLD_CAVES.length; i++){
@@ -3166,6 +3169,7 @@ function render(time){
   for (i = 0; i < particles.length; i++){
     var pp = particles[i];
     if (!pp.active) continue;
+    if(window.caveAirAt&&caveAirAt(pp.x,pp.y))continue;
     if (pp.x < vL || pp.x > vR || pp.y < vT || pp.y > vB) continue;
     var alpha = 1 - pp.life / pp.maxLife;
     ctx.globalAlpha = alpha;
@@ -3678,6 +3682,7 @@ function resetGame(){
 <script src="cavern-paint.js"></script>
 <script src="cavern-world.js"></script>
 <script src="surface-attachments.js"></script>
+<script src="cave-air.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){
