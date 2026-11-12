@@ -1,26 +1,31 @@
 /* Three opaque relief planes. Their terraces and ecology belong to world space. */
 var STABLE_A=[{x:.05,y:.84,base:1750,amplitude:430,blur:2.2},{x:.1,y:.93,base:2550,amplitude:230,blur:.8},{x:.18,y:1,base:3150,amplitude:105,blur:0}],A_FAR_CANVAS=null;
-var A_TERRACES=[0,3000,6200,9500,12500],A_ROCK_ART=new Map();
-function aMountainCrest(layer,u,camY,band){var l=STABLE_A[layer],anchor=l.base+(A_TERRACES[band||0]||0),ridge=Math.sin(u*.0014+layer*1.8)*l.amplitude+Math.sin(u*.0031+layer)*l.amplitude*.22;return anchor+ridge+camY*(1-l.y);}
-function aBackdropPatch(layer,cell,band){var l=STABLE_A[layer],anchor=(cell*1100+550)/l.x,zone=sceneryZoneAt(clamp(anchor,0,CONF.WORLD_W),l.base+(A_TERRACES[band||0]||0));return {zone:zone,seed:Math.abs(cell*31+layer*17+(band||0)*13)%5};}
+var A_TERRACES=[0,3700,7050],A_ROCK_ART=new Map();
+function aMountainCrest(layer,u,camY,band){var l=STABLE_A[layer],floor=[3200,6900,10250,16600][band||0],rise=[1000,470,80][layer],amplitude=[230,110,42][layer],ridge=Math.sin(u*.0011+layer*1.8)*amplitude+Math.sin(u*.0031+layer)*amplitude*.28;return floor*l.y-rise+ridge+camY*(1-l.y);}
+function aBackdropPatch(layer,cell,band){var l=STABLE_A[layer],anchor=(cell*1100+550)/l.x,depth=[3100,6700,10000,16300][band||0],zone=sceneryZoneAt(clamp(anchor,0,CONF.WORLD_W),depth);return {zone:zone,seed:Math.abs(cell*31+layer*17+(band||0)*13)%5};}
 function aRockArt(zone,seed){var key=zone+':'+seed%6;if(A_ROCK_ART.has(key))return A_ROCK_ART.get(key);var c=newCanvas(360,480),g=c.getContext('2d');g.scale(3,3);paintRockVariant(g,seed%6,(zone==='shallow'?0:zone==='shelf'?100:zone==='deep'||zone==='volcano'?200:300)+seed,zone==='ice',zone==='deep'||zone==='volcano');A_ROCK_ART.set(key,c);return c;}
-function aReliefStyle(zone,layer){var deep=zone==='deep'||zone==='volcano',ice=zone==='ice';return {top:(zone==='volcano'?['#293b47','#34454f','#40515a']:deep?['#354c60','#3d5566','#496173']:ice?['#698d9e','#7c9eaa','#89aeb7']:['#527e82','#628d8c','#749b94'])[layer],bottom:deep?'#182f43':ice?'#375e73':'#244b59'};}
-function aBotanicalPool(zone){return zone==='shallow'?['grass','pink','orange','grass','fan','table','anemone']:zone==='shelf'?['pink','orange','table','fan','sponge','grass']:zone==='kelp'?['kelp','grass','kelp','anemone','kelp','sponge']:zone==='ice'?['anemone','sponge']:['cold','pen','sponge','cold','anemone'];}
+function aReliefStyle(zone,layer){var deep=zone==='deep'||zone==='volcano',ice=zone==='ice';return {top:(zone==='volcano'?['#25343c','#30414a','#3d4a50']:deep?['#263e52','#344c5c','#435a69']:ice?['#698d9e','#7c9eaa','#89aeb7']:['#527e82','#628d8c','#749b94'])[layer],bottom:deep?'#102333':ice?'#375e73':'#244b59'};}
+function aBotanicalPool(zone){return zone==='shallow'?['grass','pink','orange','grass','fan','table','anemone']:zone==='shelf'?['pen','cold','fan','sponge','pen','cold']:zone==='kelp'?['kelp','grass','kelp','anemone','kelp','sponge']:zone==='ice'?['pen','sponge','anemone','cold']:zone==='volcano'?['tubeworm','mussel','tubeworm']:['frond','pen','sponge','cold','crinoid','frond'];}
 function drawAWorldLayer(g,layer,zone,view){var l=STABLE_A[layer],hw=view.w/(2*view.z),hh=view.h/(2*view.z),shift=view.x*(1-l.x),left=view.x-hw-650,right=view.x+hw+650;
- for(var band=0;band<A_TERRACES.length;band++){
-  var center=aMountainCrest(layer,view.x-shift,view.y,band);if(center>view.y+hh+950)continue;
-  var root=u=>aMountainCrest(layer,u,view.y,band),slope=u=>(root(u+2)-root(u-2))/4,patchAt=cell=>view.forceZone?{zone:view.forceZone,seed:Math.abs(cell)%5}:aBackdropPatch(layer,cell,band);
-  // Outcrops share the same tangent as the continuous bed and are buried at their roots.
-  for(var cell=Math.floor((left-shift)/450);cell<=(right-shift)/450;cell++){
-   var u=cell*450+60,x=u+shift,y=root(u),seed=Math.abs(cell*7+layer*11+band*19),patch=patchAt(Math.floor(u/1100)),height=[270,210,100][layer]+decorNoise(seed,31)*[350,220,140][layer],width=180+decorNoise(seed,44)*220;
-   if(y-height>view.y+hh||y<view.y-hh-100)continue;g.save();g.translate(x,y+22);g.rotate(Math.atan(slope(u)));g.drawImage(aRockArt(patch.zone,seed),-width/2,-height*157/160,width,height);g.restore();
+ for(var band=0;band<3;band++){
+  if(band===3&&(view.x>9700&&view.x<19900||view.y>18400))continue;
+  var root=u=>aMountainCrest(layer,u,view.y,band),slope=u=>(root(u+2)-root(u-2))/4,patchAt=cell=>view.forceZone?{zone:view.forceZone,seed:Math.abs(cell)%5}:aBackdropPatch(layer,cell,band),bottom=([4350,8250,12250,17400][band])*l.y+view.y*(1-l.y);
+  if(bottom<view.y-hh-40||root(view.x-shift)>view.y+hh+800)continue;
+  // Widely spaced outcrops leave low meadows between them.
+  for(var cell=Math.floor((left-shift)/700);cell<=(right-shift)/700;cell++){
+   var u=cell*700+80,x=u+shift,y=root(u),seed=Math.abs(cell*7+layer*11+band*19),patch=patchAt(Math.floor(u/1100)),height=[180,125,55][layer]+decorNoise(seed,31)*[230,150,95][layer],width=160+decorNoise(seed,44)*150;
+   if(y-height>view.y+hh||y<view.y-hh-100||decorNoise(seed,14)<.28)continue;g.save();g.translate(x,y+22);g.rotate(Math.atan(slope(u)));g.drawImage(aRockArt(patch.zone,seed),-width/2,-height*157/160,width,height);g.restore();
   }
-  var first=Math.floor((left-shift)/1100),last=Math.ceil((right+20-shift)/1100),fill=g.createLinearGradient(first*1100+shift,0,last*1100+shift,0);for(var stop=first;stop<=last;stop++){var patch=patchAt(stop);fill.addColorStop((stop-first)/(last-first),aReliefStyle(patch.zone,layer).top);}g.fillStyle=fill;g.beginPath();for(var x=left;x<=right+20;x+=20){var y=root(x-shift);if(x===left)g.moveTo(x,y);else g.lineTo(x,y);}g.lineTo(right+20,CONF.WORLD_H+4000);g.lineTo(left,CONF.WORLD_H+4000);g.closePath();g.fill();
-  // Texture follows the same continuous contour, with no rectangular tile boundaries.
-  g.save();g.clip();g.lineWidth=1.4;for(var row=0;row<8;row++){g.strokeStyle=row%2?'#b4c4b422':'#112c3e40';g.beginPath();for(var x=left;x<=right+30;x+=30){var y=root(x-shift)+14+row*32+Math.sin((x-shift)*.008+row)*8;if(x===left)g.moveTo(x,y);else g.lineTo(x,y);}g.stroke();}g.restore();
-  var spacing=layer===0?145:layer===1?135:120;for(var cell=Math.floor((left-shift)/spacing);cell<=(right-shift)/spacing;cell++){
-   var u=(cell+.25+decorNoise(cell,19)*.45)*spacing,x=u+shift,y=root(u)+7,seed=Math.abs(cell*7+layer*11+band*17),patch=patchAt(Math.floor(u/1100)),pool=aBotanicalPool(patch.zone),kind=pool[Math.floor(decorNoise(seed,117)*pool.length)],height=(kind==='kelp'?300:90)+decorNoise(seed,81)*(kind==='kelp'?210:135),width=height*(kind==='kelp'?.43:kind==='grass'?.58:.76);height*=[.72,.88,1][layer];width*=[.72,.88,1][layer];if(y-height>view.y+hh||y<view.y-hh-50||(patch.zone==='volcano'&&decorNoise(seed,333)<.65)||(patch.zone==='ice'&&decorNoise(seed,334)<.35))continue;
-   g.save();g.translate(x,y);if(kind==='grass'||kind==='kelp')g.transform(1,slope(u),0,1,0,0);else g.rotate(Math.atan(slope(u)));g.drawImage(backdropBotanical(kind,seed),-width/2,-height*157/160,width,height);g.restore();
+  var first=Math.floor((left-shift)/1100),last=Math.ceil((right+20-shift)/1100),fill=g.createLinearGradient(first*1100+shift,0,last*1100+shift,0);for(var stop=first;stop<=last;stop++)fill.addColorStop((stop-first)/(last-first),aReliefStyle(patchAt(stop).zone,layer).top);
+  g.fillStyle=fill;g.beginPath();for(var x=left;x<=right+20;x+=20){var y=root(x-shift);if(x===left)g.moveTo(x,y);else g.lineTo(x,y);}g.lineTo(right+20,bottom);g.lineTo(left,bottom);g.closePath();g.fill();
+  g.save();g.clip();g.lineWidth=1.4;for(var row=0;row<7;row++){g.strokeStyle=row%2?'#b4c4b419':'#112c3e40';g.beginPath();for(var x=left;x<=right+30;x+=30){var y=root(x-shift)+14+row*35+Math.sin((x-shift)*.008+row)*8;if(x===left)g.moveTo(x,y);else g.lineTo(x,y);}g.stroke();}g.restore();
+  // Three offset growth rows occupy flat benches too, rather than one line of ridge-top coral.
+  var spacing=layer===0?220:layer===1?180:155;
+  for(var row=0;row<(band===0?1:3);row++)for(var cell=Math.floor((left-shift)/spacing);cell<=(right-shift)/spacing;cell++){
+   var u=(cell+.15+decorNoise(cell,row+19)*.7)*spacing,x=u+shift,y=root(u)+7+row*90,seed=Math.abs(cell*7+layer*11+band*17+row*53),patch=patchAt(Math.floor(u/1100)),pool=aBotanicalPool(patch.zone),kind=pool[Math.floor(decorNoise(seed,117)*pool.length)],height=(kind==='kelp'?300:kind==='frond'||kind==='pen'?180:80)+decorNoise(seed,81)*(kind==='kelp'?210:kind==='frond'||kind==='pen'?220:140),width=height*(kind==='kelp'||kind==='frond'?.43:kind==='pen'?.32:.76);
+   height*=[.66,.85,1][layer]*(row? .6:1);width*=[.66,.85,1][layer]*(row?.6:1);
+   if(y-height>view.y+hh||y<view.y-hh-50||decorNoise(seed,333)<(row?.5:.14))continue;
+   g.save();g.translate(x,y);if(['grass','kelp','pen','frond'].includes(kind))g.transform(1,slope(u),0,1,0,0);else g.rotate(Math.atan(slope(u)));g.drawImage(backdropBotanical(kind,seed),-width/2,-height*157/160,width,height);g.restore();
   }
  }
 }

@@ -221,7 +221,7 @@ function ecologySteering(f,x,y){
 spawnFish=function(){
  var minR=Math.max(650,Math.hypot(W,H)/(2*Math.max(cam.z,.15))+150),maxR=minR+1050;
  for(var attempt=0;attempt<22;attempt++){
-  var a=rand(-Math.PI,Math.PI),r=rand(minR,maxR),x=clamp(player.x+Math.cos(a)*r,180,CONF.WORLD_W-180),y=clamp(player.y+Math.sin(a)*r*.65,100,floorAt(player.x)-180);
+  var a=rand(-Math.PI,Math.PI),r=rand(minR,maxR),x=clamp(player.x+Math.cos(a)*r,180,CONF.WORLD_W-180),y=clamp(player.y+Math.sin(a)*r*.65,100,Math.min(CONF.WORLD_H-200,floorAt(player.x)-180));
   if(Math.abs(x-cam.x)<W/(2*cam.z)+90&&Math.abs(y-cam.y)<H/(2*cam.z)+90)continue;
   if(y>floorAt(x)-180||rkInside(x,y,110))continue;
   var sp=chooseHabitatSpecies(x,y,false),size=rand(sp.sMin,sp.sMax),region=oceanRegion(x,y);

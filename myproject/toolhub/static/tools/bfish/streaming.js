@@ -2,7 +2,7 @@
 'use strict';
 var STREAM_CHUNK=2048;
 var STREAM={worker:null,busy:null,disabled:false,job:0,resident:0,maxBytes:(navigator.deviceMemory&&navigator.deviceMemory<=2?32:window.innerWidth<700?64:96)*1024*1024,loaded:0,evicted:0,failed:0,fallback:null,frame:0,nextScan:0,scanCount:0,lastScan:null,entries:null};
-var streamWorkerURL=new URL('streaming-worker.js?v=6.25.1',document.currentScript.src).href;
+var streamWorkerURL=new URL('streaming-worker.js?v=6.26',document.currentScript.src).href;
 var originalRockBake=rkBake;
 function rockBounds(r){
  var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
@@ -31,7 +31,7 @@ function fillRockRows(r,im,from,to){
 }
 rkBake=function(r){
  rockBounds(r);
- var scale=Math.min(1,128/Math.max(r.w,r.h));
+ var scale=Math.min(.35,768/Math.max(r.w,r.h));
  r.preview=rockPixels(r,Math.max(8,Math.ceil(r.w*scale)),Math.max(8,Math.ceil(r.h*scale)));
  r.spr=r.preview;r.streamBytes=0;r.streamTouch=0;r.streamPending=false;
 };
@@ -92,7 +92,7 @@ function startStreamWorker(){
    finishStream(job.entry,m.bitmap);
   };
   STREAM.worker.onerror=function(event){event.preventDefault();disableStreamWorker();};
-  STREAM.worker.postMessage({type:'init',floor:FLOOR});
+  STREAM.worker.postMessage({type:'init',floor:FLOOR,worldW:CONF.WORLD_W,worldH:CONF.WORLD_H});
   if(window.requestWorldAtlas)requestWorldAtlas();
  }catch(_){disableStreamWorker();}
 }
@@ -138,7 +138,7 @@ function streamTick(){
  for(var i=0;i<entries.length;i++){
   var e=entries[i],x=e.blobs?e.wx0:e.x,y=e.blobs?e.wy0:FSTRIP_Y0,h=e.blobs?e.h:FSTRIP_H,eligible=x<v.r&&x+e.w>v.l&&y<v.b&&y+h>v.t,p=streamRectPriority(x,y,e.w,h,v);
   e.streamPriority=(eligible?p.tier:9)*1e10+p.d;e.targetScale=e.blobs?streamScale(p.tier,v.z,false):p.tier<=1?FSTRIP_BS:p.tier===2?.2:.12;
-  if(eligible){e.streamTouch=now;var needs=!e.streamBytes||(p.tier<=1&&(e.loadedScale||0)<e.targetScale*.85);var score=e.streamPriority+(e.streamBytes?4e9:0);e.streamNextScale=e.blobs&&!e.streamBytes&&p.tier<=1?Math.min(.45,e.targetScale):e.targetScale;if(needs&&!e.streamPending&&!e.streamNoHigh&&(!e.streamRetry||now>e.streamRetry)&&score<best){best=score;nearest=e;}}
+  if(eligible){e.streamTouch=now;var needs=!e.streamBytes||(p.tier<=1&&(e.loadedScale||0)<e.targetScale*.85);var score=e.streamPriority+(e.streamBytes?4e9:0);e.streamNextScale=e.blobs&&!e.streamBytes&&p.tier<=1?Math.min(.22,e.targetScale):e.targetScale;if(needs&&!e.streamPending&&!e.streamNoHigh&&(!e.streamRetry||now>e.streamRetry)&&score<best){best=score;nearest=e;}}
   else if(e.streamBytes){var far=x>v.r+STREAM_CHUNK||x+e.w<v.l-STREAM_CHUNK||y>v.b+STREAM_CHUNK||y+h<v.t-STREAM_CHUNK;if(now-e.streamTouch>(far?3000:16000))evictStreamEntry(e);}
  }
  if(nearest&&!STREAM.busy&&!STREAM.fallback)requestStreamTexture(nearest);
