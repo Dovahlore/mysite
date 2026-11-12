@@ -3686,6 +3686,36 @@ function resetGame(){
 <script src="shoal-life.js?v=6.25.1"></script>
 <script src="depth-bottom-life.js?v=6.25.1"></script>
 <script>
+// 链接限定的地图预览，普通游戏保持原有规则。
+var mapPreview = new URLSearchParams(location.search).get('preview') === 'map';
+var testModeButton = document.createElement('button');
+testModeButton.id = 'bfish-test-mode';
+testModeButton.textContent = '测试模式：' + (mapPreview ? '开' : '关');
+testModeButton.setAttribute('aria-pressed', String(mapPreview));
+testModeButton.title = '切换后重新开始：最大体型、无限饱食度、免死亡';
+testModeButton.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:1500;padding:8px 12px;border:1px solid #749ba8;border-radius:8px;background:#122f3e;color:#e0f4ff;font:13px sans-serif;cursor:pointer;touch-action:manipulation';
+testModeButton.addEventListener('pointerdown', function(e){e.stopPropagation();});
+testModeButton.addEventListener('click', function(e){
+  e.stopPropagation();
+  var next = new URL(location.href);
+  if(mapPreview) next.searchParams.delete('preview');
+  else next.searchParams.set('preview', 'map');
+  location.href = next.href;
+});
+document.body.appendChild(testModeButton);
+
+if (mapPreview){
+  Object.defineProperty(player, 'hunger', {configurable:true, get:function(){return CONF.HUNGER_MAX;}, set:function(){}});
+  var previewResetGame = resetGame;
+  resetGame = function(){
+    previewResetGame();
+    player.size = CONF.P_MAX_SIZE;
+    stageIdx = stageOf(player.size);
+    player.hungerShow = CONF.HUNGER_MAX;
+    cam.z = clamp(50 / player.size, CONF.ZOOM_MIN, CONF.ZOOM_MAX) * cameraViewportScale();
+  };
+  playerDie = function(){};
+}
 // ==================== 分阶段启动 ====================
 (async function bootGame(){
   try {
