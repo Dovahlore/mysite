@@ -341,15 +341,10 @@ function updateCaveSchools(dt){
 }
 var reliefBeforeCaveLight=drawOceanRelief;
 drawOceanRelief=function(time){
- reliefBeforeCaveLight(time);var cave=false;
- for(var i=0;i<4;i++){
-  var r=RK_list[i];if(!r)continue;
-  if(!r.shell)r.shell={blobs:r.blobs,caves:[],k:r.k};
-  if(rkField(r.shell,player.x-r.ax,player.y-r.ay)<-50&&rkField(r,player.x-r.ax,player.y-r.ay)>0){cave=true;break;}
- }
- if(!cave)return;
- ctx.save();ctx.fillStyle='rgba(1,14,28,.46)';ctx.fillRect(cam.x-W/(2*cam.z),cam.y-H/(2*cam.z),W/cam.z,H/cam.z);
- var light=ctx.createRadialGradient(player.x,player.y,40,player.x,player.y,700);light.addColorStop(0,'rgba(68,156,164,.07)');light.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=light;ctx.fillRect(player.x-700,player.y-700,1400,1400);ctx.restore();
+ reliefBeforeCaveLight(time);
+ // Local opaque B walls now provide cave darkness. The old player-triggered
+ // full-screen tint caused abrupt water-colour changes at every entrance.
+
 };
 
 function protectRouteClearance(rock){

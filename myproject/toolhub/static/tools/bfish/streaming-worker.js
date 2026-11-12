@@ -1,5 +1,5 @@
 'use strict';
-importScripts('cavern-paint.js?v=6.27');
+importScripts('cavern-paint.js?v=6.28');
 var CONF={WORLD_W:27200,WORLD_H:15800};var FLOOR;var FSTRIP_H=3350,FSTRIP_BS=.35,FSTRIP_Y0=12450;var RK_TINT=[[96,112,116],[98,104,120],[54,72,94],[80,98,112]];var seed=1;
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function lerp(a,b,t){return a+(b-a)*t;}

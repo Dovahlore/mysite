@@ -977,34 +977,15 @@ function SF_draw(time){  // render() 内调用; 天空位于背景之上、一�
   ctx.closePath();
   ctx.fillStyle = qLevel === 0 ? "#a5d4d8" : SF_skyPat;  // q0: 纯色天空
   ctx.fill();
+  if(window.drawLivingSky)drawLivingSky(time,vL,vR,vT);
   if (qLevel > 0){
     ctx.fillStyle = SF_foamPat;                // 水面下 80px 光带
     ctx.beginPath();
     for (i = 0; i <= n; i++){ x = vL + i * step; ctx.lineTo(x, SF_waveY(x, time) + 2); }
     for (i = n; i >= 0; i--){ x = vL + i * step; ctx.lineTo(x, SF_waveY(x, time) + 82); }
     ctx.closePath(); ctx.fill();
-    if (vT < -160 && vL < 3220 && vR > 2380){  // 太阳光斑 (2800,-600) R=420, 视锥剔除
-      ctx.globalCompositeOperation = "lighter";
-      ctx.drawImage(SF_sunSpr, 2800 - 420, -600 - 420, 840, 840);
-      ctx.globalCompositeOperation = "source-over";
-    }
-    for (i = 0; i < 2; i++){                   // 海岛剪影 par=0.9, 贴地平线 y≈-260
-      cx = cam.x + (SF_isles[i][0] - cam.x) * 0.9;
-      if (cx < vL - 300 || cx > vR + 300) continue;
-      s = SF_isles[i][1];
-      ctx.drawImage(SF_isleSpr[i], cx - 150 * s, -128 * s, 300 * s, 130 * s);
-    }
-    for (i = 0; i < 3; i++){                   // 云 par=0.85, 慢漂移 + 水平环绕世界
-      cx = (SF_clouds[i][0] + time * SF_clouds[i][3]) % CONF.WORLD_W;
-      if (cx < 0) cx += CONF.WORLD_W;
-      cx = cam.x + (cx - cam.x) * 0.85;
-      s = SF_clouds[i][2];
-      if (cx < vL - 300 * s || cx > vR + 300 * s) continue;
-      ctx.globalAlpha = 0.85;
-      ctx.drawImage(SF_cloudSpr[i], cx - 130 * s, SF_clouds[i][1], 260 * s, 110 * s);
-      ctx.globalAlpha = 1;
-    }
   }
+
   // ---- (b) 波面泡沫线: 2px 白, 透明度随 sin 呼吸; q0 单 sin ----
   ctx.lineWidth = 2; ctx.strokeStyle = "#ffffff";
   ctx.globalAlpha = qLevel === 0 ? 0.55 : 0.5 + 0.28 * Math.sin(time * 2.2);
@@ -2636,7 +2617,7 @@ function update(dt){
   if(window.applyOceanCurrents)applyOceanCurrents(player,dt);
   var m2 = player.size;
   player.x = clamp(player.x, m2 + 130, CONF.WORLD_W - m2 - 130);
-  player.y = clamp(player.y, player.surfaceFlight ? -1600 : player.size * 0.35, CONF.WORLD_H - m2);
+  player.y = clamp(player.y, -1600, CONF.WORLD_H - m2);
   // 热泉暖流托举玩家
   var vl = ventLift(player.x, player.y, survivalTime);
   if (vl > 0){ player.vy -= 300 * vl * dt; player.y -= 90 * vl * dt; }
@@ -3661,42 +3642,43 @@ function resetGame(){
 }
 
 </script>
-<script src="expedition.js?v=6.27"></script>
-<script src="ocean-world.js?v=6.27"></script>
-<script src="ocean-biomes.js?v=6.27"></script>
-<script src="wildlife.js?v=6.27"></script>
-<script src="reef-polish.js?v=6.27"></script>
-<script src="streaming.js?v=6.27"></script>
-<script src="mobile-controls.js?v=6.27"></script>
-<script src="field-guide.js?v=6.27"></script>
-<script src="ocean-life.js?v=6.27"></script>
-<script src="treasure-art.js?v=6.27"></script>
-<script src="prey-markers.js?v=6.27"></script>
-<script src="living-ocean.js?v=6.27"></script>
-<script src="ocean-refinement.js?v=6.27"></script>
-<script src="decor-art.js?v=6.27"></script>
-<script src="world-details.js?v=6.27"></script>
-<script src="variety-art.js?v=6.27"></script>
-<script src="habitat-scenery.js?v=6.27"></script>
-<script src="seabed-life.js?v=6.27"></script>
-<script src="ocean-backdrops.js?v=6.27"></script>
-<script src="ocean-foreground.js?v=6.27"></script>
-<script src="cavern-paint.js?v=6.27"></script>
-<script src="cavern-world.js?v=6.27"></script>
-<script src="surface-attachments.js?v=6.27"></script>
-<script src="cave-air.js?v=6.27"></script>
-<script src="coral-expansion.js?v=6.27"></script>
-<script src="surface-wildlife.js?v=6.27"></script>
-<script src="stable-a-landscape.js?v=6.27"></script>
-<script src="benthic-contact.js?v=6.27"></script>
-<script src="orca-ecology.js?v=6.27"></script>
-<script src="shoal-life.js?v=6.27"></script>
-<script src="depth-bottom-life.js?v=6.27"></script>
-<script src="abyss-world.js?v=6.27"></script>
-<script src="abyss-gardens.js?v=6.27"></script>
-<script src="abyss-life.js?v=6.27"></script>
-<script src="lost-realms.js?v=6.27"></script>
-<script src="ruins-art.js?v=6.27"></script>
+<script src="expedition.js?v=6.28"></script>
+<script src="ocean-world.js?v=6.28"></script>
+<script src="ocean-biomes.js?v=6.28"></script>
+<script src="wildlife.js?v=6.28"></script>
+<script src="reef-polish.js?v=6.28"></script>
+<script src="streaming.js?v=6.28"></script>
+<script src="mobile-controls.js?v=6.28"></script>
+<script src="field-guide.js?v=6.28"></script>
+<script src="ocean-life.js?v=6.28"></script>
+<script src="treasure-art.js?v=6.28"></script>
+<script src="prey-markers.js?v=6.28"></script>
+<script src="living-ocean.js?v=6.28"></script>
+<script src="ocean-refinement.js?v=6.28"></script>
+<script src="decor-art.js?v=6.28"></script>
+<script src="world-details.js?v=6.28"></script>
+<script src="variety-art.js?v=6.28"></script>
+<script src="habitat-scenery.js?v=6.28"></script>
+<script src="seabed-life.js?v=6.28"></script>
+<script src="ocean-backdrops.js?v=6.28"></script>
+<script src="ocean-foreground.js?v=6.28"></script>
+<script src="cavern-paint.js?v=6.28"></script>
+<script src="cavern-world.js?v=6.28"></script>
+<script src="surface-attachments.js?v=6.28"></script>
+<script src="cave-air.js?v=6.28"></script>
+<script src="coral-expansion.js?v=6.28"></script>
+<script src="surface-wildlife.js?v=6.28"></script>
+<script src="stable-a-landscape.js?v=6.28"></script>
+<script src="benthic-contact.js?v=6.28"></script>
+<script src="orca-ecology.js?v=6.28"></script>
+<script src="shoal-life.js?v=6.28"></script>
+<script src="depth-bottom-life.js?v=6.28"></script>
+<script src="abyss-world.js?v=6.28"></script>
+<script src="abyss-gardens.js?v=6.28"></script>
+<script src="abyss-life.js?v=6.28"></script>
+<script src="lost-realms.js?v=6.28"></script>
+<script src="ruins-art.js?v=6.28"></script>
+<script src="ocean-atmosphere.js?v=6.28"></script>
 <script>
 // 链接限定的地图预览，普通游戏保持原有规则。
 var mapPreview = new URLSearchParams(location.search).get('preview') === 'map';
