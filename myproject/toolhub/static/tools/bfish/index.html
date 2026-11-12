@@ -3030,8 +3030,8 @@ function render(time){
     var spr = DECOR[dc.z][dc.spr];
     ctx.save();
     ctx.translate(dc.x, dc.y);
-    ctx.rotate(dc.surfaceAngle||0);
-    if (swayOn) ctx.rotate(Math.sin(time * 0.8 + dc.ph) * 0.05);
+    applyRootTransform(dc);
+    if (swayOn && !dc.upright) ctx.rotate(Math.sin(time * 0.8 + dc.ph) * 0.05);
     var dw=spr.logicalWidth||spr.width,dh=spr.logicalHeight||spr.height;
     ctx.drawImage(spr, -dw / 2 * dc.s, -dh * dc.s, dw * dc.s, dh * dc.s);
     ctx.restore();
@@ -3044,7 +3044,7 @@ function render(time){
     var sprS = SP.sarg[sg.spr];
     ctx.save();
     ctx.translate(sg.x + Math.sin(time * 0.22 + sg.ph) * 14, sg.y + Math.sin(time * 0.5 + sg.ph * 2) * 10);
-    ctx.rotate(Math.sin(time * 0.4 + sg.ph) * 0.12);
+    // Floating seaweed keeps its vertical growth axis.
     ctx.globalAlpha = 0.92;
     ctx.drawImage(sprS, -(sprS.logicalWidth||sprS.width) / 2 * sg.s, -(sprS.logicalHeight||sprS.height) / 2 * sg.s, (sprS.logicalWidth||sprS.width) * sg.s, (sprS.logicalHeight||sprS.height) * sg.s);
     ctx.restore();
@@ -3054,8 +3054,8 @@ function render(time){
     var vk = VKELP[i];
     if (vk.x < vL - 120 || vk.x > vR + 120 || vk.y < vT - 900 || vk.y > vB + 120) continue;
     ctx.save();
-    ctx.translate(vk.x, vk.y);ctx.rotate(vk.surfaceAngle||0);
-    ctx.rotate(Math.sin(time * 0.55 + vk.ph) * 0.045);
+    ctx.translate(vk.x, vk.y);applyRootTransform(vk);
+    // Upright kelp: roots follow the slope, stems stay vertical.
     ctx.drawImage(SP.giantKelp, -35 * vk.s, -840 * vk.s, 70 * vk.s, 840 * vk.s);
     ctx.restore();
   }

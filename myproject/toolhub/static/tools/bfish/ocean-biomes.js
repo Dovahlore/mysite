@@ -691,7 +691,7 @@ function drawShallowKelp(time,background){
   var plants=SHALLOW_SCENERY.chunks.get(chunk);if(!plants)continue;
   for(var i=0;i<plants.length;i++){
    var p=plants[i];if(qLevel===0&&(background||i%2===1))continue;if(p.back!==background||p.y<t||p.y-p.h>b)continue;
-   var sway=Math.sin(time*.5+p.phase)*.016;ctx.save();ctx.translate(p.x,p.y);ctx.rotate((p.surfaceAngle||0)+sway);
+   var sway=Math.sin(time*.5+p.phase)*.016;ctx.save();ctx.translate(p.x,p.y);applyRootTransform(p);
    ctx.globalAlpha=background?.24:.68;ctx.drawImage(SHALLOW_SCENERY.sprites[p.sprite],-p.w/2,-p.h,p.w,p.h);ctx.restore();
   }
  }ctx.restore();
