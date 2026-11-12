@@ -260,6 +260,7 @@ drawExpeditionWorld=function(time){
  });
  DEN_DEFS.forEach(function(d){
   if(Math.abs(d.x-cam.x)>W/(2*cam.z)+500||Math.abs(d.y-cam.y)>H/(2*cam.z)+500)return;
+  if(d.iceDen)return;
   // A readable little sea-grass meadow marks the reward chamber itself.
   ctx.strokeStyle='#77bea5';ctx.lineWidth=3;
   for(var i=0;i<16;i++){var x=d.x-230+i*30,bands=surfaceBands(d.rock,x),y=bands.find(function(y){return y>d.y+60;});if(!y)continue;ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x-15+Math.sin(time+i)*8,y-45,x+Math.sin(time*.7+i)*18,y-90-i%3*16);ctx.stroke();}

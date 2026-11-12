@@ -1,4 +1,5 @@
 'use strict';
+importScripts('cavern-paint.js');
 var CONF={WORLD_W:27200,WORLD_H:15800};var FLOOR;var FSTRIP_H=3350,FSTRIP_BS=.35,FSTRIP_Y0=12450;var RK_TINT=[[96,112,116],[98,104,120],[54,72,94],[80,98,112]];var seed=1;
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function lerp(a,b,t){return a+(b-a)*t;}
@@ -40,14 +41,16 @@ function rkField(rk, px, py){
     var bd=Math.hypot(Math.max(qx,0),Math.max(qy,0))+Math.min(Math.max(qx,qy),0)-boxes[i+4];
     var bh=clamp(.5+.5*(bd-d)/k,0,1);d=bd*(1-bh)+d*bh-k*bh*(1-bh);
   }
-  var cv = rk.caves;
+  var cv = rk.caves,cpx=px,cpy=py;
+  if(cv.length&&!rk.ship){cpx+=Math.sin((py+rk.ay)*.009+rk.ax*.0003)*18+Math.sin((py+rk.ay)*.027)*5;cpy+=Math.sin((px+rk.ax)*.011+rk.ay*.0004)*17+Math.sin((px+rk.ax)*.031)*5;}
   for (i = 0; i < cv.length; i += 5){
     var ax = cv[i], ay = cv[i + 1];
     var abx = cv[i + 2] - ax, aby = cv[i + 3] - ay;
-    var t = ((px - ax) * abx + (py - ay) * aby) / (abx * abx + aby * aby + 0.001);
+    var t = ((cpx - ax) * abx + (cpy - ay) * aby) / (abx * abx + aby * aby + 0.001);
     if (t < 0) t = 0; else if (t > 1) t = 1;
-    var qx = px - ax - abx * t, qy = py - ay - aby * t;
-    var cd = Math.sqrt(qx * qx + qy * qy) - cv[i + 4];
+    var qx = cpx - ax - abx * t, qy = cpy - ay - aby * t,radius=cv[i+4];
+    if(!rk.ship&&abx*abx+aby*aby<1){var theta=Math.atan2(qy,qx);qx/=1.22;qy/=.84;radius*=1+.09*Math.sin(theta*3+ax*.003)+.045*Math.sin(theta*5+ay*.002);}
+    var cd = Math.sqrt(qx * qx + qy * qy) - radius;
     if (-cd > d) d = -cd; // 洞穴减法: 洞内变自由空间
   }
   return d;
@@ -278,4 +281,4 @@ function paintAtlas(rocks){var c=newCanvas(500,Math.round(500*CONF.WORLD_H/CONF.
   if(wy>floorAt(wx))col=[19,25,38];im.data[k]=col[0];im.data[k+1]=col[1];im.data[k+2]=col[2];im.data[k+3]=255;
  }g.putImageData(im,0,0);return c;
 }
-onmessage=function(event){var m=event.data;if(m.type==='init'){FLOOR=new Float32Array(m.floor);return;}try{seed=m.seed||1;var c;if(m.type==='atlas'){c=paintAtlas(m.rocks);}else if(m.type==='rockTile'){c=paintRockTile(m.rock,m.scale);}else if(m.type==='rock'){rkBake(m.rock);c=m.rock.spr;}else{c=paintSeabed(m.x,m.w);}var bitmap=c.transferToImageBitmap();postMessage({id:m.id,bitmap:bitmap},[bitmap]);}catch(error){postMessage({id:m.id,error:String(error)});}};
+onmessage=function(event){var m=event.data;if(m.type==='init'){FLOOR=new Float32Array(m.floor);return;}try{seed=m.seed||1;var c;if(m.type==='cavernRear'){c=newCanvas(m.rock.w*m.scale,m.rock.h*m.scale);var cg=c.getContext('2d'),ci=cg.createImageData(c.width,c.height);fillCavernRearRows(m.rock,ci,0,ci.height);cg.putImageData(ci,0,0);}else if(m.type==='atlas'){c=paintAtlas(m.rocks);}else if(m.type==='rockTile'){c=paintRockTile(m.rock,m.scale);}else if(m.type==='rock'){rkBake(m.rock);c=m.rock.spr;}else{c=paintSeabed(m.x,m.w);}var bitmap=c.transferToImageBitmap();postMessage({id:m.id,bitmap:bitmap},[bitmap]);}catch(error){postMessage({id:m.id,error:String(error)});}};

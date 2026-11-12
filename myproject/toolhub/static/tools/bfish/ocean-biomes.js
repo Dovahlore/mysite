@@ -372,7 +372,7 @@ updateDugongDens=function(dt){
  OCEAN.denTimer+=dt;if(OCEAN.denTimer<1)return;OCEAN.denTimer=0;
  DEN_DEFS.forEach(function(d,i){
   if(OCEAN.harvested[d.id]||dist2(player.x,player.y,d.x,d.y)>2200*2200)return;
-  if(!OCEAN.seen[d.id]&&dist2(player.x,player.y,d.x,d.y)<420*420){OCEAN.seen[d.id]=true;banner(d.vault?'发现鲸骨迷宫 · 深处聚集着限量儒艮群':'发现隐藏海草床 · '+d.name);}
+  if(!OCEAN.seen[d.id]&&dist2(player.x,player.y,d.x,d.y)<420*420){OCEAN.seen[d.id]=true;banner(d.iceDen?'发现冰下隐湾':d.vault?'发现鲸骨迷宫 · 深处聚集着限量儒艮群':'发现隐藏海草床 · '+d.name);}
   if(fishes.some(function(f){return !f.dead&&f.rareDen===d.id;}))return;
   var f=fishPool.length?fishPool.pop():newFish();initHabitatFish(f,dugongSpec,d.x,d.y,d.size||20+i*3);f.rareDen=d.id;f.vault=!!d.vault;f.nutrition=d.vault?2.2:4.5;fishes.push(f);
  });
@@ -473,7 +473,7 @@ drawExpeditionWorld=function(time){
  // Lava seams are inside the one-way tube, leaving a cool central lane.
  if(cam.x>18500&&cam.y>11500){ctx.strokeStyle='rgba(255,116,60,.65)';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(20900,13520);ctx.bezierCurveTo(22400,13470,24100,13580,25500,13500);ctx.stroke();}
  DEN_DEFS.forEach(function(d){
-  if(d.vault||Math.abs(d.x-cam.x)>W/(2*cam.z)+400||Math.abs(d.y-cam.y)>H/(2*cam.z)+400)return;
+  if(d.iceDen||d.vault||Math.abs(d.x-cam.x)>W/(2*cam.z)+400||Math.abs(d.y-cam.y)>H/(2*cam.z)+400)return;
   ctx.strokeStyle='#84b69c';ctx.lineWidth=2;
   for(var i=0;i<10;i++){var x=d.x-120+i*25,bands=surfaceBands(d.rock,x),y=bands.find(function(y){return y>d.y+20;});if(!y)continue;ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x+Math.sin(time+i)*15,y-40,x-10,y-75);ctx.stroke();}
   if(OCEAN.seen[d.id]){ctx.font='13px system-ui';ctx.fillStyle='#c2e1bd';ctx.textAlign='center';ctx.fillText(d.name,d.x,d.y-65);}
@@ -691,7 +691,7 @@ function drawShallowKelp(time,background){
   var plants=SHALLOW_SCENERY.chunks.get(chunk);if(!plants)continue;
   for(var i=0;i<plants.length;i++){
    var p=plants[i];if(qLevel===0&&(background||i%2===1))continue;if(p.back!==background||p.y<t||p.y-p.h>b)continue;
-   var sway=Math.sin(time*.5+p.phase)*.016;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(sway);
+   var sway=Math.sin(time*.5+p.phase)*.016;ctx.save();ctx.translate(p.x,p.y);ctx.rotate((p.surfaceAngle||0)+sway);
    ctx.globalAlpha=background?.24:.68;ctx.drawImage(SHALLOW_SCENERY.sprites[p.sprite],-p.w/2,-p.h,p.w,p.h);ctx.restore();
   }
  }ctx.restore();

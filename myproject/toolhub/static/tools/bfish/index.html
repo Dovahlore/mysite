@@ -1112,14 +1112,16 @@ function rkField(rk, px, py){
     var bd=Math.hypot(Math.max(qx,0),Math.max(qy,0))+Math.min(Math.max(qx,qy),0)-boxes[i+4];
     var bh=clamp(.5+.5*(bd-d)/k,0,1);d=bd*(1-bh)+d*bh-k*bh*(1-bh);
   }
-  var cv = rk.caves;
+  var cv = rk.caves,cpx=px,cpy=py;
+  if(cv.length&&!rk.ship){cpx+=Math.sin((py+rk.ay)*.009+rk.ax*.0003)*18+Math.sin((py+rk.ay)*.027)*5;cpy+=Math.sin((px+rk.ax)*.011+rk.ay*.0004)*17+Math.sin((px+rk.ax)*.031)*5;}
   for (i = 0; i < cv.length; i += 5){
     var ax = cv[i], ay = cv[i + 1];
     var abx = cv[i + 2] - ax, aby = cv[i + 3] - ay;
-    var t = ((px - ax) * abx + (py - ay) * aby) / (abx * abx + aby * aby + 0.001);
+    var t = ((cpx - ax) * abx + (cpy - ay) * aby) / (abx * abx + aby * aby + 0.001);
     if (t < 0) t = 0; else if (t > 1) t = 1;
-    var qx = px - ax - abx * t, qy = py - ay - aby * t;
-    var cd = Math.sqrt(qx * qx + qy * qy) - cv[i + 4];
+    var qx = cpx - ax - abx * t, qy = cpy - ay - aby * t,radius=cv[i+4];
+    if(!rk.ship&&abx*abx+aby*aby<1){var theta=Math.atan2(qy,qx);qx/=1.22;qy/=.84;radius*=1+.09*Math.sin(theta*3+ax*.003)+.045*Math.sin(theta*5+ay*.002);}
+    var cd = Math.sqrt(qx * qx + qy * qy) - radius;
     if (-cd > d) d = -cd; // 洞穴减法: 洞内变自由空间
   }
   return d;
@@ -3028,6 +3030,7 @@ function render(time){
     var spr = DECOR[dc.z][dc.spr];
     ctx.save();
     ctx.translate(dc.x, dc.y);
+    ctx.rotate(dc.surfaceAngle||0);
     if (swayOn) ctx.rotate(Math.sin(time * 0.8 + dc.ph) * 0.05);
     var dw=spr.logicalWidth||spr.width,dh=spr.logicalHeight||spr.height;
     ctx.drawImage(spr, -dw / 2 * dc.s, -dh * dc.s, dw * dc.s, dh * dc.s);
@@ -3051,7 +3054,7 @@ function render(time){
     var vk = VKELP[i];
     if (vk.x < vL - 120 || vk.x > vR + 120 || vk.y < vT - 900 || vk.y > vB + 120) continue;
     ctx.save();
-    ctx.translate(vk.x, vk.y);
+    ctx.translate(vk.x, vk.y);ctx.rotate(vk.surfaceAngle||0);
     ctx.rotate(Math.sin(time * 0.55 + vk.ph) * 0.045);
     ctx.drawImage(SP.giantKelp, -35 * vk.s, -840 * vk.s, 70 * vk.s, 840 * vk.s);
     ctx.restore();
@@ -3061,7 +3064,7 @@ function render(time){
     if (sp3.x < vL - 160 || sp3.x > vR + 160 || sp3.y < vT - 700 || sp3.y > vB + 120) continue;
     var spr3 = SP.spires[sp3.spr];
     ctx.save();
-    ctx.translate(sp3.x, sp3.y);
+    ctx.translate(sp3.x, sp3.y);ctx.rotate(sp3.surfaceAngle||0);
     ctx.rotate(Math.sin(time * 0.3 + sp3.ph) * 0.018);
     ctx.drawImage(spr3, -(spr3.logicalWidth||spr3.width) / 2 * sp3.s, -(spr3.logicalHeight||spr3.height) * sp3.s, (spr3.logicalWidth||spr3.width) * sp3.s, (spr3.logicalHeight||spr3.height) * sp3.s);
     ctx.restore();
@@ -3672,6 +3675,9 @@ function resetGame(){
 <script src="seabed-life.js"></script>
 <script src="ocean-backdrops.js"></script>
 <script src="ocean-foreground.js"></script>
+<script src="cavern-paint.js"></script>
+<script src="cavern-world.js"></script>
+<script src="surface-attachments.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){

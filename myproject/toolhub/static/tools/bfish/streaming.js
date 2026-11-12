@@ -49,7 +49,7 @@ function buildTerrainTiles(){
   if(r.w*r.h<1100000){r.textureScale=window.innerWidth<700?1:1.35;terrainTiles.push(r);return;}
   r.tiles=[];
   for(var y=0;y<r.h;y+=768)for(var x=0;x<r.w;x+=768){
-   var t={ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,tint:r.tint,organic:r.organic,ice:!!r.ice,terrainWave:r.terrainWave,caves:r.caves,k:r.k,glow:r.glow,z:r.z,ox:r.ox+x,oy:r.oy+y,w:Math.min(768,r.w-x),h:Math.min(768,r.h-y),wx0:r.wx0+x,wy0:r.wy0+y,tile:true,textureScale:window.innerWidth<700?1:1.35,streamBytes:0,streamPending:false,streamTouch:0,preview:null,spr:null};
+   var t={ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,tint:r.tint,organic:r.organic,ship:!!r.ship,ice:!!r.ice,terrainWave:r.terrainWave,caves:r.caves,k:r.k,glow:r.glow,z:r.z,ox:r.ox+x,oy:r.oy+y,w:Math.min(768,r.w-x),h:Math.min(768,r.h-y),wx0:r.wx0+x,wy0:r.wy0+y,tile:true,textureScale:window.innerWidth<700?1:1.35,streamBytes:0,streamPending:false,streamTouch:0,preview:null,spr:null};
    t.wx1=t.wx0+t.w;t.wy1=t.wy0+t.h;
    // Skip rectangles entirely outside a rock or wholly within a large cave.
    var padding=Math.hypot(t.w,t.h)/2,centerDistance=rkField(r,t.ox+t.w/2,t.oy+t.h/2);
@@ -81,7 +81,7 @@ function startStreamWorker(){
  try{
   STREAM.worker=new Worker(streamWorkerURL);
   STREAM.worker.onmessage=function(event){
-   var m=event.data,job=STREAM.busy;
+   var m=event.data,job=STREAM.busy;if(m.id<=-1000&&window.finishCaveBacking){finishCaveBacking(m);return;}
    if(m.id===-1){if(m.error){if(window.requestWorldAtlas)requestWorldAtlas(true);}else{var atlas=newCanvas(m.bitmap.width,m.bitmap.height);atlas.getContext('2d').drawImage(m.bitmap,0,0);m.bitmap.close();replaceWorldAtlas(atlas);}return;}
    if(!job||m.id!==job.id){if(m.bitmap&&m.bitmap.close)m.bitmap.close();return;}
    STREAM.busy=null;
@@ -107,7 +107,7 @@ function requestStreamTexture(e){
  if(STREAM.worker){
   var id=++STREAM.job;STREAM.busy={id:id,entry:e,time:performance.now()};
   var m={id:id,seed:((e.ax||e.x)*1009+(e.ay||0)*917)|0};
-  if(e.blobs){m.type='rockTile';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,organic:e.organic,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=e.textureScale||1;}
+  if(e.blobs){m.type='rockTile';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,organic:e.organic,ship:!!e.ship,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=e.textureScale||1;}
   else{m.type='seabed';m.x=e.x;m.w=e.w;}
   try{STREAM.worker.postMessage(m);}catch(_){e.streamPending=false;disableStreamWorker();}
  }else if(e.blobs){
