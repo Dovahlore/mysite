@@ -392,14 +392,9 @@ applyOceanCurrents=function(entity,dt){
  currentPhysicsBeforeNarrow(entity,dt);
  if(entity!==player)return;
  NARROW_SHORTCUTS.forEach(function(g){
-  var x=g.points[0][0],y0=g.points[0][1],y1=g.points[1][1];
-  var inside=Math.abs(entity.x-x)<100&&entity.y>y0&&entity.y<y1;
-  if(!inside){g.inside=false;g.compressed=false;return;}
-  if(entity.size<=g.limit){g.inside=true;return;}
-  if(g.inside){g.compressed=true;return;} // Growth inside a shortcut may always finish the crossing.
-  var previousY=entity.y-entity.vy*dt;
-  entity.y=previousY<(y0+y1)/2?y0-2:y1+2;entity.vy=0;
-  if(!g.warnUntil||survivalTime>g.warnUntil){banner('窄缝仅适合体长 70 以下 · 请走鲸骨迷宫主入口');g.warnUntil=survivalTime+5;}
+  // Clearance comes solely from the visible geometry. Do not shrink the sprite
+  // independently of its collider or retain a separate rectangle gate.
+  g.inside=false;g.compressed=false;
  });
 };
 var drawFishBeforeBiomes=drawFishSprite;
@@ -593,7 +588,7 @@ drawExpeditionWorld=function(time){
  drawBeforeFeatureMarkers(time);ctx.save();
  SUPPLY_CACHES.forEach(function(p){
   if(V6.supplies&&V6.supplies[p.id]||Math.abs(p.x-cam.x)>W/(2*cam.z)+100||Math.abs(p.y-cam.y)>H/(2*cam.z)+100)return;
-  ctx.fillStyle='#8daf9d';ctx.fillRect(p.x-22,p.y-15,44,30);ctx.strokeStyle='#d9d9ac';ctx.lineWidth=2;ctx.strokeRect(p.x-22,p.y-15,44,30);ctx.beginPath();ctx.moveTo(p.x,p.y-15);ctx.lineTo(p.x,p.y+15);ctx.stroke();ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillStyle='#d8e5ba';ctx.fillText(p.name,p.x,p.y-28);
+  drawSupplyChest(p,time);
  });ctx.restore();
 };
 

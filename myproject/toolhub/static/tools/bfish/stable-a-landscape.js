@@ -7,7 +7,7 @@ function buildABedProfiles(){A_BED_PROFILES=[];A_STRATUM_CLIPS=[];A_ALL_STRATA_C
  var names=[['第一层：珊瑚大陆架'],['第二层：蓝潮断层'],['第三层：深渊顶板','冰下神庙上层石基']];
  for(var band=0;band<3;band++){var rocks=RK_list.filter(r=>names[band].includes(r.name)),row=[];
   for(var x=0;x<=CONF.WORLD_W+80;x+=80){var bed=Infinity;for(var r of rocks){if(x<r.wx0||x>r.wx1)continue;var lo=r.wy0,hi=null;for(var y=r.wy0;y<=r.ay;y+=80){if(rkField(r,x-r.ax,y-r.ay)<0){hi=y;break;}lo=y;}if(hi===null)continue;for(var j=0;j<10;j++){var m=(lo+hi)/2;if(rkField(r,x-r.ax,m-r.ay)<0)hi=m;else lo=m;}bed=Math.min(bed,(lo+hi)/2);}row.push(Number.isFinite(bed)?bed:[3200,6900,10600][band]);}
-  A_BED_PROFILES.push(row);var clip=new Path2D(),top=[0,4350,8250][band];clip.moveTo(0,top);clip.lineTo(CONF.WORLD_W,top);for(var x=CONF.WORLD_W;x>=0;x-=40)clip.lineTo(x,aLayerBedAt(x,band)+100);clip.closePath();A_STRATUM_CLIPS.push(clip);A_ALL_STRATA_CLIP.addPath(clip);
+  A_BED_PROFILES.push(row);var clip=new Path2D(),top=[0,4350,8250][band];clip.moveTo(0,top);clip.lineTo(CONF.WORLD_W,top);for(var x=CONF.WORLD_W;x>=0;x-=40)clip.lineTo(x,[3750,7550,11150][band]);clip.closePath();A_STRATUM_CLIPS.push(clip);A_ALL_STRATA_CLIP.addPath(clip);
  }
 }
 function aMountainCrest(layer,u,camY,band){var l=STABLE_A[layer],floor=[3200,6900,10250,16600][band||0],rise=[1000,470,80][layer],amplitude=[230,110,42][layer],ridge=Math.sin(u*.0011+layer*1.8)*amplitude+Math.sin(u*.0031+layer)*amplitude*.28;return floor*l.y-rise+ridge+camY*(1-l.y);}
@@ -19,7 +19,7 @@ function drawAWorldLayer(g,layer,zone,view){var l=STABLE_A[layer],hw=view.w/(2*v
  for(var band=0;band<3;band++){
   // Each ocean owns its own three parallax planes. Their lower silhouettes
   // cannot spill through the separating shelf into the next ocean.
-  var bandTop=[0,4350,8250][band],bandBottom=[3600,7350,11050][band];
+  var bandTop=[0,4350,8250][band],bandBottom=[3750,7550,11150][band];
   if(view.y-hh>bandBottom||view.y+hh<bandTop)continue;
   var root=u=>aMountainCrest(layer,u,view.y,band),slope=u=>(root(u+2)-root(u-2))/4,patchAt=cell=>view.forceZone?{zone:view.forceZone,seed:Math.abs(cell)%5}:aBackdropPatch(layer,cell,band),bottom=([4350,8250,12250,17400][band])*l.y+view.y*(1-l.y);
   if(bottom<view.y-hh-40||root(view.x-shift)>view.y+hh+800)continue;
@@ -30,7 +30,7 @@ function drawAWorldLayer(g,layer,zone,view){var l=STABLE_A[layer],hw=view.w/(2*v
    if(y-height>view.y+hh||y<view.y-hh-100||decorNoise(seed,14)<.28)continue;g.save();g.translate(x,y+22);g.rotate(Math.atan(slope(u)));g.drawImage(aRockArt(patch.zone,seed),-width/2,-height*157/160,width,height);g.restore();
   }
   var first=Math.floor((left-shift)/1100),last=Math.ceil((right+20-shift)/1100),fill=g.createLinearGradient(first*1100+shift,0,last*1100+shift,0);for(var stop=first;stop<=last;stop++)fill.addColorStop((stop-first)/(last-first),aReliefStyle(patchAt(stop).zone,layer).top);
-  g.fillStyle=fill;g.beginPath();for(var x=left;x<=right+20;x+=20){var y=root(x-shift);if(x===left)g.moveTo(x,y);else g.lineTo(x,y);}for(var bx=right+20;bx>=left;bx-=20)g.lineTo(bx,aLayerBedAt(bx,band)+450);g.closePath();g.fill();
+  g.fillStyle=fill;g.beginPath();for(var x=left;x<=right+20;x+=20){var y=root(x-shift);if(x===left)g.moveTo(x,y);else g.lineTo(x,y);}for(var bx=right+20;bx>=left;bx-=20)g.lineTo(bx,[3750,7550,11150][band]+450);g.closePath();g.fill();
   g.save();g.clip();g.lineWidth=1.4;for(var row=0;row<7;row++){g.strokeStyle=row%2?'#b4c4b419':'#112c3e40';g.beginPath();for(var x=left;x<=right+30;x+=30){var y=root(x-shift)+14+row*35+Math.sin((x-shift)*.008+row)*8;if(x===left)g.moveTo(x,y);else g.lineTo(x,y);}g.stroke();}g.restore();
   // Three offset growth rows occupy flat benches too, rather than one line of ridge-top coral.
   var spacing=layer===0?220:layer===1?180:155;

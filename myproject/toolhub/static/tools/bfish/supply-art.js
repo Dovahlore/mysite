@@ -1,0 +1,15 @@
+/* One cached chest illustration for the wreck and all exploration supplies. */
+var SUPPLY_CHEST_ART=null;
+function supplyChestArt(){if(SUPPLY_CHEST_ART)return SUPPLY_CHEST_ART;var c=newCanvas(384,288),g=c.getContext('2d');g.translate(192,162);g.scale(3,3);g.lineJoin='round';g.lineCap='round';
+ var shadow=g.createRadialGradient(0,18,2,0,18,47);shadow.addColorStop(0,'#03132080');shadow.addColorStop(1,'#03132000');g.fillStyle=shadow;g.fillRect(-58,3,116,44);
+ g.fillStyle='#3e3f38';g.strokeStyle='#b99e69';g.lineWidth=1;g.beginPath();g.moveTo(30,-13);g.lineTo(44,-20);g.lineTo(43,15);g.lineTo(30,24);g.closePath();g.fill();g.stroke();
+ var wood=g.createLinearGradient(0,-17,0,25);wood.addColorStop(0,'#8c6746');wood.addColorStop(.5,'#654e3c');wood.addColorStop(1,'#3c3730');g.fillStyle=wood;g.beginPath();g.roundRect(-38,-16,70,41,3);g.fill();g.strokeStyle='#b7a479';g.stroke();
+ for(var y=-9;y<24;y+=8){g.strokeStyle='#271f1c9a';g.lineWidth=.8;g.beginPath();g.moveTo(-35,y);g.quadraticCurveTo(-5,y+2,29,y);g.stroke();g.strokeStyle='#d2a97045';g.beginPath();g.moveTo(-34,y+1.4);g.lineTo(29,y+1.4);g.stroke();}
+ var lid=g.createLinearGradient(0,-36,0,-10);lid.addColorStop(0,'#bc9961');lid.addColorStop(.23,'#967344');lid.addColorStop(.72,'#68513a');lid.addColorStop(1,'#b6a06a');g.fillStyle=lid;g.strokeStyle='#d1bb80';g.lineWidth=1;g.beginPath();g.moveTo(-39,-12);g.bezierCurveTo(-40,-29,-30,-37,-13,-37);g.lineTo(15,-37);g.bezierCurveTo(28,-36,33,-27,33,-12);g.closePath();g.fill();g.stroke();
+ g.fillStyle='#7b6645';g.beginPath();g.moveTo(33,-12);g.lineTo(44,-20);g.bezierCurveTo(45,-30,32,-43,16,-43);g.lineTo(-13,-37);g.lineTo(15,-37);g.bezierCurveTo(28,-36,33,-27,33,-12);g.fill();g.stroke();
+ for(var x of [-26,19]){g.fillStyle='#a89561';g.fillRect(x,-13,5,37);g.strokeStyle='#ddcc91';g.lineWidth=1;g.beginPath();g.moveTo(x,-12);g.bezierCurveTo(x,-24,x-2,-32,x-3,-36);g.lineTo(x+2,-37);g.bezierCurveTo(x+5,-28,x+5,-21,x+5,-12);g.stroke();for(var y of [-8,9,19]){g.fillStyle='#e4d5a0';g.beginPath();g.arc(x+2.5,y,.9,0,Math.PI*2);g.fill();}}
+ g.strokeStyle='#d5c383';g.lineWidth=2;g.beginPath();g.moveTo(-38,-12);g.lineTo(32,-12);g.lineTo(44,-20);g.stroke();g.strokeStyle='#a7e2d8';g.lineWidth=.7;g.beginPath();g.moveTo(-32,-10.5);g.lineTo(27,-10.5);g.stroke();g.fillStyle='#c4ad68';g.beginPath();g.roundRect(-7,-16,13,19,2);g.fill();g.strokeStyle='#e3d29a';g.stroke();g.fillStyle='#273f45';g.beginPath();g.arc(-.5,-8,2.3,0,Math.PI*2);g.fill();g.fillRect(-1.4,-7,1.8,5);
+ g.strokeStyle='#486f66';g.lineWidth=1.4;for(var i=0;i<4;i++){g.beginPath();g.moveTo(-36+i*3,23);g.quadraticCurveTo(-40+i*4,15,-35+i*4,9);g.stroke();}g.fillStyle='#74958a';for(var i=0;i<8;i++){g.beginPath();g.arc(25+(i%3)*2,18-Math.floor(i/3)*2,.8,0,Math.PI*2);g.fill();}
+ SUPPLY_CHEST_ART=c;return c;
+}
+function drawSupplyChest(p,time){ctx.save();var pulse=.06+.035*Math.sin(time*1.6+p.x*.01),glow=ctx.createRadialGradient(p.x,p.y-8,5,p.x,p.y-8,62);glow.addColorStop(0,'rgba(155,230,207,'+pulse+')');glow.addColorStop(1,'#97dfcf00');ctx.fillStyle=glow;ctx.fillRect(p.x-62,p.y-70,124,124);ctx.drawImage(supplyChestArt(),p.x-48,p.y-40.5,96,72);ctx.restore();}

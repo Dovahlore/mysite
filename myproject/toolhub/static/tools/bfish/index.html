@@ -1116,37 +1116,34 @@ function rkGrad(rk, px, py, out){
   if (l < 1e-6){ out.x = 0; out.y = -1; } else { out.x = gx / l; out.y = gy / l; }
   return d;
 }
-function rkCollide(e, isPlayer){
-  var i, rk, m, d, margin, it, vn;
-  for (i = 0; i < RK_list.length; i++){
-    rk = RK_list[i];
-    m = e.size * 0.32 + 80;
-    if (e.x < rk.wx0 - m || e.x > rk.wx1 + m || e.y < rk.wy0 - m || e.y > rk.wy1 + m) continue;
-    margin = e.size * 0.32;
-    d = rkGrad(rk, e.x - rk.ax, e.y - rk.ay, RK_grad);
-    if (d >= margin) continue;
-    it = 0;
-    while (d < margin && it++ < 8){
-      e.x += RK_grad.x * (margin - d + 2);
-      e.y += RK_grad.y * (margin - d + 2);
-      d = rkGrad(rk, e.x - rk.ax, e.y - rk.ay, RK_grad);
-    }
-    vn = e.vx * RK_grad.x + e.vy * RK_grad.y;
-    if (vn < 0){
-      e.vx -= 1.35 * vn * RK_grad.x;
-      e.vy -= 1.35 * vn * RK_grad.y;
-      if (isPlayer && vn < -180){ emitRipple(e.x, e.y, 46); emitParticles(e.x, e.y, 3, 0); }
-    }
-  }
+// Boolean subtraction fields underestimate clearance where carved tunnels overlap.
+// A small field value alone is not a contact: confirm rock inside the body first.
+var RK_CONTACT={x:0,y:0,push:0},RK_CONTACT_DIRS=[];
+for(var ci=0;ci<24;ci++)RK_CONTACT_DIRS.push([Math.cos(ci*Math.PI/12),Math.sin(ci*Math.PI/12)]);
+function rkCircleContact(r,x,y,radius,out,testOnly){
+ var d=rkField(r,x,y);if(d>radius*1.8+24)return false;
+ if(d<0){if(!testOnly){rkGrad(r,x,y,out);out.push=radius-d+1;}return true;}
+ if(radius<=0)return false;
+ rkGrad(r,x,y,out);var sx=x-out.x*radius,sy=y-out.y*radius,best=rkField(r,sx,sy),bx=sx,by=sy;
+ if(best>=0){
+  for(var i=0;i<RK_CONTACT_DIRS.length;i++){var u=RK_CONTACT_DIRS[i],px=x+u[0]*radius,py=y+u[1]*radius,sd=rkField(r,px,py);if(sd<best){best=sd;bx=px;by=py;}}
+  // A thin fragment can lie entirely inside the outer ring.
+  for(var i=0;i<RK_CONTACT_DIRS.length;i+=3){var u=RK_CONTACT_DIRS[i],px=x+u[0]*radius*.5,py=y+u[1]*radius*.5,sd=rkField(r,px,py);if(sd<best){best=sd;bx=px;by=py;}}
+ }
+ if(best>=0)return false;if(testOnly)return true;
+ rkGrad(r,bx,by,out);out.push=Math.min(radius*.8+8,-best+1);return true;
 }
-function rkInside(x, y, pad){
-  var i, rk;
-  for (i = 0; i < RK_list.length; i++){
-    rk = RK_list[i];
-    if (x < rk.wx0 - pad || x > rk.wx1 + pad || y < rk.wy0 - pad || y > rk.wy1 + pad) continue;
-    if (rkField(rk, x - rk.ax, y - rk.ay) < pad) return true;
-  }
-  return false;
+function rkCollide(e,isPlayer){
+ var radius=e.size*.32;
+ for(var i=0;i<RK_list.length;i++){var r=RK_list[i],pad=radius+80;
+  if(e.x<r.wx0-pad||e.x>r.wx1+pad||e.y<r.wy0-pad||e.y>r.wy1+pad)continue;
+  var touched=false,nx=0,ny=0;
+  for(var it=0;it<8;it++){if(!rkCircleContact(r,e.x-r.ax,e.y-r.ay,radius,RK_CONTACT))break;touched=true;nx=RK_CONTACT.x;ny=RK_CONTACT.y;e.x+=nx*RK_CONTACT.push;e.y+=ny*RK_CONTACT.push;}
+  if(!touched)continue;var vn=e.vx*nx+e.vy*ny;if(vn<0){e.vx-=1.35*vn*nx;e.vy-=1.35*vn*ny;if(isPlayer&&vn< -180){emitRipple(e.x,e.y,46);emitParticles(e.x,e.y,3,0);}}
+ }
+}
+function rkInside(x,y,pad){pad=Math.max(0,pad||0);
+ for(var i=0;i<RK_list.length;i++){var r=RK_list[i];if(x<r.wx0-pad||x>r.wx1+pad||y<r.wy0-pad||y>r.wy1+pad)continue;if(rkCircleContact(r,x-r.ax,y-r.ay,pad,RK_CONTACT,true))return true;}return false;
 }
 function rkFlora(g, z, x, y){
   var j, an;
@@ -3642,45 +3639,46 @@ function resetGame(){
 }
 
 </script>
-<script src="expedition.js?v=6.30"></script>
-<script src="ocean-world.js?v=6.30"></script>
-<script src="ocean-biomes.js?v=6.30"></script>
-<script src="wildlife.js?v=6.30"></script>
-<script src="reef-polish.js?v=6.30"></script>
-<script src="geology-color.js?v=6.30"></script>
-<script src="streaming.js?v=6.30"></script>
-<script src="mobile-controls.js?v=6.30"></script>
-<script src="field-guide.js?v=6.30"></script>
-<script src="ocean-life.js?v=6.30"></script>
-<script src="treasure-art.js?v=6.30"></script>
-<script src="prey-markers.js?v=6.30"></script>
-<script src="living-ocean.js?v=6.30"></script>
-<script src="ocean-refinement.js?v=6.30"></script>
-<script src="decor-art.js?v=6.30"></script>
-<script src="world-details.js?v=6.30"></script>
-<script src="variety-art.js?v=6.30"></script>
-<script src="habitat-scenery.js?v=6.30"></script>
-<script src="seabed-life.js?v=6.30"></script>
-<script src="ocean-backdrops.js?v=6.30"></script>
-<script src="ocean-foreground.js?v=6.30"></script>
-<script src="cavern-paint.js?v=6.30"></script>
-<script src="cavern-world.js?v=6.30"></script>
-<script src="surface-attachments.js?v=6.30"></script>
-<script src="cave-air.js?v=6.30"></script>
-<script src="coral-expansion.js?v=6.30"></script>
-<script src="surface-wildlife.js?v=6.30"></script>
-<script src="stable-a-landscape.js?v=6.30"></script>
-<script src="benthic-contact.js?v=6.30"></script>
-<script src="orca-ecology.js?v=6.30"></script>
-<script src="shoal-life.js?v=6.30"></script>
-<script src="depth-bottom-life.js?v=6.30"></script>
-<script src="abyss-world.js?v=6.30"></script>
-<script src="abyss-gardens.js?v=6.30"></script>
-<script src="abyss-life.js?v=6.30"></script>
-<script src="lost-realms.js?v=6.30"></script>
-<script src="ruins-art.js?v=6.30"></script>
-<script src="ocean-atmosphere.js?v=6.30"></script>
-<script src="abyss-diversity.js?v=6.30"></script>
+<script src="expedition.js?v=6.31"></script>
+<script src="ocean-world.js?v=6.31"></script>
+<script src="ocean-biomes.js?v=6.31"></script>
+<script src="wildlife.js?v=6.31"></script>
+<script src="reef-polish.js?v=6.31"></script>
+<script src="geology-color.js?v=6.31"></script>
+<script src="streaming.js?v=6.31"></script>
+<script src="mobile-controls.js?v=6.31"></script>
+<script src="field-guide.js?v=6.31"></script>
+<script src="ocean-life.js?v=6.31"></script>
+<script src="treasure-art.js?v=6.31"></script>
+<script src="prey-markers.js?v=6.31"></script>
+<script src="living-ocean.js?v=6.31"></script>
+<script src="ocean-refinement.js?v=6.31"></script>
+<script src="decor-art.js?v=6.31"></script>
+<script src="world-details.js?v=6.31"></script>
+<script src="variety-art.js?v=6.31"></script>
+<script src="habitat-scenery.js?v=6.31"></script>
+<script src="seabed-life.js?v=6.31"></script>
+<script src="ocean-backdrops.js?v=6.31"></script>
+<script src="ocean-foreground.js?v=6.31"></script>
+<script src="cavern-paint.js?v=6.31"></script>
+<script src="cavern-world.js?v=6.31"></script>
+<script src="surface-attachments.js?v=6.31"></script>
+<script src="cave-air.js?v=6.31"></script>
+<script src="coral-expansion.js?v=6.31"></script>
+<script src="surface-wildlife.js?v=6.31"></script>
+<script src="stable-a-landscape.js?v=6.31"></script>
+<script src="benthic-contact.js?v=6.31"></script>
+<script src="orca-ecology.js?v=6.31"></script>
+<script src="shoal-life.js?v=6.31"></script>
+<script src="depth-bottom-life.js?v=6.31"></script>
+<script src="abyss-world.js?v=6.31"></script>
+<script src="abyss-gardens.js?v=6.31"></script>
+<script src="abyss-life.js?v=6.31"></script>
+<script src="lost-realms.js?v=6.31"></script>
+<script src="ruins-art.js?v=6.31"></script>
+<script src="ocean-atmosphere.js?v=6.31"></script>
+<script src="abyss-diversity.js?v=6.31"></script>
+<script src="supply-art.js?v=6.31"></script>
 <script>
 // 链接限定的地图预览，普通游戏保持原有规则。
 var mapPreview = new URLSearchParams(location.search).get('preview') === 'map';
