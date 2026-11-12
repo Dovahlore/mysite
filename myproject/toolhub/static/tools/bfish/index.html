@@ -1119,6 +1119,13 @@ function rkField(rk, px, py){
     var cd = Math.sqrt(qx * qx + qy * qy) - radius;
     if (-cd > d) d = -cd; // 洞穴减法: 洞内变自由空间
   }
+  // Architectural rooms retain flat dressed walls and rounded broken corners.
+  var cuts=rk.rectCuts||[];
+  for(i=0;i<cuts.length;i+=5){
+    var rr=cuts[i+4],qx=Math.abs(px-cuts[i])-cuts[i+2]+rr,qy=Math.abs(py-cuts[i+1])-cuts[i+3]+rr;
+    var room=Math.hypot(Math.max(qx,0),Math.max(qy,0))+Math.min(Math.max(qx,qy),0)-rr;
+    d=Math.max(d,-room);
+  }
   return d;
 }
 function rkGrad(rk, px, py, out){
@@ -3654,40 +3661,42 @@ function resetGame(){
 }
 
 </script>
-<script src="expedition.js?v=6.26"></script>
-<script src="ocean-world.js?v=6.26"></script>
-<script src="ocean-biomes.js?v=6.26"></script>
-<script src="wildlife.js?v=6.26"></script>
-<script src="reef-polish.js?v=6.26"></script>
-<script src="streaming.js?v=6.26"></script>
-<script src="mobile-controls.js?v=6.26"></script>
-<script src="field-guide.js?v=6.26"></script>
-<script src="ocean-life.js?v=6.26"></script>
-<script src="treasure-art.js?v=6.26"></script>
-<script src="prey-markers.js?v=6.26"></script>
-<script src="living-ocean.js?v=6.26"></script>
-<script src="ocean-refinement.js?v=6.26"></script>
-<script src="decor-art.js?v=6.26"></script>
-<script src="world-details.js?v=6.26"></script>
-<script src="variety-art.js?v=6.26"></script>
-<script src="habitat-scenery.js?v=6.26"></script>
-<script src="seabed-life.js?v=6.26"></script>
-<script src="ocean-backdrops.js?v=6.26"></script>
-<script src="ocean-foreground.js?v=6.26"></script>
-<script src="cavern-paint.js?v=6.26"></script>
-<script src="cavern-world.js?v=6.26"></script>
-<script src="surface-attachments.js?v=6.26"></script>
-<script src="cave-air.js?v=6.26"></script>
-<script src="coral-expansion.js?v=6.26"></script>
-<script src="surface-wildlife.js?v=6.26"></script>
-<script src="stable-a-landscape.js?v=6.26"></script>
-<script src="benthic-contact.js?v=6.26"></script>
-<script src="orca-ecology.js?v=6.26"></script>
-<script src="shoal-life.js?v=6.26"></script>
-<script src="depth-bottom-life.js?v=6.26"></script>
-<script src="abyss-world.js?v=6.26"></script>
-<script src="abyss-gardens.js?v=6.26"></script>
-<script src="abyss-life.js?v=6.26"></script>
+<script src="expedition.js?v=6.27"></script>
+<script src="ocean-world.js?v=6.27"></script>
+<script src="ocean-biomes.js?v=6.27"></script>
+<script src="wildlife.js?v=6.27"></script>
+<script src="reef-polish.js?v=6.27"></script>
+<script src="streaming.js?v=6.27"></script>
+<script src="mobile-controls.js?v=6.27"></script>
+<script src="field-guide.js?v=6.27"></script>
+<script src="ocean-life.js?v=6.27"></script>
+<script src="treasure-art.js?v=6.27"></script>
+<script src="prey-markers.js?v=6.27"></script>
+<script src="living-ocean.js?v=6.27"></script>
+<script src="ocean-refinement.js?v=6.27"></script>
+<script src="decor-art.js?v=6.27"></script>
+<script src="world-details.js?v=6.27"></script>
+<script src="variety-art.js?v=6.27"></script>
+<script src="habitat-scenery.js?v=6.27"></script>
+<script src="seabed-life.js?v=6.27"></script>
+<script src="ocean-backdrops.js?v=6.27"></script>
+<script src="ocean-foreground.js?v=6.27"></script>
+<script src="cavern-paint.js?v=6.27"></script>
+<script src="cavern-world.js?v=6.27"></script>
+<script src="surface-attachments.js?v=6.27"></script>
+<script src="cave-air.js?v=6.27"></script>
+<script src="coral-expansion.js?v=6.27"></script>
+<script src="surface-wildlife.js?v=6.27"></script>
+<script src="stable-a-landscape.js?v=6.27"></script>
+<script src="benthic-contact.js?v=6.27"></script>
+<script src="orca-ecology.js?v=6.27"></script>
+<script src="shoal-life.js?v=6.27"></script>
+<script src="depth-bottom-life.js?v=6.27"></script>
+<script src="abyss-world.js?v=6.27"></script>
+<script src="abyss-gardens.js?v=6.27"></script>
+<script src="abyss-life.js?v=6.27"></script>
+<script src="lost-realms.js?v=6.27"></script>
+<script src="ruins-art.js?v=6.27"></script>
 <script>
 // 链接限定的地图预览，普通游戏保持原有规则。
 var mapPreview = new URLSearchParams(location.search).get('preview') === 'map';
@@ -3711,8 +3720,8 @@ if (mapPreview){
   var depthPicker=document.createElement('div');
   depthPicker.id='bfish-test-depth';
   depthPicker.style.cssText='position:fixed;left:12px;bottom:56px;z-index:1500;display:flex;gap:4px';
-  [[6000,1900],[17300,5500],[16000,8900],[14500,15200],[15000,21000]].forEach(function(point,i){
-    var button=document.createElement('button');button.textContent=(i+1)+'层';
+  [[6000,1900],[17300,5500],[16000,8900],[10000,15000],[15000,21000],[2200,5100,'矿井'],[23500,14500,'神庙'],[14700,13000,'火山']].forEach(function(point,i){
+    var button=document.createElement('button');button.textContent=point[2]||((i+1)+'层');
     button.style.cssText='background:#122f3e;color:#d5edf5;border:1px solid #749ba8;border-radius:6px;padding:7px;touch-action:manipulation';
     button.addEventListener('click',function(e){e.stopPropagation();if(!STREAM.ready)return;if(gameState!=='playing'&&gameState!=='paused')startOrRestart();player.x=point[0];player.y=point[1];player.vx=player.vy=0;player.surfaceFlight=false;cam.x=player.x;cam.y=player.y;A_PLANE_CACHE=[];});
     depthPicker.appendChild(button);

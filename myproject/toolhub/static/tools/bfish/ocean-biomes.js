@@ -278,7 +278,7 @@ function updateBiomeHazards(dt){
  }
  var phase=volcanoPhase();
  if(phase.active&&Math.abs(player.x-VOLCANO.x)<170&&player.y>VOLCANO.y-1150&&player.y<VOLCANO.y+350){hurtEnvironment('火山热流 · 饱食 -18',18);V6.thermal=1;}
- if(phase.active&&player.y>13390&&player.y<13680&&player.x>21300&&player.x<25300){hurtEnvironment('熔岩管灼伤 · 饱食 -14',14);V6.thermal=1;}
+ if(phase.active&&player.y>VOLCANO.y+990&&player.y<VOLCANO.y+1280&&player.x>VOLCANO.x-1900&&player.x<VOLCANO.x+2100){hurtEnvironment('熔岩管灼伤 · 饱食 -14',14);V6.thermal=1;}
 }
 function attemptFlight(f){
  if(f.flightCooldown>0||f.y>370||f.x>19000)return false;
@@ -440,7 +440,7 @@ drawOceanRelief=function(time){
   for(var i=0;i<9;i++){var x=19600+i*900;ctx.beginPath();ctx.moveTo(x,400);ctx.lineTo(x+500,2500);ctx.stroke();}
   ctx.fillStyle='#c7f0ff';for(i=0;i<32;i++){var x=left+((i*137+time*5)%Math.max(1,width)),y=top+((i*93+time*17)%Math.max(1,height));if(x<19500||y>6800)continue;ctx.globalAlpha=.12+i%3*.04;ctx.fillRect(x,y,2/cam.z,3/cam.z);}ctx.globalAlpha=1;
  }
- if(cam.x>18000&&cam.y>8000){
+ if(Math.abs(cam.x-VOLCANO.x)<4500&&cam.y>11000){
   var glow=ctx.createRadialGradient(VOLCANO.x,VOLCANO.y,60,VOLCANO.x,VOLCANO.y,1800);glow.addColorStop(0,'rgba(255,88,36,.17)');glow.addColorStop(1,'rgba(255,60,20,0)');ctx.fillStyle=glow;ctx.fillRect(VOLCANO.x-1800,VOLCANO.y-1800,3600,3600);
  }
  ctx.restore();
@@ -601,7 +601,7 @@ function replaceWorldAtlas(canvas){OCEAN.atlas=canvas;MINIMAP_BASE.getContext('2
 function requestWorldAtlas(forceFallback){
  if(V6.atlasRequested&&!forceFallback)return;V6.atlasRequested=true;
  if(STREAM.worker&&!forceFallback){
-  var rocks=RK_list.map(function(r){return {ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,organic:r.organic,caves:r.caves,k:r.k,z:r.z,tint:r.tint,terrainWave:r.terrainWave,wx0:r.wx0,wx1:r.wx1,wy0:r.wy0,wy1:r.wy1};});
+  var rocks=RK_list.map(function(r){return {ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,organic:r.organic,caves:r.caves,rectCuts:r.rectCuts,temple:r.temple,mine:r.mine,k:r.k,z:r.z,tint:r.tint,terrainWave:r.terrainWave,wx0:r.wx0,wx1:r.wx1,wy0:r.wy0,wy1:r.wy1};});
   STREAM.worker.postMessage({type:'atlas',id:-1,rocks:rocks});return;
  }
  if(V6.atlasFallbackStarted)return;V6.atlasFallbackStarted=true;

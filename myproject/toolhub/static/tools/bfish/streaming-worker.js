@@ -1,5 +1,5 @@
 'use strict';
-importScripts('cavern-paint.js?v=6.26');
+importScripts('cavern-paint.js?v=6.27');
 var CONF={WORLD_W:27200,WORLD_H:15800};var FLOOR;var FSTRIP_H=3350,FSTRIP_BS=.35,FSTRIP_Y0=12450;var RK_TINT=[[96,112,116],[98,104,120],[54,72,94],[80,98,112]];var seed=1;
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function lerp(a,b,t){return a+(b-a)*t;}
@@ -52,6 +52,13 @@ function rkField(rk, px, py){
     if(!rk.ship&&abx*abx+aby*aby<1){var theta=Math.atan2(qy,qx);qx/=1.22;qy/=.84;radius*=1+.09*Math.sin(theta*3+ax*.003)+.045*Math.sin(theta*5+ay*.002);}
     var cd = Math.sqrt(qx * qx + qy * qy) - radius;
     if (-cd > d) d = -cd; // 洞穴减法: 洞内变自由空间
+  }
+  // Architectural rooms retain flat dressed walls and rounded broken corners.
+  var cuts=rk.rectCuts||[];
+  for(i=0;i<cuts.length;i+=5){
+    var rr=cuts[i+4],qx=Math.abs(px-cuts[i])-cuts[i+2]+rr,qy=Math.abs(py-cuts[i+1])-cuts[i+3]+rr;
+    var room=Math.hypot(Math.max(qx,0),Math.max(qy,0))+Math.min(Math.max(qx,qy),0)-rr;
+    d=Math.max(d,-room);
   }
   return d;
 }
@@ -260,6 +267,8 @@ function fillRockRows(r,im,from,to){
   var shade=(.72+.28*Math.exp(Math.min(d,0)/180))*(1+.06*Math.sin(py*.017+r.ax*.013));
   shade*=.96+.04*Math.sin(px*.035+Math.sin(py*.022)*2);
   var rim=1+.22*Math.exp(Math.min(d,0)/14);
+  if(r.temple||r.mine){var wx=px+r.ax,wy=py+r.ay,row=Math.floor(wy/88),jx=((wx+(row%2)*110)%220+220)%220,jy=((wy%88)+88)%88;shade=r.mine?.7+.07*Math.sin(wx*.013+Math.sin(wy*.011)*2)*Math.sin(wy*.019):(jx<3||jy<3)?.49:.77+.03*Math.sin(wx*.04)*Math.sin(wy*.03);}
+
   im.data[i]=tint[0]*shade*rim;im.data[i+1]=tint[1]*shade*rim;im.data[i+2]=tint[2]*shade*rim;
   im.data[i+3]=clamp(.5-d/Math.max(r.w/im.width,r.h/im.height),0,1)*255;
  }
@@ -268,7 +277,7 @@ function fillRockRows(r,im,from,to){
 function paintRockTile(r,scale){var c=newCanvas(r.w*scale,r.h*scale),g=c.getContext('2d'),im=g.createImageData(c.width,c.height);fillRockRows(r,im,0,im.height);g.putImageData(im,0,0);return c;}
 function biomeWater(x,y){
  var depth=clamp(Math.min(y,15800)/15800,0,1),r=lerp(60,2,depth),g=lerp(165,11,depth),b=lerp(186,34,depth),ice=clamp((x-18800)/1400,0,1)*clamp((7200-y)/1600,0,1);
- r=lerp(r,75,ice*.55);g=lerp(g,135,ice*.55);b=lerp(b,179,ice*.65);var fire=clamp((x-18300)/1800,0,1)*clamp((y-8100)/2400,0,1),a=clamp((y-12000)/7200,0,1);
+ r=lerp(r,75,ice*.55);g=lerp(g,135,ice*.55);b=lerp(b,179,ice*.65);var fire=clamp(1-Math.abs(x-14700)/4200,0,1)*clamp((y-11500)/1400,0,1)*clamp((18000-y)/1100,0,1),a=clamp((y-12000)/7200,0,1);
  return [lerp(lerp(r,52,fire*.8),2,a),lerp(lerp(g,23,fire*.8),5,a),lerp(lerp(b,37,fire*.8),13,a)];
 }
 

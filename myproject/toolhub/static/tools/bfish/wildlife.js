@@ -6,8 +6,8 @@ var WILDLIFE_SPEEDS={
  '鲨鱼':150,'蝠鲼':84,'皇带鱼':108,'哥布林鲨':132,'飞鱼':128,'冰牙鲨':157,'深海巨鲨':180
 };
 SPECIES.forEach(function(sp){if(WILDLIFE_SPEEDS[sp.n])sp.spd=WILDLIFE_SPEEDS[sp.n];if(sp.shape==='puff'){sp.n='刺豚';sp.passive=true;}});
-function fishDepthSpeed(f){return [1,1.08,1.1,1.28,1.42,1.55,1.6][oceanRegion(f.x,f.y)]||1;}
-function fishSenseFactor(f){return [ .9,1.05,1,1.1,1.15,1.25,1.3 ][oceanRegion(f.x,f.y)]*(f.spec.aggr?1.05:.95);}
+function fishDepthSpeed(f){return [1,1.08,1.1,1.28,1.42,1.55,1.6,1.35,1.1][oceanRegion(f.x,f.y)]||1;}
+function fishSenseFactor(f){return [ .9,1.05,1,1.1,1.15,1.25,1.3,1.2,1.05 ][oceanRegion(f.x,f.y)]*(f.spec.aggr?1.05:.95);}
 function fishChaseMultiplier(f){
  var sp=f.spec;
  if(sp.shape==='sword')return 1.9;

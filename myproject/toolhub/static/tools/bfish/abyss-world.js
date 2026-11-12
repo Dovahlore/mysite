@@ -47,7 +47,7 @@ var zoneBeforeAbyssWorld=zoneAt;zoneAt=function(x,y){return y>=ABYSS_WORLD.fifth
 var waterBeforeAbyssWorld=biomeWater;
 function biomeWater(x,y){
  var depth=clamp(Math.min(y,15800)/15800,0,1),r=lerp(60,2,depth),g=lerp(165,11,depth),b=lerp(186,34,depth),ice=clamp((x-18800)/1400,0,1)*clamp((7200-y)/1600,0,1);
- r=lerp(r,75,ice*.55);g=lerp(g,135,ice*.55);b=lerp(b,179,ice*.65);var fire=clamp((x-18300)/1800,0,1)*clamp((y-8100)/2400,0,1),a=clamp((y-12000)/7200,0,1);
+ r=lerp(r,75,ice*.55);g=lerp(g,135,ice*.55);b=lerp(b,179,ice*.65);var fire=clamp(1-Math.abs(x-14700)/4200,0,1)*clamp((y-11500)/1400,0,1)*clamp((18000-y)/1100,0,1),a=clamp((y-12000)/7200,0,1);
  return [lerp(lerp(r,52,fire*.8),2,a),lerp(lerp(g,23,fire*.8),5,a),lerp(lerp(b,37,fire*.8),13,a)];
 }
 var bakeBeforeAbyssWorld=bakeBackgrounds;
