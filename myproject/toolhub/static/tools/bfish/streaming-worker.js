@@ -1,5 +1,5 @@
 'use strict';
-importScripts('cavern-paint.js?v=6.29');
+importScripts('geology-color.js?v=6.30','cavern-paint.js?v=6.30');
 var CONF={WORLD_W:27200,WORLD_H:15800};var FLOOR;var FSTRIP_H=3350,FSTRIP_BS=.35,FSTRIP_Y0=12450;var RK_TINT=[[96,112,116],[98,104,120],[54,72,94],[80,98,112]];var seed=1;
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function lerp(a,b,t){return a+(b-a)*t;}
@@ -260,12 +260,12 @@ return c;
 }
 
 function fillRockRows(r,im,from,to){
- var tint=r.tint||RK_TINT[r.z];
+ var tint=r.tint||RK_TINT[r.z],tintBuffer=[0,0,0];
  for(var y=from;y<to;y++)for(var x=0;x<im.width;x++){
   var px=r.ox+(x+.5)*r.w/im.width,py=r.oy+(y+.5)*r.h/im.height,d=rkField(r,px,py),i=(y*im.width+x)*4;
   if(d>Math.max(r.w/im.width,r.h/im.height))continue;
-  var shade=(.72+.28*Math.exp(Math.min(d,0)/180))*(1+.06*Math.sin(py*.017+r.ax*.013));
-  shade*=.96+.04*Math.sin(px*.035+Math.sin(py*.022)*2);
+  var tint=geologyTint(r,px+r.ax,py+r.ay,tintBuffer),shade=(.72+.28*Math.exp(Math.min(d,0)/180))*(1+.06*Math.sin((py+r.ay)*.017+(px+r.ax)*.002));
+  shade*=.96+.04*Math.sin((px+r.ax)*.035+Math.sin((py+r.ay)*.022)*2);
   var rim=1+.22*Math.exp(Math.min(d,0)/14);
   if(r.temple||r.mine){var wx=px+r.ax,wy=py+r.ay,row=Math.floor(wy/88),jx=((wx+(row%2)*110)%220+220)%220,jy=((wy%88)+88)%88;shade=r.mine?.7+.07*Math.sin(wx*.013+Math.sin(wy*.011)*2)*Math.sin(wy*.019):(jx<3||jy<3)?.49:.77+.03*Math.sin(wx*.04)*Math.sin(wy*.03);}
 

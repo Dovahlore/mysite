@@ -63,7 +63,7 @@ function drawDepthVisibility(time){
  var g=depthCtx;g.globalCompositeOperation='source-over';g.clearRect(0,0,w,h);g.fillStyle='rgba(1,7,18,'+(.84*depth)+')';g.fillRect(0,0,w,h);g.globalCompositeOperation='destination-out';
  function light(x,y,r,strength){var sx=((x-cam.x)*cam.z+W/2)*.5,sy=((y-cam.y)*cam.z+H/2)*.5,sr=r*cam.z*.5;if(sx+sr<0||sx-sr>w||sy+sr<0||sy-sr>h)return;var q=g.createRadialGradient(sx,sy,sr*.18,sx,sy,sr);q.addColorStop(0,'rgba(0,0,0,'+strength+')');q.addColorStop(.55,'rgba(0,0,0,'+(strength*.65)+')');q.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=q;g.fillRect(sx-sr,sy-sr,sr*2,sr*2);}
  light(player.x,player.y,Math.max(290,player.size*2.8),.93);
- for(var i=0;i<fishes.length;i++){var f=fishes[i];if(f.dead)continue;if(f.spec.shape==='angler'){var l=anglerLamp(f);light(l.x,l.y,240+f.size*2,.98);}else if(f.spec.abyssKind==='angel')light(f.x,f.y,140,.72);}
+ for(var i=0;i<fishes.length;i++){var f=fishes[i];if(f.dead)continue;if(f.spec.shape==='angler'){var l=anglerLamp(f);light(l.x,l.y,240+f.size*2,.98);}else if(f.spec.abyssKind==='angel')light(f.x,f.y,140,.72);else if(f.spec===glowCopepodSpec)light(f.x,f.y,70,.45);else if(f.spec===combJellySpec)light(f.x,f.y,90,.35);}
  if(window.RUIN_LIGHTS)RUIN_LIGHTS.forEach(p=>light(p.x,p.y,p.r,.55));
  g.globalCompositeOperation='source-over';ctx.save();ctx.setTransform(DPR,0,0,DPR,0,0);ctx.drawImage(depthMask,0,0,W,H);ctx.restore();
 }

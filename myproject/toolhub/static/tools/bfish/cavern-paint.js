@@ -1,9 +1,9 @@
 /* Shared by the viewport worker and catalogue: solid rear geology, exact outer mask. */
 function fillCavernRearRows(r,im,from,to){
- var base=Object.assign({},r,{caves:[],rectCuts:[]}),tint=r.ice?[108,152,171]:r.tint||[76,98,114],step=Math.max(r.w/im.width,r.h/im.height),air=r.airPocket;
+ var base=Object.assign({},r,{caves:[],rectCuts:[]}),tint=r.ice?[108,152,171]:r.tint||[76,98,114],step=Math.max(r.w/im.width,r.h/im.height),air=r.airPocket,tintBuffer=[0,0,0];
  for(var y=from;y<to;y++)for(var x=0;x<im.width;x++){
   var px=r.ox+(x+.5)*r.w/im.width,py=r.oy+(y+.5)*r.h/im.height,d=rkField(base,px,py),i=(y*im.width+x)*4;if(d>step)continue;
-  var cut=rkField(r,px,py),wx=px+r.ax,wy=py+r.ay,depth=Math.max(0,cut),rim=Math.exp(-depth/95),strata=Math.sin(wy*.021+Math.sin(wx*.009)*1.7),grain=Math.sin(wx*.071+wy*.037)*Math.sin(wy*.091-wx*.017),crack=Math.abs(Math.sin(wx*.012+Math.sin(wy*.014)*.85+Math.sin(wy*.035)*.15)),shade=.32+.19*rim+strata*.035+grain*.018;
+  var cut=rkField(r,px,py),wx=px+r.ax,wy=py+r.ay,tint=geologyTint(r,wx,wy,tintBuffer),depth=Math.max(0,cut),rim=Math.exp(-depth/95),strata=Math.sin(wy*.021+Math.sin(wx*.009)*1.7),grain=Math.sin(wx*.071+wy*.037)*Math.sin(wy*.091-wx*.017),crack=Math.abs(Math.sin(wx*.012+Math.sin(wy*.014)*.85+Math.sin(wy*.035)*.15)),shade=.32+.19*rim+strata*.035+grain*.018;
   if(crack<.035)shade*=.68;var red=tint[0]*shade,green=tint[1]*shade,blue=tint[2]*shade+5;
   if(!r.ice){red=Math.round(tint[0]*.38);green=Math.round(tint[1]*.38);blue=Math.round(tint[2]*.38+5);}
   if(r.temple||r.mine){var row=Math.floor(wy/88),jointX=((wx+(row%2)*110)%220+220)%220,jointY=((wy%88)+88)%88,edge=jointX<3||jointY<3;var v=r.mine?.39+grain*.04+strata*.025:edge?.23:.4+grain*.025;red=tint[0]*v;green=tint[1]*v;blue=tint[2]*v+5;}

@@ -2,7 +2,7 @@
 'use strict';
 var STREAM_CHUNK=2048;
 var STREAM={worker:null,busy:null,disabled:false,job:0,resident:0,maxBytes:(navigator.deviceMemory&&navigator.deviceMemory<=2?32:window.innerWidth<700?64:96)*1024*1024,loaded:0,evicted:0,failed:0,fallback:null,frame:0,nextScan:0,scanCount:0,lastScan:null,entries:null};
-var streamWorkerURL=new URL('streaming-worker.js?v=6.29',document.currentScript.src).href;
+var streamWorkerURL=new URL('streaming-worker.js?v=6.30',document.currentScript.src).href;
 var originalRockBake=rkBake;
 function rockBounds(r){
  var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
@@ -18,12 +18,12 @@ function rockPixels(r,width,height){
  fillRockRows(r,im,0,im.height);g.putImageData(im,0,0);return c;
 }
 function fillRockRows(r,im,from,to){
- var tint=r.tint||RK_TINT[r.z];
+ var tint=r.tint||RK_TINT[r.z],tintBuffer=[0,0,0];
  for(var y=from;y<to;y++)for(var x=0;x<im.width;x++){
   var px=r.ox+(x+.5)*r.w/im.width,py=r.oy+(y+.5)*r.h/im.height,d=rkField(r,px,py),i=(y*im.width+x)*4;
   if(d>Math.max(r.w/im.width,r.h/im.height))continue;
-  var shade=(.72+.28*Math.exp(Math.min(d,0)/180))*(1+.06*Math.sin(py*.017+r.ax*.013));
-  shade*=.96+.04*Math.sin(px*.035+Math.sin(py*.022)*2);
+  var tint=geologyTint(r,px+r.ax,py+r.ay,tintBuffer),shade=(.72+.28*Math.exp(Math.min(d,0)/180))*(1+.06*Math.sin((py+r.ay)*.017+(px+r.ax)*.002));
+  shade*=.96+.04*Math.sin((px+r.ax)*.035+Math.sin((py+r.ay)*.022)*2);
   var rim=1+.22*Math.exp(Math.min(d,0)/14);
   if(r.temple||r.mine){var wx=px+r.ax,wy=py+r.ay,row=Math.floor(wy/88),jx=((wx+(row%2)*110)%220+220)%220,jy=((wy%88)+88)%88;shade=r.mine?.7+.07*Math.sin(wx*.013+Math.sin(wy*.011)*2)*Math.sin(wy*.019):(jx<3||jy<3)?.49:.77+.03*Math.sin(wx*.04)*Math.sin(wy*.03);}
 
