@@ -2,7 +2,7 @@
 'use strict';
 var STREAM_CHUNK=2048;
 var STREAM={worker:null,busy:null,disabled:false,job:0,resident:0,maxBytes:(navigator.deviceMemory&&navigator.deviceMemory<=2?32:window.innerWidth<700?64:96)*1024*1024,loaded:0,evicted:0,failed:0,fallback:null,frame:0,nextScan:0,scanCount:0,lastScan:null,entries:null};
-var streamWorkerURL=new URL('streaming-worker.js?v=6.28',document.currentScript.src).href;
+var streamWorkerURL=new URL('streaming-worker.js?v=6.29',document.currentScript.src).href;
 var originalRockBake=rkBake;
 function rockBounds(r){
  var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;

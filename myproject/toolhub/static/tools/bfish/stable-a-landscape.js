@@ -8,9 +8,13 @@ function aReliefStyle(zone,layer){var deep=zone==='deep'||zone==='volcano',ice=z
 function aBotanicalPool(zone){return zone==='shallow'?['grass','pink','orange','grass','fan','table','anemone']:zone==='shelf'?['pen','cold','fan','sponge','pen','cold']:zone==='kelp'?['kelp','grass','kelp','anemone','kelp','sponge']:zone==='ice'?['pen','sponge','anemone','cold']:zone==='volcano'?['tubeworm','mussel','tubeworm']:['frond','pen','sponge','cold','crinoid','frond'];}
 function drawAWorldLayer(g,layer,zone,view){var l=STABLE_A[layer],hw=view.w/(2*view.z),hh=view.h/(2*view.z),shift=view.x*(1-l.x),left=view.x-hw-650,right=view.x+hw+650;
  for(var band=0;band<3;band++){
-  if(band===3&&(view.x>9700&&view.x<19900||view.y>18400))continue;
+  // Each ocean owns its own three parallax planes. Their lower silhouettes
+  // cannot spill through the separating shelf into the next ocean.
+  var bandTop=[0,4350,8250][band],bandBottom=[3200,6900,10600][band];
+  if(view.y-hh>bandBottom||view.y+hh<bandTop)continue;
   var root=u=>aMountainCrest(layer,u,view.y,band),slope=u=>(root(u+2)-root(u-2))/4,patchAt=cell=>view.forceZone?{zone:view.forceZone,seed:Math.abs(cell)%5}:aBackdropPatch(layer,cell,band),bottom=([4350,8250,12250,17400][band])*l.y+view.y*(1-l.y);
   if(bottom<view.y-hh-40||root(view.x-shift)>view.y+hh+800)continue;
+  g.save();g.beginPath();g.rect(left,bandTop,right-left+20,bandBottom-bandTop);g.clip();
   // Widely spaced outcrops leave low meadows between them.
   for(var cell=Math.floor((left-shift)/700);cell<=(right-shift)/700;cell++){
    var u=cell*700+80,x=u+shift,y=root(u),seed=Math.abs(cell*7+layer*11+band*19),patch=patchAt(Math.floor(u/1100)),height=[180,125,55][layer]+decorNoise(seed,31)*[230,150,95][layer],width=160+decorNoise(seed,44)*150;
@@ -27,13 +31,14 @@ function drawAWorldLayer(g,layer,zone,view){var l=STABLE_A[layer],hw=view.w/(2*v
    if(y-height>view.y+hh||y<view.y-hh-50||decorNoise(seed,333)<(row?.5:.14))continue;
    g.save();g.translate(x,y);if(['grass','kelp','pen','frond'].includes(kind))g.transform(1,slope(u),0,1,0,0);else g.rotate(Math.atan(slope(u)));g.drawImage(backdropBotanical(kind,seed),-width/2,-height*157/160,width,height);g.restore();
   }
+  g.restore();
  }
 }
 var A_PLANE_CACHE=[];
 function drawStableALayers(time){var zone=sceneryZoneAt(cam.x,cam.y),margin=128;
  for(var layer=0;layer<3;layer++){var l=STABLE_A[layer],cache=A_PLANE_CACHE[layer],res=[.55,.8,1][layer],cw=W+margin*2,ch=H+margin*2,changed=!cache||cache.w!==W||cache.h!==H||Math.abs(cam.z/cache.z-1)>.025||Math.abs(cam.x-cache.x)*l.x*cam.z>64||Math.abs(cam.y-cache.y)*l.y*cam.z>64;
-  if(changed){if(!cache)cache=A_PLANE_CACHE[layer]={};var pw=Math.ceil(cw*res),ph=Math.ceil(ch*res);if(!cache.raw||cache.raw.width!==pw||cache.raw.height!==ph){cache.raw=newCanvas(pw,ph);cache.canvas=l.blur?newCanvas(pw,ph):cache.raw;}var g=cache.raw.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,pw,ph);g.setTransform(cam.z*res,0,0,cam.z*res,pw/2-cam.x*cam.z*res,ph/2-cam.y*cam.z*res);drawAWorldLayer(g,layer,zone,{x:cam.x,y:cam.y,z:cam.z,w:cw,h:ch});g.save();g.setTransform(1,0,0,1,0,0);var edge=(11600*l.y+cam.y*(1-l.y)-cam.y)*cam.z*res+ph/2,fade=g.createLinearGradient(0,edge,0,edge+700*cam.z*res);fade.addColorStop(0,'#fff');fade.addColorStop(1,'#fff0');g.globalCompositeOperation='destination-in';g.fillStyle=fade;g.fillRect(0,0,pw,ph);g.restore();if(l.blur){var out=cache.canvas.getContext('2d');out.clearRect(0,0,pw,ph);out.filter='blur('+(l.blur*res)+'px)';out.drawImage(cache.raw,0,0);out.filter='none';}cache.x=cam.x;cache.y=cam.y;cache.z=cam.z;cache.w=W;cache.h=H;cache.worldW=cw/cam.z;cache.worldH=ch/cam.z;}
-  var x=cache.x-cache.worldW/2+(cam.x-cache.x)*(1-l.x),y=cache.y-cache.worldH/2+(cam.y-cache.y)*(1-l.y);ctx.drawImage(cache.canvas,x,y,cache.worldW,cache.worldH);
+  if(changed){if(!cache)cache=A_PLANE_CACHE[layer]={};var pw=Math.ceil(cw*res),ph=Math.ceil(ch*res);if(!cache.raw||cache.raw.width!==pw||cache.raw.height!==ph){cache.raw=newCanvas(pw,ph);cache.canvas=l.blur?newCanvas(pw,ph):cache.raw;}var g=cache.raw.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,pw,ph);g.setTransform(cam.z*res,0,0,cam.z*res,pw/2-cam.x*cam.z*res,ph/2-cam.y*cam.z*res);drawAWorldLayer(g,layer,zone,{x:cam.x,y:cam.y,z:cam.z,w:cw,h:ch});g.save();g.setTransform(1,0,0,1,0,0);var fade=g.createLinearGradient(0,ph/2-cam.y*cam.z*res,0,ph/2+(CONF.WORLD_H-cam.y)*cam.z*res);[[0,1],[3020,1],[3200,0],[4350,0],[4530,1],[6720,1],[6900,0],[8250,0],[8430,1],[10420,1],[10600,0],[CONF.WORLD_H,0]].forEach(function(stop){fade.addColorStop(stop[0]/CONF.WORLD_H,stop[1]?'#fff':'#fff0');});g.globalCompositeOperation='destination-in';g.fillStyle=fade;g.fillRect(0,0,pw,ph);g.restore();if(l.blur){var out=cache.canvas.getContext('2d');out.clearRect(0,0,pw,ph);out.filter='blur('+(l.blur*res)+'px)';out.drawImage(cache.raw,0,0);out.filter='none';}cache.x=cam.x;cache.y=cam.y;cache.z=cam.z;cache.w=W;cache.h=H;cache.worldW=cw/cam.z;cache.worldH=ch/cam.z;}
+  var x=cache.x-cache.worldW/2+(cam.x-cache.x)*(1-l.x),y=cache.y-cache.worldH/2+(cam.y-cache.y)*(1-l.y);ctx.save();ctx.beginPath();ctx.rect(0,0,CONF.WORLD_W,3200);ctx.rect(0,4350,CONF.WORLD_W,2550);ctx.rect(0,8250,CONF.WORLD_W,2350);ctx.clip();ctx.drawImage(cache.canvas,x,y,cache.worldW,cache.worldH);ctx.restore();
  }
 }
 var bakeBeforeStableA=bakeBackgrounds;bakeBackgrounds=function(){bakeBeforeStableA();A_ROCK_ART.clear();A_PLANE_CACHE=[];DECOR_CATALOGUE.forEach(e=>{if(e.kind!=='视差背景'||e.name.includes('船舱'))return;var layer=e.name.includes('远景')?0:e.name.includes('中景')?1:2,c=newCanvas(768,768),g=c.getContext('2d'),view={x:8000,y:5400,z:.45,w:768,h:768,forceZone:e.zone};g.setTransform(view.z,0,0,view.z,384-view.x*view.z,384-view.y*view.z);drawAWorldLayer(g,layer,e.zone,view);e.canvas=STABLE_A[layer].blur?blurBackdropCanvas(c,STABLE_A[layer].blur):c;e.note='连续岩床与法线贴合 · 近层清晰、远层景深 · 世界固定生态与分层高度';});};
