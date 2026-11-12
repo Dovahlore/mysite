@@ -1,7 +1,8 @@
 /* V4.2 viewport streaming: collision data is permanent; visual assets are disposable. */
 'use strict';
-var STREAM={worker:null,busy:null,disabled:false,job:0,resident:0,maxBytes:(window.innerWidth<700?32:64)*1024*1024,loaded:0,evicted:0,failed:0,fallback:null,frame:0};
-var streamWorkerURL=new URL('streaming-worker.js',document.currentScript.src).href;
+var STREAM_CHUNK=2048;
+var STREAM={worker:null,busy:null,disabled:false,job:0,resident:0,maxBytes:(navigator.deviceMemory&&navigator.deviceMemory<=2?32:window.innerWidth<700?64:96)*1024*1024,loaded:0,evicted:0,failed:0,fallback:null,frame:0,nextScan:0,scanCount:0,lastScan:null,entries:null};
+var streamWorkerURL=new URL('streaming-worker.js?v=6.25',document.currentScript.src).href;
 var originalRockBake=rkBake;
 function rockBounds(r){
  var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
@@ -44,7 +45,7 @@ function makeSeabedPreview(x,w){
 }
 var terrainTiles=[];
 function buildTerrainTiles(){
- terrainTiles=[];
+ terrainTiles=[];STREAM.entries=null;
  RK_list.forEach(function(r){
   if(r.w*r.h<1100000){r.textureScale=window.innerWidth<700?1:1.35;terrainTiles.push(r);return;}
   r.tiles=[];
@@ -58,23 +59,25 @@ function buildTerrainTiles(){
   }
  });
 }
-function streamEntryList(){return terrainTiles.concat(FSTRIP);}
+function streamEntryList(){if(!STREAM.entries)STREAM.entries=terrainTiles.concat(FSTRIP);return STREAM.entries;}
+function streamView(){var desired=player.size?clamp(50/player.size,CONF.ZOOM_MIN,window.oceanZoomCap?oceanZoomCap():CONF.ZOOM_MAX)*cameraViewportScale():cam.z,z=Math.max(.15,Math.min(cam.z,desired)),hw=W/(2*z),hh=H/(2*z),speed=Math.hypot(player.vx||0,player.vy||0),pad=Math.min(3500,Math.max(1050,Math.hypot(hw,hh)*.7)+speed*.5),dx=clamp((player.vx||0)*1.4,-1800,1800),dy=clamp((player.vy||0)*1.4,-1800,1800),size=STREAM_CHUNK;return {z:z,hw:hw,hh:hh,pad:pad,l:Math.floor((cam.x-hw-pad+Math.min(0,dx))/size)*size,r:Math.ceil((cam.x+hw+pad+Math.max(0,dx))/size)*size,t:Math.floor((cam.y-hh-pad+Math.min(0,dy))/size)*size,b:Math.ceil((cam.y+hh+pad+Math.max(0,dy))/size)*size,cx:cam.x,cy:cam.y,dx:dx,dy:dy};}
+function streamRectPriority(x,y,w,h,v){var ax=Math.max(0,Math.abs(x+w/2-v.cx)-w/2),ay=Math.max(0,Math.abs(y+h/2-v.cy)-h/2),visible=x<cam.x+W/(2*cam.z)&&x+w>cam.x-W/(2*cam.z)&&y<cam.y+H/(2*cam.z)&&y+h>cam.y-H/(2*cam.z),soon=x<v.cx+v.hw&&x+w>v.cx-v.hw&&y<v.cy+v.hh&&y+h>v.cy-v.hh,near=x<v.cx+v.hw+v.pad*.45+v.dx&&x+w>v.cx-v.hw-v.pad*.45+v.dx&&y<v.cy+v.hh+v.pad*.45+v.dy&&y+h>v.cy-v.hh-v.pad*.45+v.dy;return {tier:visible?0:soon?1:near?2:3,d:ax*ax+ay*ay};}
+function streamScale(tier,z,rear){var max=rear?1:window.innerWidth<700?1:1.35;if(tier<=1)return rear?Math.min(max,Math.max(.5,Math.ceil(z*1.1/.1)*.1)):Math.min(max,Math.max(.65,Math.ceil(z*Math.min(2,Math.max(1.25,DPR))/.15)*.15));return tier===2?.45:.25;}
+
 function textureOf(e){return e.blobs?e.spr:e.c;}
 function setTexture(e,t){if(e.blobs)e.spr=t;else e.c=t;}
 function evictStreamEntry(e){
  if(!e.streamBytes)return;var t=textureOf(e);if(t&&typeof t.close==='function')t.close();
- STREAM.resident-=e.streamBytes;e.streamBytes=0;setTexture(e,e.preview);STREAM.evicted++;
+ STREAM.resident-=e.streamBytes;e.streamBytes=0;e.loadedScale=0;setTexture(e,e.preview);STREAM.evicted++;
 }
 function finishStream(e,texture){
- e.streamPending=false;e.streamTouch=performance.now();
- var bytes=texture.width*texture.height*4;
- var entries=streamEntryList().filter(function(other){return other!==e&&other.streamBytes&&(other.streamPriority>e.streamPriority+1);});
- entries.sort(function(a,b){return b.streamPriority-a.streamPriority;});
- var reclaimable=entries.reduce(function(sum,other){return sum+other.streamBytes;},0);
- if(bytes<=STREAM.maxBytes && STREAM.resident+bytes-reclaimable>STREAM.maxBytes){if(texture.close)texture.close();e.streamRetry=performance.now()+1500;return;}
- while(STREAM.resident+bytes>STREAM.maxBytes&&entries.length)evictStreamEntry(entries.shift());
- if(bytes>STREAM.maxBytes){if(texture.close)texture.close();e.streamNoHigh=true;return;}
- setTexture(e,texture);e.streamBytes=bytes;STREAM.resident+=bytes;STREAM.loaded++;
+ e.streamPending=false;STREAM.nextScan=0;var now=performance.now(),v=streamView(),x=e.blobs?e.wx0:e.x,y=e.blobs?e.wy0:FSTRIP_Y0,h=e.blobs?e.h:FSTRIP_H;
+ if(x>v.r+768||x+e.w<v.l-768||y>v.b+768||y+h<v.t-768){if(texture.close)texture.close();return;}
+ e.streamTouch=now;var bytes=texture.width*texture.height*4,oldBytes=e.streamBytes||0,entries=streamEntryList().filter(other=>other!==e&&other.streamBytes&&other.streamPriority>e.streamPriority+1);entries.sort((a,b)=>b.streamPriority-a.streamPriority||a.streamTouch-b.streamTouch);
+ var reclaimable=entries.reduce((sum,other)=>sum+other.streamBytes,0);
+ if(bytes>STREAM.maxBytes||STREAM.resident-oldBytes+bytes-reclaimable>STREAM.maxBytes){if(texture.close)texture.close();e.streamRetry=now+600;return;}
+ while(STREAM.resident-oldBytes+bytes>STREAM.maxBytes&&entries.length)evictStreamEntry(entries.shift());
+ var old=textureOf(e);setTexture(e,texture);if(old&&old!==e.preview&&old!==texture&&old.close)old.close();e.streamBytes=bytes;e.loadedScale=e.streamRequestScale||e.textureScale||1;STREAM.resident+=bytes-oldBytes;STREAM.loaded++;
 }
 function startStreamWorker(){
  if(typeof Worker==='undefined'||typeof OffscreenCanvas==='undefined'){STREAM.disabled=true;if(window.requestWorldAtlas)requestWorldAtlas(true);return;}
@@ -99,20 +102,20 @@ function disableStreamWorker(){
  if(STREAM.busy)STREAM.busy.entry.streamPending=false;STREAM.busy=null;
 }
 function requestStreamTexture(e){
- var estimate=e.blobs?Math.ceil(e.w*(e.textureScale||1))*Math.ceil(e.h*(e.textureScale||1))*4:Math.ceil(e.w*FSTRIP_BS)*Math.ceil(FSTRIP_H*FSTRIP_BS)*4;
+ var scale=e.streamNextScale||e.targetScale||(e.blobs?e.textureScale||1:FSTRIP_BS);e.streamRequestScale=scale;var estimate=Math.ceil(e.w*scale)*Math.ceil((e.blobs?e.h:FSTRIP_H)*scale)*4;
  if(estimate>STREAM.maxBytes){e.streamNoHigh=true;return;}
- var reclaimable=streamEntryList().reduce(function(sum,other){return sum+(other.streamBytes&&other.streamPriority>e.streamPriority+1?other.streamBytes:0);},0);
- if(STREAM.resident+estimate-reclaimable>STREAM.maxBytes){e.streamRetry=performance.now()+1500;return;}
+ var reclaimable=streamEntryList().reduce(function(sum,other){return sum+(other!==e&&other.streamBytes&&other.streamPriority>e.streamPriority+1?other.streamBytes:0);},0);
+ if(STREAM.resident-(e.streamBytes||0)+estimate-reclaimable>STREAM.maxBytes){e.streamRetry=performance.now()+1500;return;}
  e.streamPending=true;
  if(STREAM.worker){
   var id=++STREAM.job;STREAM.busy={id:id,entry:e,time:performance.now()};
   var m={id:id,seed:((e.ax||e.x)*1009+(e.ay||0)*917)|0};
-  if(e.blobs){m.type='rockTile';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,organic:e.organic,ship:!!e.ship,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=e.textureScale||1;}
-  else{m.type='seabed';m.x=e.x;m.w=e.w;}
+  if(e.blobs){m.type='rockTile';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,organic:e.organic,ship:!!e.ship,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=scale;}
+  else{m.type='seabed';m.x=e.x;m.w=e.w;m.scale=scale;}
   try{STREAM.worker.postMessage(m);}catch(_){e.streamPending=false;disableStreamWorker();}
  }else if(e.blobs){
   // Unsupported/CSP-blocked workers: yield between small raster row batches.
-  var scale=Math.min(1,1280/Math.max(e.w,e.h));
+  var scale=Math.min(e.streamRequestScale||1,1280/Math.max(e.w,e.h));
   var c=newCanvas(e.w*scale,e.h*scale),g=c.getContext('2d');
   STREAM.fallback={entry:e,canvas:c,g:g,image:g.createImageData(c.width,c.height),row:0};
  }else{
@@ -128,22 +131,15 @@ function stepStreamFallback(){
  if(job.row===job.image.height){job.g.putImageData(job.image,0,0);finishStream(job.entry,job.canvas);STREAM.fallback=null;}
 }
 function streamTick(){
- var now=performance.now();STREAM.frame++;
- if(STREAM.busy&&now-STREAM.busy.time>8000)disableStreamWorker();
- stepStreamFallback();
- var hw=W/(2*cam.z),hh=H/(2*cam.z),pad=650;
- var cx=cam.x+player.vx*.6,cy=cam.y+player.vy*.6;
+ var now=performance.now();STREAM.frame++;if(STREAM.busy&&now-STREAM.busy.time>8000)disableStreamWorker();stepStreamFallback();
+ var v=streamView(),old=STREAM.lastScan,changed=!old||Math.abs(v.cx-old.cx)>100||Math.abs(v.cy-old.cy)>100||Math.abs(v.z-old.z)>.025||Math.abs(v.hw-old.hw)>80||Math.abs(v.hh-old.hh)>80;
+ if(!changed&&now<STREAM.nextScan)return;STREAM.lastScan=v;STREAM.nextScan=now+80;STREAM.scanCount++;
  var nearest=null,best=Infinity,entries=streamEntryList();
  for(var i=0;i<entries.length;i++){
-  var e=entries[i],x=e.blobs?e.wx0:e.x,y=e.blobs?e.wy0:FSTRIP_Y0,h=e.blobs?e.h:FSTRIP_H;
-  var visible=x<cx+hw+pad&&x+e.w>cx-hw-pad&&y<cy+hh+pad&&y+h>cy-hh-pad;
-  var distance=Math.hypot(x+e.w/2-cam.x,y+h/2-cam.y);
-  var onScreen=x<cam.x+hw&&x+e.w>cam.x-hw&&y<cam.y+hh&&y+h>cam.y-hh;
-  e.streamPriority=(onScreen?0:visible?1000000:1000000000)+distance;
-  if(visible){
-   e.streamTouch=now;
-   if(!e.streamBytes&&!e.streamPending&&!e.streamNoHigh&&(!e.streamRetry||now>e.streamRetry)){if(e.streamPriority<best){best=e.streamPriority;nearest=e;}}
-  }else if(e.streamBytes&&now-e.streamTouch>12000)evictStreamEntry(e);
+  var e=entries[i],x=e.blobs?e.wx0:e.x,y=e.blobs?e.wy0:FSTRIP_Y0,h=e.blobs?e.h:FSTRIP_H,eligible=x<v.r&&x+e.w>v.l&&y<v.b&&y+h>v.t,p=streamRectPriority(x,y,e.w,h,v);
+  e.streamPriority=(eligible?p.tier:9)*1e10+p.d;e.targetScale=e.blobs?streamScale(p.tier,v.z,false):p.tier<=1?FSTRIP_BS:p.tier===2?.2:.12;
+  if(eligible){e.streamTouch=now;var needs=!e.streamBytes||(p.tier<=1&&(e.loadedScale||0)<e.targetScale*.85);var score=e.streamPriority+(e.streamBytes?4e9:0);e.streamNextScale=e.blobs&&!e.streamBytes&&p.tier<=1?Math.min(.45,e.targetScale):e.targetScale;if(needs&&!e.streamPending&&!e.streamNoHigh&&(!e.streamRetry||now>e.streamRetry)&&score<best){best=score;nearest=e;}}
+  else if(e.streamBytes){var far=x>v.r+STREAM_CHUNK||x+e.w<v.l-STREAM_CHUNK||y>v.b+STREAM_CHUNK||y+h<v.t-STREAM_CHUNK;if(now-e.streamTouch>(far?3000:16000))evictStreamEntry(e);}
  }
  if(nearest&&!STREAM.busy&&!STREAM.fallback)requestStreamTexture(nearest);
 }

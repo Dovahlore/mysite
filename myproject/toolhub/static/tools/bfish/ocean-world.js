@@ -163,7 +163,7 @@ function initHabitatFish(f,sp,x,y,size){
 spawnFish=function(){
  var dangers=0;
  for(var i=0;i<fishes.length;i++)if(!fishes[i].dead&&fishes[i].size>player.size*1.15&&dist2(fishes[i].x,fishes[i].y,player.x,player.y)<1100*1100)dangers++;
- var minR=Math.max(600,Math.hypot(W,H)/(2*Math.max(cam.z,.52))+130);
+ var minR=Math.max(600,Math.hypot(W,H)/(2*Math.max(cam.z,.15))+130);
  for(var attempt=0;attempt<24;attempt++){
   var angle=rand(0,Math.PI*2),radius=rand(minR,minR+1200),x=clamp(player.x+Math.cos(angle)*radius,160,CONF.WORLD_W-160),y=clamp(player.y+Math.sin(angle)*radius,100,floorAt(player.x)-120);
   // Cavern chambers get a real population even when their surrounding rock dominates the annulus.

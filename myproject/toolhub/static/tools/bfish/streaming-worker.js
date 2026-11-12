@@ -1,5 +1,5 @@
 'use strict';
-importScripts('cavern-paint.js');
+importScripts('cavern-paint.js?v=6.25');
 var CONF={WORLD_W:27200,WORLD_H:15800};var FLOOR;var FSTRIP_H=3350,FSTRIP_BS=.35,FSTRIP_Y0=12450;var RK_TINT=[[96,112,116],[98,104,120],[54,72,94],[80,98,112]];var seed=1;
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function lerp(a,b,t){return a+(b-a)*t;}
@@ -281,4 +281,4 @@ function paintAtlas(rocks){var c=newCanvas(500,Math.round(500*CONF.WORLD_H/CONF.
   if(wy>floorAt(wx))col=[19,25,38];im.data[k]=col[0];im.data[k+1]=col[1];im.data[k+2]=col[2];im.data[k+3]=255;
  }g.putImageData(im,0,0);return c;
 }
-onmessage=function(event){var m=event.data;if(m.type==='init'){FLOOR=new Float32Array(m.floor);return;}try{seed=m.seed||1;var c;if(m.type==='cavernRear'){c=newCanvas(m.rock.w*m.scale,m.rock.h*m.scale);var cg=c.getContext('2d'),ci=cg.createImageData(c.width,c.height);fillCavernRearRows(m.rock,ci,0,ci.height);cg.putImageData(ci,0,0);}else if(m.type==='atlas'){c=paintAtlas(m.rocks);}else if(m.type==='rockTile'){c=paintRockTile(m.rock,m.scale);}else if(m.type==='rock'){rkBake(m.rock);c=m.rock.spr;}else{c=paintSeabed(m.x,m.w);}var bitmap=c.transferToImageBitmap();postMessage({id:m.id,bitmap:bitmap},[bitmap]);}catch(error){postMessage({id:m.id,error:String(error)});}};
+onmessage=function(event){var m=event.data;if(m.type==='init'){FLOOR=new Float32Array(m.floor);return;}try{seed=m.seed||1;var c;if(m.type==='cavernRear'){c=newCanvas(m.rock.w*m.scale,m.rock.h*m.scale);var cg=c.getContext('2d'),ci=cg.createImageData(c.width,c.height);fillCavernRearRows(m.rock,ci,0,ci.height);cg.putImageData(ci,0,0);}else if(m.type==='atlas'){c=paintAtlas(m.rocks);}else if(m.type==='rockTile'){c=paintRockTile(m.rock,m.scale);}else if(m.type==='rock'){rkBake(m.rock);c=m.rock.spr;}else{var oldScale=FSTRIP_BS;FSTRIP_BS=m.scale||oldScale;c=paintSeabed(m.x,m.w);FSTRIP_BS=oldScale;}var bitmap=c.transferToImageBitmap();postMessage({id:m.id,bitmap:bitmap},[bitmap]);}catch(error){postMessage({id:m.id,error:String(error)});}};

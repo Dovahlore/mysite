@@ -212,14 +212,14 @@ initHabitatFish=function(f,sp,x,y,size){
 };
 function ecologySteering(f,x,y){
  if(!f.ecoSteer)f.ecoSteer={x:x,y:y};
- var mins=[60,4400,8400,12100],maxs=[2900,6600,10100,15000],band=f.ecologyBand;
+ var mins=[60,3350,7050,10800],maxs=[3050,6720,10350,15400],band=f.ecologyBand;
  if(band===undefined||f.spec.rareDugong){f.ecoSteer.x=x;f.ecoSteer.y=y;return f.ecoSteer;}
  if(f.y<mins[band]+100&&y<0)y=Math.abs(y)+.3;
  if(f.y>maxs[band]-100&&y>0)y=-Math.abs(y)-.3;
  var length=Math.hypot(x,y)||1;f.ecoSteer.x=x/Math.max(1,length);f.ecoSteer.y=y/Math.max(1,length);return f.ecoSteer;
 }
 spawnFish=function(){
- var minR=Math.max(650,Math.hypot(W,H)/(2*Math.max(cam.z,.52))+150),maxR=minR+1050;
+ var minR=Math.max(650,Math.hypot(W,H)/(2*Math.max(cam.z,.15))+150),maxR=minR+1050;
  for(var attempt=0;attempt<22;attempt++){
   var a=rand(-Math.PI,Math.PI),r=rand(minR,maxR),x=clamp(player.x+Math.cos(a)*r,180,CONF.WORLD_W-180),y=clamp(player.y+Math.sin(a)*r*.65,100,floorAt(player.x)-180);
   if(Math.abs(x-cam.x)<W/(2*cam.z)+90&&Math.abs(y-cam.y)<H/(2*cam.z)+90)continue;

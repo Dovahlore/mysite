@@ -74,9 +74,13 @@ var qLevel = (window.devicePixelRatio || 1) > 1.5 ? 2 : 1;
 var qTimer = 0, frameEMA = 0.016;
 var QBUB = [14, 26, 42], QPART = [90, 170, 260], QRAY = [0, 2, 4];
 
+function cameraViewportScale(w,h){return Math.hypot(w===undefined?W:w,h===undefined?H:h)/Math.hypot(1280,800)||1;}
+function cameraLogicalZoom(){return cam.z/cameraViewportScale();}
 function resizeCanvas(){
-  DPR = Math.max(1.25, Math.min(window.devicePixelRatio || 1.25, QDPR[qLevel]));
+  var oldScale=cameraViewportScale();
   W = window.innerWidth; H = window.innerHeight;
+  DPR = Math.min(Math.max(1.25,Math.min(window.devicePixelRatio||1.25,QDPR[qLevel])),Math.sqrt([1600000,2400000,3200000][qLevel]/Math.max(1,W*H)));
+  if(typeof cam!=='undefined'&&cam)cam.z*=cameraViewportScale()/oldScale;
   canvas.width = Math.round(W * DPR);
   canvas.height = Math.round(H * DPR);
   canvas.style.width = W + "px";
@@ -2041,7 +2045,7 @@ function spawnFish(avoidPlayer){
   // 动态流送取点: 围绕玩家环带生成(屏外潜入, 屏内永远有鱼)
   var px = 0, py = 0, ok = false;
   for (var t2 = 0; t2 < 14; t2++){
-    var sa = rand(0, Math.PI * 2), sr = rand(Math.max(740, Math.hypot(W,H) / (2 * Math.max(cam.z,0.52)) + 130), 2300);
+    var sa = rand(0, Math.PI * 2), sr = rand(Math.max(740, Math.hypot(W,H) / (2 * Math.max(cam.z,0.15)) + 130), 2300);
     px = clamp(player.x + Math.cos(sa) * sr, 140, CONF.WORLD_W - 140);
     py = clamp(player.y + Math.sin(sa) * sr * 0.85, 140, floorAt(px) - 120);
     if (py < 140) py = 140;
@@ -2412,7 +2416,7 @@ function updateFish(f, dt){
   var pIsPrey = player.alive && player.spawnProt <= 0 && player.size < f.size * CONF.EAT_RATIO;
   var pd2 = dist2(f.x, f.y, player.x, player.y);
   if (pIsThreat && pd2 < tD2){ tD2 = pd2; threat = player; }
-  var aggroR = (520 + 340 * (1 - cam.z / 1.45)) * (window.fishSenseFactor ? fishSenseFactor(f) : 1);
+  var aggroR = (520 + 340 * (1 - cameraLogicalZoom() / 1.45)) * (window.fishSenseFactor ? fishSenseFactor(f) : 1);
   var canChasePlayer = window.playerPursuit ? playerPursuit(f, pIsPrey, aggroR, dt) : false;
   f.chasingPlayer=false;f.targetKind=null;
   // 猎杀: 明显大于玩家的凶猛鱼主动锁定追击(咬一口掉体型, 小到能吞才整吞)
@@ -2595,7 +2599,7 @@ function update(dt){
   var sprint = advanceSprint(dt, !!(sprintPointer || (window.MOBILE_INPUT && MOBILE_INPUT.dash) || keys.ShiftLeft || keys.ShiftRight));
   var useKeys = (kdx !== 0 || kdy !== 0);
 
-  motionScale = clamp(Math.pow(1 / cam.z, 0.7), 1, 1.8);
+  motionScale = clamp(Math.pow(1 / cameraLogicalZoom(), 0.7), 1, 1.8);
   var maxSpd = (CONF.P_BASE_SPD + player.size * CONF.P_SPD_PER_SIZE) * motionScale;
   if (player.buffs.speed > 0) maxSpd *= 1.42;
   if (sprint) maxSpd *= CONF.SPRINT_MULT;
@@ -2651,7 +2655,7 @@ function update(dt){
     }
     if (player.size <= CONF.P_INIT_SIZE + 0.5){
       player.starveAcc += dt;
-      if (player.starveAcc >= CONF.STARVE_DEATH){ playerDie("饿成了小鱼干"); return; }
+      if (player.starveAcc >= CONF.STARVE_DEATH){ playerDie("饿得游不动了"); return; }
     }
   } else {
     if (player.hunger > 25) player.starving = false;
@@ -2779,7 +2783,7 @@ function update(dt){
   }
 
   // ---- 摄像机 ----
-  var desiredZoom = clamp(50 / player.size, CONF.ZOOM_MIN, window.oceanZoomCap ? oceanZoomCap() : CONF.ZOOM_MAX) * (1 + 0.1 * Math.max(0, zoomPulse));
+  var desiredZoom = clamp(50 / player.size, CONF.ZOOM_MIN, window.oceanZoomCap ? oceanZoomCap() : CONF.ZOOM_MAX) * (1 + 0.1 * Math.max(0, zoomPulse)) * cameraViewportScale();
   cam.z += (desiredZoom - cam.z) * Math.min(1, dt * 2.2);
   var ctx2 = player.x + player.vx * 0.22, cty = player.y + player.vy * 0.22;
   cam.x += (ctx2 - cam.x) * Math.min(1, dt * 5.5);
@@ -3637,7 +3641,7 @@ function resetGame(){
   player.starving = false; player.starveAcc = 0; player.shrinkAcc = 0;
   player.slowTimer = 0; player.hurtFlash = 0;
   player.buffs.magnet = 0; player.buffs.speed = 0; player.buffs.shield = 0; player.buffs.double = 0;
-  cam.x = player.x; cam.y = player.y; cam.z = CONF.ZOOM_MAX;
+  cam.x = player.x; cam.y = player.y; cam.z = CONF.ZOOM_MAX * cameraViewportScale();
   // 初始鱼群与食物(流送: 围绕出生点环带铺开)
   for (i = 0; i < 24; i++) spawnFish(true);
   for (i = 0; i < 16; i++) spawnFood("shrimp");
@@ -3650,34 +3654,37 @@ function resetGame(){
 }
 
 </script>
-<script src="expedition.js"></script>
-<script src="ocean-world.js"></script>
-<script src="ocean-biomes.js"></script>
-<script src="wildlife.js"></script>
-<script src="reef-polish.js"></script>
-<script src="streaming.js"></script>
-<script src="mobile-controls.js"></script>
-<script src="field-guide.js"></script>
-<script src="ocean-life.js"></script>
-<script src="treasure-art.js"></script>
-<script src="prey-markers.js"></script>
-<script src="living-ocean.js"></script>
-<script src="ocean-refinement.js"></script>
-<script src="decor-art.js"></script>
-<script src="world-details.js"></script>
-<script src="variety-art.js"></script>
-<script src="habitat-scenery.js"></script>
-<script src="seabed-life.js"></script>
-<script src="ocean-backdrops.js"></script>
-<script src="ocean-foreground.js"></script>
-<script src="cavern-paint.js"></script>
-<script src="cavern-world.js"></script>
-<script src="surface-attachments.js"></script>
-<script src="cave-air.js"></script>
-<script src="coral-expansion.js"></script>
-<script src="surface-wildlife.js"></script>
-<script src="stable-a-landscape.js"></script>
-<script src="benthic-contact.js"></script>
+<script src="expedition.js?v=6.25"></script>
+<script src="ocean-world.js?v=6.25"></script>
+<script src="ocean-biomes.js?v=6.25"></script>
+<script src="wildlife.js?v=6.25"></script>
+<script src="reef-polish.js?v=6.25"></script>
+<script src="streaming.js?v=6.25"></script>
+<script src="mobile-controls.js?v=6.25"></script>
+<script src="field-guide.js?v=6.25"></script>
+<script src="ocean-life.js?v=6.25"></script>
+<script src="treasure-art.js?v=6.25"></script>
+<script src="prey-markers.js?v=6.25"></script>
+<script src="living-ocean.js?v=6.25"></script>
+<script src="ocean-refinement.js?v=6.25"></script>
+<script src="decor-art.js?v=6.25"></script>
+<script src="world-details.js?v=6.25"></script>
+<script src="variety-art.js?v=6.25"></script>
+<script src="habitat-scenery.js?v=6.25"></script>
+<script src="seabed-life.js?v=6.25"></script>
+<script src="ocean-backdrops.js?v=6.25"></script>
+<script src="ocean-foreground.js?v=6.25"></script>
+<script src="cavern-paint.js?v=6.25"></script>
+<script src="cavern-world.js?v=6.25"></script>
+<script src="surface-attachments.js?v=6.25"></script>
+<script src="cave-air.js?v=6.25"></script>
+<script src="coral-expansion.js?v=6.25"></script>
+<script src="surface-wildlife.js?v=6.25"></script>
+<script src="stable-a-landscape.js?v=6.25"></script>
+<script src="benthic-contact.js?v=6.25"></script>
+<script src="orca-ecology.js?v=6.25"></script>
+<script src="shoal-life.js?v=6.25"></script>
+<script src="depth-bottom-life.js?v=6.25"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){
