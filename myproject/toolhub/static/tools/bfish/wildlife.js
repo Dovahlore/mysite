@@ -46,7 +46,7 @@ function playerPursuit(f,eligible,range,dt){
 var initBeforeWildlife=initHabitatFish;
 initHabitatFish=function(f,sp,x,y,size){
  initBeforeWildlife(f,sp,x,y,size);
- f.playerTrackTime=0;f.playerTrackX=x;f.playerTrackY=y;f.playerChaseCooldown=0;f.chasingPlayer=false;f.targetKind=null;f.lungeCooldown=0;
+ f.returningHome=false;f.chaseElapsed=0;f.playerTrackTime=0;f.playerTrackX=x;f.playerTrackY=y;f.playerChaseCooldown=0;f.chasingPlayer=false;f.targetKind=null;f.lungeCooldown=0;
  f.puffStage='normal';f.puffTimer=0;f.puffCooldown=0;f.puffBlocked=false;f.inflated=0;
  return f;
 };

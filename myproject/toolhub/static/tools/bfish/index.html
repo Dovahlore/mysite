@@ -2426,9 +2426,9 @@ function updateFish(f, dt){
   var canHunt = false;
   if (f.huntCd > 0) f.huntCd -= dt;
   if (f.huntT > 0){
-    if (player.alive && player.spawnProt<=0 && !(f.playerChaseCooldown>0) && pd2 < 1250 * 1250 && (!window.fishCanSeePlayer || fishCanSeePlayer(f))){ canHunt = true; f.huntT -= dt; }
+    if (!f.returningHome && player.alive && player.spawnProt<=0 && !(f.playerChaseCooldown>0) && pd2 < 1250 * 1250 && (!window.fishCanSeePlayer || fishCanSeePlayer(f))){ canHunt = true; f.huntT -= dt; }
     else { f.huntT = 0; f.huntCd = 6; }
-  } else if (sp.aggr && player.alive && player.spawnProt <= 0 && player.size > 26 &&
+  } else if (!f.returningHome && sp.aggr && player.alive && player.spawnProt <= 0 && player.size > 26 &&
              f.size > player.size * 1.12 && f.huntCd <= 0 && !(f.playerChaseCooldown>0) && huntCount < 2 && pd2 < 760 * 760 && (!window.fishCanSeePlayer || fishCanSeePlayer(f))){
     f.huntT = 7 + Math.random() * 3; huntCount++; canHunt = true;
   }
@@ -3666,6 +3666,7 @@ function resetGame(){
 <script src="world-details.js"></script>
 <script src="variety-art.js"></script>
 <script src="habitat-scenery.js"></script>
+<script src="seabed-life.js"></script>
 <script>
 // ==================== 分阶段启动 ====================
 (async function bootGame(){
