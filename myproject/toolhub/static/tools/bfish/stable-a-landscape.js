@@ -13,7 +13,7 @@ function buildABedProfiles(){A_BED_PROFILES=[];A_STRATUM_CLIPS=[];A_ALL_STRATA_C
 function aMountainCrest(layer,u,camY,band){var l=STABLE_A[layer],floor=[3200,6900,10250,16600][band||0],rise=[1000,470,80][layer],amplitude=[230,110,42][layer],ridge=Math.sin(u*.0011+layer*1.8)*amplitude+Math.sin(u*.0031+layer)*amplitude*.28;return floor*l.y-rise+ridge+camY*(1-l.y);}
 function aBackdropPatch(layer,cell,band){var l=STABLE_A[layer],anchor=(cell*1100+550)/l.x,depth=[3100,6700,10000,16300][band||0],zone=sceneryZoneAt(clamp(anchor,0,CONF.WORLD_W),depth);return {zone:zone,seed:Math.abs(cell*31+layer*17+(band||0)*13)%5};}
 function aRockArt(zone,seed){var key=zone+':'+seed%6;if(A_ROCK_ART.has(key))return A_ROCK_ART.get(key);var c=newCanvas(360,480),g=c.getContext('2d');g.scale(3,3);paintRockVariant(g,seed%6,(zone==='shallow'?0:zone==='shelf'?100:zone==='deep'||zone==='volcano'?200:300)+seed,zone==='ice',zone==='deep'||zone==='volcano');A_ROCK_ART.set(key,c);return c;}
-function aReliefStyle(zone,layer){var deep=zone==='deep'||zone==='volcano',ice=zone==='ice';return {top:(zone==='volcano'?['#25343c','#30414a','#3d4a50']:deep?['#263e52','#344c5c','#435a69']:ice?['#698d9e','#7c9eaa','#89aeb7']:['#527e82','#628d8c','#749b94'])[layer],bottom:deep?'#102333':ice?'#375e73':'#244b59'};}
+function aReliefStyle(zone,layer,band){var colors=zone==='ice'?['#345970','#487b90','#6398a8']:(band===1?['#203e55','#2d5669','#3a6f7b']:band===2?['#172b45','#233e59','#2e5267']:['#31595d','#417369','#568775']);return {top:colors[layer],bottom:band===2?'#0c2034':'#173b49'};}
 function aBotanicalPool(zone){return zone==='shallow'?['grass','pink','orange','grass','fan','table','anemone']:zone==='shelf'?['pen','cold','fan','sponge','pen','cold']:zone==='kelp'?['kelp','grass','kelp','anemone','kelp','sponge']:zone==='ice'?['pen','sponge','anemone','cold']:zone==='volcano'?['tubeworm','mussel','tubeworm']:['frond','pen','sponge','cold','crinoid','frond'];}
 function drawAWorldLayer(g,layer,zone,view){var l=STABLE_A[layer],hw=view.w/(2*view.z),hh=view.h/(2*view.z),shift=view.x*(1-l.x),left=view.x-hw-650,right=view.x+hw+650;
  for(var band=0;band<3;band++){
@@ -29,16 +29,16 @@ function drawAWorldLayer(g,layer,zone,view){var l=STABLE_A[layer],hw=view.w/(2*v
    var u=cell*700+80,x=u+shift,y=root(u),seed=Math.abs(cell*7+layer*11+band*19),patch=patchAt(Math.floor(u/1100)),height=[180,125,55][layer]+decorNoise(seed,31)*[230,150,95][layer],width=160+decorNoise(seed,44)*150;
    if(y-height>view.y+hh||y<view.y-hh-100||decorNoise(seed,14)<.28)continue;g.save();g.translate(x,y+22);g.rotate(Math.atan(slope(u)));g.drawImage(aRockArt(patch.zone,seed),-width/2,-height*157/160,width,height);g.restore();
   }
-  var first=Math.floor((left-shift)/1100),last=Math.ceil((right+20-shift)/1100),fill=g.createLinearGradient(first*1100+shift,0,last*1100+shift,0);for(var stop=first;stop<=last;stop++)fill.addColorStop((stop-first)/(last-first),aReliefStyle(patchAt(stop).zone,layer).top);
+  var first=Math.floor((left-shift)/1100),last=Math.ceil((right+20-shift)/1100),fill=g.createLinearGradient(first*1100+shift,0,last*1100+shift,0);for(var stop=first;stop<=last;stop++)fill.addColorStop((stop-first)/(last-first),aReliefStyle(patchAt(stop).zone,layer,band).top);
   g.fillStyle=fill;g.beginPath();for(var x=left;x<=right+20;x+=20){var y=root(x-shift);if(x===left)g.moveTo(x,y);else g.lineTo(x,y);}for(var bx=right+20;bx>=left;bx-=20)g.lineTo(bx,[3750,7550,11150][band]+450);g.closePath();g.fill();
   g.save();g.clip();g.lineWidth=1.4;for(var row=0;row<7;row++){g.strokeStyle=row%2?'#b4c4b419':'#112c3e40';g.beginPath();for(var x=left;x<=right+30;x+=30){var y=root(x-shift)+14+row*35+Math.sin((x-shift)*.008+row)*8;if(x===left)g.moveTo(x,y);else g.lineTo(x,y);}g.stroke();}g.restore();
   // Three offset growth rows occupy flat benches too, rather than one line of ridge-top coral.
-  var spacing=layer===0?220:layer===1?180:155;
+  var spacing=(layer===0?220:layer===1?180:155)*(band?.86:1);
   for(var row=0;row<(band===0?1:3);row++)for(var cell=Math.floor((left-shift)/spacing);cell<=(right-shift)/spacing;cell++){
-   var u=(cell+.15+decorNoise(cell,row+19)*.7)*spacing,x=u+shift,y=root(u)+7+row*90,seed=Math.abs(cell*7+layer*11+band*17+row*53),patch=patchAt(Math.floor(u/1100)),pool=aBotanicalPool(patch.zone),kind=pool[Math.floor(decorNoise(seed,117)*pool.length)],height=(kind==='kelp'?300:kind==='frond'||kind==='pen'?180:80)+decorNoise(seed,81)*(kind==='kelp'?210:kind==='frond'||kind==='pen'?220:140),width=height*(kind==='kelp'||kind==='frond'?.43:kind==='pen'?.32:.76);
+   var u=(cell+.15+decorNoise(cell,row+19)*.7)*spacing,x=u+shift,y=root(u)+7+row*90,seed=Math.abs(cell*7+layer*11+band*17+row*53),patch=patchAt(Math.floor(u/1100)),pool=band===1?(patch.zone==='ice'?['leafpen','pen','sponge','frond']:['broadweed','kelp','grass','broadweed','fan','sponge']):band===2?['leafpen','frond','leafpen','pen','cold','sponge']:aBotanicalPool(patch.zone),kind=pool[Math.floor(decorNoise(seed,117)*pool.length)],height=(kind==='broadweed'?420:kind==='leafpen'?290:kind==='kelp'?300:kind==='frond'||kind==='pen'?180:80)+decorNoise(seed,81)*(kind==='broadweed'?250:kind==='leafpen'?230:kind==='kelp'?210:kind==='frond'||kind==='pen'?220:140),width=height*(kind==='broadweed'?.52:kind==='leafpen'?.62:kind==='kelp'||kind==='frond'?.43:kind==='pen'?.32:.76);
    height*=[.66,.85,1][layer]*(row? .6:1);width*=[.66,.85,1][layer]*(row?.6:1);
-   if(y-height>view.y+hh||y<view.y-hh-50||decorNoise(seed,333)<(row?.5:.14))continue;
-   g.save();g.translate(x,y);if(['grass','kelp','pen','frond'].includes(kind))g.transform(1,slope(u),0,1,0,0);else g.rotate(Math.atan(slope(u)));g.drawImage(backdropBotanical(kind,seed),-width/2,-height*157/160,width,height);g.restore();
+   if(y-height>view.y+hh||y<view.y-hh-50||decorNoise(seed,333)<(row?(band?.36:.5):(band?.08:.14)))continue;
+   g.save();g.translate(x,y);if(['grass','kelp','pen','frond','broadweed','leafpen'].includes(kind))g.transform(1,slope(u),0,1,0,0);else g.rotate(Math.atan(slope(u)));g.drawImage(backdropBotanical(kind,seed),-width/2,-height*157/160,width,height);g.restore();
   }
   g.restore();
  }
