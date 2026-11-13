@@ -7,7 +7,7 @@ function carveArchitecture(rooms,paths,targets){targets.forEach(function(r){if(r
 var terrainBeforeLostRealms=RK_init;
 RK_init=function(){originalVolcanicRoutes.forEach(original=>{var path=WORLD_ROUTES.find(p=>p.name===original.name);if(path)path.points=original.points.map(q=>q.slice());});terrainBeforeLostRealms();var shift=LOST_REALMS.volcanoShift;
  // Translate the volcanic solids and their local cuts together: geometry and hazards stay aligned.
- RK_list.forEach(function(r){if(['深层火山','熔岩管外壳','火山深部玄武基座'].includes(r.name)){r.ax+=shift.x;r.ay+=shift.y;r.surfaceCache=null;r.rearUnderlay=null;rkBake(r);}else if(r.name==='第三层：火山玄武层'||r.name==='火山侧洞群'){r.name=r.name==='火山侧洞群'?'冰下神庙前庭遗址':'冰下神庙上层石基';r.temple=true;r.tint=[76,111,117];r.terrainWave=[35,.7];r.organic=8;rkBake(r);}});
+ RK_list.forEach(function(r){if(['深层火山','熔岩管外壳','火山深部玄武基座'].includes(r.name)){r.ax+=shift.x;r.ay+=shift.y;r.surfaceCache=null;r.rearUnderlay=null;rkBake(r);}else if(r.name==='第三层：火山玄武层'||r.name==='火山侧洞群'){r.name=r.name==='火山侧洞群'?'冰下神庙前庭遗址':'冰下神庙上层石基';r.temple=false;r.tint=[48,66,84];r.terrainWave=[35,.7];r.organic=8;rkBake(r);}});
  var temple=architecturalRock('冰下神秘神庙遗迹',23800,14500,[0,0,3400,2450,220,650,-3300,1700,950,160,900,-4250,850,550,100,-4400,900,1400,850,120,-6000,750,1500,200,65],'temple');LOST_REALMS.temple=temple;rockBounds(temple);RK_list.push(temple);
  var rooms=[
   [24700,11250,1100,500,55],[24400,12800,2450,500,70],
