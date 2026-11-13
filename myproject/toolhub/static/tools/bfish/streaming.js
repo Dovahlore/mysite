@@ -178,4 +178,4 @@ STREAM.ready=false;el('t-start').disabled=true;el('t-start').textContent='海域
 var startBeforeStreaming=startOrRestart;
 startOrRestart=function(){if(STREAM.ready)startBeforeStreaming();};
 
-async function finishBootTerrain(){for(var r of RK_list){var scale=Math.min(.35,768/Math.max(r.w,r.h)),c=newCanvas(Math.max(8,Math.ceil(r.w*scale)),Math.max(8,Math.ceil(r.h*scale))),g=c.getContext('2d'),im=g.createImageData(c.width,c.height);for(var row=0;row<c.height;row+=4){fillRockRows(r,im,row,Math.min(row+4,c.height));await bootYield();}g.putImageData(im,0,0);r.preview=c;r.spr=c;if(r.boxes&&r.boxes.length&&r.w>r.h*2)r.rearUnderlay=exactShelfRear(r,null);await bootYield();}}
+async function finishBootTerrain(){for(var r of RK_list){var scale=Math.min(.35,768/Math.max(r.w,r.h)),c=newCanvas(Math.max(8,Math.ceil(r.w*scale)),Math.max(8,Math.ceil(r.h*scale))),g=c.getContext('2d'),im=g.createImageData(c.width,c.height);for(var row=0;row<c.height;row+=4){fillRockRows(r,im,row,Math.min(row+4,c.height));await bootYield();}g.putImageData(im,0,0);r.preview=c;r.spr=c;r.rearUnderlay=exactShelfRear(r,null);await bootYield();}}
