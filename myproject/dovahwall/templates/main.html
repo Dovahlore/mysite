@@ -31,6 +31,16 @@
             object-fit: cover;
         }
 
+        /* 悬停时的整页预览背景层:卡片 hover 淡入,盖过默认 DJI 视频 */
+        .hover-bg-layer {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -2;
+            opacity: 0; transition: opacity .45s ease;
+            pointer-events: none;
+        }
+        .hover-bg-layer video, .hover-bg-layer img { width: 100%; height: 100%; object-fit: cover; }
+        .hover-bg-layer.on { opacity: 1; }
         .mask {
             position: fixed;
             top: 0; left: 0; z-index: -1;
@@ -199,7 +209,6 @@
         }
         .tool-card {
             display: flex; flex-direction: column; align-items: center; text-align: center;
-            position: relative; overflow: hidden;
             background: rgba(255, 255, 255, 0.07);
             backdrop-filter: blur(18px) saturate(150%);
             -webkit-backdrop-filter: blur(18px) saturate(150%);
@@ -211,19 +220,6 @@
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
             transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        /* 悬停预览层:真实运行画面淡入铺满整卡(素材由工具目录 preview.* 提供) */
-        .tool-preview {
-            position: absolute; inset: 0; z-index: 1;
-            opacity: 0; transition: opacity .3s ease;
-            border-radius: inherit; overflow: hidden; background: #04121e;
-        }
-        .tool-preview video, .tool-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .tool-preview::after {
-            content: ""; position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(2,10,20,.05) 35%, rgba(2,10,20,.74) 100%);
-        }
-        .tool-card:hover .tool-preview { opacity: 1; }
-        @media (prefers-reduced-motion: reduce) { .tool-preview { display: none; } }
         .tool-card:hover {
             background: rgba(137, 191, 225, 0.12);
             transform: translateY(-4px) scale(1.03);
@@ -232,7 +228,6 @@
         }
         .tool-icon {
             width: 40px; height: 40px; font-size: 20px;
-            position: relative; z-index: 2;
             display: inline-flex; align-items: center; justify-content: center;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.06);
@@ -243,9 +238,8 @@
 a.tool-card, a.tool-card:hover { text-decoration: none; }
 .tool-card .tool-name, .tool-card .tool-desc { text-decoration: underline; }
         .tool-icon-img img { width: 26px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 8px rgba(212,169,78,.5)); }
-        .tool-name { position: relative; z-index: 2; margin-top: 10px; font-weight: 300; letter-spacing: 1px; font-size: 0.95em; }
+        .tool-name { margin-top: 10px; font-weight: 300; letter-spacing: 1px; font-size: 0.95em; }
         .tool-desc {
-            position: relative; z-index: 2;
             margin-top: 4px; font-size: 0.7em; color: rgba(255,255,255,0.45);
             font-family: 'Courier New', monospace;
             max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -305,31 +299,10 @@ a.tool-card, a.tool-card:hover { text-decoration: none; }
         }
 
         .link-card {
-            position: relative; overflow: hidden;
-            margin: 20px 30px; padding: 12px 14px;
-            border-radius: 22px;
+            margin: 20px 30px;
             transition: all 0.4s ease;
         }
-        /* 悬停时背景整体变成跳转目标的真实截图 */
-        .link-bg {
-            position: absolute; inset: 0; z-index: 0;
-            background: #06131f center / cover no-repeat;
-            opacity: 0; transition: opacity .35s ease;
-            border-radius: inherit;
-        }
-        .link-bg::after {
-            content: ""; position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(2,10,20,0) 40%, rgba(2,10,20,.78) 100%);
-        }
-        .link-card:hover .link-bg { opacity: 1; }
-        .link-card:hover .link-cap { color: #e8f4ff; }
-        .link-cap {
-            position: relative; z-index: 2; color: #aaa;
-            font-size: 0.9em; font-weight: 300; margin-top: 8px; text-align: center;
-            transition: color .3s ease;
-        }
         .linkpic {
-            position: relative; z-index: 1;
             width: 100px; height: 100px;
             border-radius: 25px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.4);
@@ -337,7 +310,7 @@ a.tool-card, a.tool-card:hover { text-decoration: none; }
             filter: brightness(0.9);
         }
         .link-card:hover .linkpic {
-            opacity: 0;
+            transform: translateY(-15px) rotate(3deg);
             filter: brightness(1.1);
             box-shadow: 0 20px 40px rgba(137, 191, 225, 0.4);
         }
@@ -419,32 +392,31 @@ a.tool-card, a.tool-card:hover { text-decoration: none; }
     </div>
 
     <div class="d-flex justify-content-center mt-5 flex-wrap">
-        <div class="link-card">
-            <span class="link-bg" data-pv="{% static 'img/material/preview_wall.jpg' %}" aria-hidden="true"></span>
-            <a href="/s/wall"><img class="linkpic" src="{% static 'img/material/DovahWall.gif' %}" alt="PhotoWall"></a>
-            <div class="link-cap">PhotoWall</div>
+        <div class="link-card" data-pv="{% static 'img/material/preview_wall.jpg' %}">
+            <a href="/s/wall"><img class="linkpic" src="{% static 'img/material/DovahWall.gif' %}"></a>
+            <div class="mt-2" style="color:#aaa; font-size: 0.9em; font-weight: 300;">PhotoWall</div>
         </div>
-        <div class="link-card">
-            <span class="link-bg" data-pv="{% static 'img/material/preview_base.jpg' %}" aria-hidden="true"></span>
-            <a href="/s/base"><img class="linkpic" src="{% static 'img/material/dovahbase.gif' %}" alt="Base"></a>
-            <div class="link-cap">Base</div>
+        <div class="link-card" data-pv="{% static 'img/material/preview_base.jpg' %}">
+            <a href="/s/base"><img class="linkpic" src="{% static 'img/material/dovahbase.gif' %}"></a>
+            <div class="mt-2" style="color:#aaa; font-size: 0.9em; font-weight: 300;">Base</div>
         </div>
-        <div class="link-card">
-            <span class="link-bg" data-pv="{% static 'img/material/preview_bike.jpg' %}" aria-hidden="true"></span>
-            <a href="/s/bike"><img class="linkpic" src="{% static 'img/material/DovahCYC.gif' %}" alt="BikeCycle"></a>
-            <div class="link-cap">BikeCycle</div>
+        <div class="link-card" data-pv="{% static 'img/material/preview_bike.jpg' %}">
+            <a href="/s/bike"><img class="linkpic" src="{% static 'img/material/DovahCYC.gif' %}"></a>
+            <div class="mt-2" style="color:#aaa; font-size: 0.9em; font-weight: 300;">BikeCycle</div>
         </div>
     </div>
     <script>
-        /* link 卡悬停预览:首次悬停才把真实截图设为背景(不悬停不下载) */
+        /* link 卡(Photowall/Base/BikeCycle)悬停:整页背景切为跳转目标的真实截图;工具卡逻辑在 wall.html,共用同一预览层 */
         (function () {
             "use strict";
-            document.querySelectorAll(".link-bg[data-pv]").forEach(function (el) {
-                var card = el.closest(".link-card");
-                if (!card) return;
+            if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+            document.querySelectorAll(".link-card[data-pv]").forEach(function (card) {
                 card.addEventListener("mouseenter", function () {
-                    el.style.backgroundImage = "url(" + el.getAttribute("data-pv") + ")";
-                }, { once: true });
+                    if (window.__hoverBg) window.__hoverBg.show(card.getAttribute("data-pv"), "image");
+                });
+                card.addEventListener("mouseleave", function () {
+                    if (window.__hoverBg) window.__hoverBg.hide();
+                });
             });
         })();
     </script>

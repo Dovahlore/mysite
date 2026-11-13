@@ -8,58 +8,91 @@
     <span class="tool-desc">{{ tool.desc }}</span>
 </a>
 {% endfor %}<script>
-/* 悬停预览（drop-in：工具目录放 preview.mp4/.webm/.gif/.png/.jpg 即生效）。
-   首次悬停才创建媒体元素并加载，离开即暂停归零；reduced-motion 用户不放视频只显图。 */
+/* 悬停整页背景预览(drop-in:工具目录放 preview.mp4/.webm/.gif/.png/.jpg 即生效)。
+   hover 工具卡时,页面全屏背景(DJI 波浪视频)暂停并淡入该工具的真实预览画面;
+   移开即淡出并恢复背景视频。媒体首次悬停才加载;reduced-motion 用户不启用。 */
 (function () {
     "use strict";
-    // reduced-motion 用户不注入预览，保持原卡片体验
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    function build(card) {
-        var url = card.getAttribute("data-preview");
-        var type = card.getAttribute("data-preview-type");
-        var media;
+    function layer() {
+        var el = document.getElementById("hover-bg-layer");
+        if (el) return el;
+        el = document.createElement("div");
+        el.id = "hover-bg-layer";
+        el.className = "hover-bg-layer";
+        el.setAttribute("aria-hidden", "true");
+        (document.body || document.documentElement).appendChild(el);
+        return el;
+    }
+
+    var generation = 0;
+    var resumeBackground = false;
+
+    function hide() {
+        generation += 1;
+        var el = document.getElementById("hover-bg-layer");
+        if (el) {
+            el.classList.remove("on");
+            var media = el.firstElementChild;
+            if (media && media.tagName === "VIDEO") {
+                media.pause();
+                try { media.currentTime = 0; } catch (e) {}
+            }
+        }
+        var bg = document.querySelector("video.video-background");
+        if (bg && resumeBackground) {
+            var pr = bg.play();
+            if (pr && pr.catch) pr.catch(function () {});
+        }
+        resumeBackground = false;
+    }
+
+    function show(url, type) {
+        hide();
+        var token = generation;
+        var el = layer();
+        el.innerHTML = "";
+        var media = document.createElement(type === "video" ? "video" : "img");
+        el.setAttribute("data-src", url);
+        function reveal() {
+            if (token !== generation || el.firstElementChild !== media) return;
+            var bg = document.querySelector("video.video-background");
+            resumeBackground = !!(bg && !bg.paused);
+            if (resumeBackground) bg.pause();
+            el.classList.add("on");
+        }
+        media.addEventListener("error", function () {
+            if (token === generation) hide();
+        });
         if (type === "video") {
-            media = document.createElement("video");
             media.muted = true;
             media.loop = true;
             media.playsInline = true;
             media.preload = "none";
-            media.src = url;
+            media.addEventListener("playing", reveal, { once: true });
         } else {
-            media = document.createElement("img");
             media.alt = "";
-            media.loading = "lazy";
-            media.src = url;
+            media.addEventListener("load", reveal, { once: true });
         }
-        media.setAttribute("aria-hidden", "true");
-        var wrap = document.createElement("span");
-        wrap.className = "tool-preview";
-        wrap.setAttribute("aria-hidden", "true");
-        wrap.appendChild(media);
-        card.appendChild(wrap);
-        card.setAttribute("data-preview-built", "1");
-        return media;
-    }
-
-    function mediaOf(card) {
-        return card.hasAttribute("data-preview-built") ? card.querySelector(".tool-preview > video, .tool-preview > img") : build(card);
+        el.appendChild(media);
+        media.src = url;
+        if (type === "video") {
+            var pr = media.play();
+            if (pr && pr.catch) pr.catch(function () {
+                if (token === generation) hide();
+            });
+        }
     }
 
     document.querySelectorAll(".tool-card[data-preview]").forEach(function (card) {
         card.addEventListener("mouseenter", function () {
-            var media = mediaOf(card);
-            if (media && media.tagName === "VIDEO") {
-                media.play().catch(function () {});
-            }
+            show(card.getAttribute("data-preview"), card.getAttribute("data-preview-type") || "image");
         });
-        card.addEventListener("mouseleave", function () {
-            var media = card.querySelector(".tool-preview > video");
-            if (media) {
-                media.pause();
-                try { media.currentTime = 0; } catch (e) {}
-            }
-        });
+        card.addEventListener("mouseleave", hide);
     });
+
+    /* link 工具(如龙语输入法)与主页面卡片共用同一预览层 */
+    window.__hoverBg = { show: show, hide: hide };
 })();
 </script>
