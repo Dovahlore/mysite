@@ -1,4 +1,4 @@
-{% load static %}{% for tool in tools %}<a href="{{ tool.url }}" class="tool-card">
+{% load static %}{% for tool in tools %}<a href="{{ tool.url }}" class="tool-card"{% if tool.preview %} data-preview="{% static tool.preview %}" data-preview-type="{{ tool.preview_type }}"{% endif %}>
     {% if tool.icon_img %}
         <span class="tool-icon tool-icon-img"><img src="{% static tool.icon_img %}" alt="{{ tool.name }}图标"></span>
     {% else %}
@@ -7,4 +7,59 @@
     <span class="tool-name">{{ tool.name }}</span>
     <span class="tool-desc">{{ tool.desc }}</span>
 </a>
-{% endfor %}
+{% endfor %}<script>
+/* 悬停预览（drop-in：工具目录放 preview.mp4/.webm/.gif/.png/.jpg 即生效）。
+   首次悬停才创建媒体元素并加载，离开即暂停归零；reduced-motion 用户不放视频只显图。 */
+(function () {
+    "use strict";
+    // reduced-motion 用户不注入预览，保持原卡片体验
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    function build(card) {
+        var url = card.getAttribute("data-preview");
+        var type = card.getAttribute("data-preview-type");
+        var media;
+        if (type === "video") {
+            media = document.createElement("video");
+            media.muted = true;
+            media.loop = true;
+            media.playsInline = true;
+            media.preload = "none";
+            media.src = url;
+        } else {
+            media = document.createElement("img");
+            media.alt = "";
+            media.loading = "lazy";
+            media.src = url;
+        }
+        media.setAttribute("aria-hidden", "true");
+        var wrap = document.createElement("span");
+        wrap.className = "tool-preview";
+        wrap.setAttribute("aria-hidden", "true");
+        wrap.appendChild(media);
+        card.appendChild(wrap);
+        card.setAttribute("data-preview-built", "1");
+        return media;
+    }
+
+    function mediaOf(card) {
+        return card.hasAttribute("data-preview-built") ? card.querySelector(".tool-preview > video, .tool-preview > img") : build(card);
+    }
+
+    document.querySelectorAll(".tool-card[data-preview]").forEach(function (card) {
+        card.addEventListener("mouseenter", function () {
+            var media = mediaOf(card);
+            if (media && media.tagName === "VIDEO") {
+                media.play().catch(function () {});
+            }
+        });
+        card.addEventListener("mouseleave", function () {
+            var media = card.querySelector(".tool-preview > video");
+            if (media) {
+                media.pause();
+                try { media.currentTime = 0; } catch (e) {}
+            }
+        });
+    });
+})();
+</script>

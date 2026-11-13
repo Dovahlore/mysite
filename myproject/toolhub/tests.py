@@ -103,6 +103,36 @@ class RegistryScanTests(SimpleTestCase):
         self.assertEqual([t for t in tools if t["kind"] == "app"], [])
         self.assertEqual(manifests, {})
 
+    def test_scan_detects_preview_file(self):
+        folder = _write_tool(self.tmp, "demo", {"name": "演示", "description": "d"})
+        with open(os.path.join(folder, "preview.mp4"), "wb") as f:
+            f.write(b"x")
+        tools, manifests = registry._scan(self.tmp)
+        app = [t for t in tools if t["kind"] == "app"][0]
+        self.assertEqual(app["preview"], "tools/demo/preview.mp4")
+        self.assertEqual(app["preview_type"], "video")
+        self.assertEqual(manifests["demo"]["preview"], "tools/demo/preview.mp4")
+
+    def test_scan_preview_first_match_wins(self):
+        folder = _write_tool(self.tmp, "demo", {"name": "演示"})
+        for name in ("preview.jpg", "preview.mp4"):
+            with open(os.path.join(folder, name), "wb") as f:
+                f.write(b"x")
+        tools, _ = registry._scan(self.tmp)
+        app = [t for t in tools if t["kind"] == "app"][0]
+        self.assertEqual(app["preview"], "tools/demo/preview.mp4")
+        self.assertEqual(app["preview_type"], "video")
+
+    def test_scan_no_preview_defaults_none(self):
+        _write_tool(self.tmp, "demo", {"name": "演示"})
+        tools, _ = registry._scan(self.tmp)
+        app = [t for t in tools if t["kind"] == "app"][0]
+        self.assertIsNone(app["preview"])
+        self.assertIsNone(app["preview_type"])
+        link = [t for t in tools if t["kind"] == "link"][0]
+        self.assertIsNone(link["preview"])
+        self.assertIsNone(link["preview_type"])
+
     def test_scan_id_conflict_with_link_skipped(self):
         _write_tool(self.tmp, "portainer", {"name": "撞车"})
         tools, _ = registry._scan(self.tmp)
@@ -146,6 +176,12 @@ class WallTagTests(SimpleTestCase):
         self.assertIn("portainer.dovahwall.cn", out)
         self.assertIn("fas fa-bowling-ball", out)
         self.assertIn("ime/img/skyrim_logo_light.png", out)
+        # 悬停预览：真实目录里有 preview.mp4 的工具卡片带 data-preview 标记
+        self.assertIn("tools/cball/preview.mp4", out)
+        self.assertIn('data-preview-type="video"', out)
+        self.assertIn("tools/bfish/preview.mp4", out)
+        # link 工具的悬停预览（龙语输入法真实打字视频）
+        self.assertIn("ime/img/preview_typing.mp4", out)
 
 
 class PageTests(SimpleTestCase):

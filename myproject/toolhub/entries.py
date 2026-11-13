@@ -11,6 +11,8 @@
     icon_color  图标颜色（#rrggbb）
     icon_img    站内 static 图片路径（如 "ime/img/skyrim_logo_light.png"）
     order       排序权重（小在前，默认 500）
+    preview     可选：悬停预览素材的 static 路径（如 "img/material/preview_wall.jpg"）
+    preview_type 可选：video / gif / image，与 preview 配套（默认 image）
 """
 
 LINK_TOOLS = [
@@ -29,6 +31,8 @@ LINK_TOOLS = [
         "desc": "dovahzul ime · 中↔龙语",
         "url": "/s/ime",
         "icon_img": "ime/img/skyrim_logo_light.png",
+        "preview": "ime/img/preview_typing.mp4",
+        "preview_type": "video",
         "order": 200,
     },
     {

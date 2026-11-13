@@ -25,6 +25,25 @@ _MAX_DESC = 80
 DEFAULT_ICON_FA = "fas fa-puzzle-piece"
 DEFAULT_ICON_COLOR = "#89bfe1"
 
+# 悬停预览：工具目录里放了这些名字的文件，卡片 hover 时自动播真实画面。
+# 按元组顺序取第一个命中的文件；只认固定文件名，天然无路径穿越风险。
+PREVIEW_FILES = (
+    "preview.mp4",
+    "preview.webm",
+    "preview.gif",
+    "preview.png",
+    "preview.jpg",
+    "preview.jpeg",
+)
+PREVIEW_TYPES = {
+    "preview.mp4": "video",
+    "preview.webm": "video",
+    "preview.gif": "gif",
+    "preview.png": "image",
+    "preview.jpg": "image",
+    "preview.jpeg": "image",
+}
+
 _lock = threading.Lock()
 _cache = {"key": None, "tools": None, "manifests": None}
 
@@ -109,6 +128,14 @@ def _load_manifest(tool_id, folder):
     }
 
 
+def _find_preview(folder):
+    """在工具目录里找悬停预览素材，返回 (文件名, 类型)；没有返回 (None, None)。"""
+    for name in PREVIEW_FILES:
+        if os.path.isfile(os.path.join(folder, name)):
+            return name, PREVIEW_TYPES[name]
+    return None, None
+
+
 def _dir_sig(root):
     """目录签名（子目录名 + mtime），用于缓存失效判断。"""
     try:
@@ -140,6 +167,8 @@ def _scan(root=TOOLS_DIR):
         tool.setdefault("icon_img", None)
         tool.setdefault("order", 500)
         tool.setdefault("has_ai", False)
+        tool.setdefault("preview", None)
+        tool.setdefault("preview_type", None)
         tools.append(tool)
 
     try:
@@ -165,6 +194,9 @@ def _scan(root=TOOLS_DIR):
         if manifest is None:
             continue
         manifests[name] = manifest
+        pv_file, pv_type = _find_preview(folder)
+        manifest["preview"] = ("tools/%s/%s" % (name, pv_file)) if pv_file else None
+        manifest["preview_type"] = pv_type if pv_file else None
         if manifest["bare"]:
             url = "/static/tools/%s/index.html" % name
         else:
@@ -180,6 +212,8 @@ def _scan(root=TOOLS_DIR):
             "icon_img": manifest["icon_img"],
             "order": manifest["order"],
             "has_ai": manifest["has_ai"],
+            "preview": manifest["preview"],
+            "preview_type": manifest["preview_type"],
         })
 
     tools.sort(key=lambda t: (t.get("order", 500), str(t.get("name", ""))))
