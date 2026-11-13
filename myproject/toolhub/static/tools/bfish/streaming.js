@@ -2,7 +2,7 @@
 'use strict';
 var STREAM_CHUNK=2048;
 var STREAM={worker:null,busy:null,disabled:false,job:0,resident:0,maxBytes:(navigator.deviceMemory&&navigator.deviceMemory<=2?32:window.innerWidth<700?64:96)*1024*1024,loaded:0,evicted:0,failed:0,fallback:null,frame:0,nextScan:0,scanCount:0,lastScan:null,entries:null};
-var streamWorkerURL=new URL('streaming-worker.js?v=6.34',document.currentScript.src).href;
+var streamWorkerURL=new URL('streaming-worker.js?v=6.35',document.currentScript.src).href;
 var originalRockBake=rkBake;
 function rockBounds(r){
  var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
@@ -22,9 +22,9 @@ function fillRockRows(r,im,from,to){
  for(var y=from;y<to;y++)for(var x=0;x<im.width;x++){
   var px=r.ox+(x+.5)*r.w/im.width,py=r.oy+(y+.5)*r.h/im.height,d=rkField(r,px,py),i=(y*im.width+x)*4;
   if(d>Math.max(r.w/im.width,r.h/im.height))continue;
-  var tint=geologyTint(r,px+r.ax,py+r.ay,tintBuffer),shade=(.72+.28*Math.exp(Math.min(d,0)/180))*(1+.06*Math.sin((py+r.ay)*.017+(px+r.ax)*.002));
+  var lightD=terrainLightDistance(r,px,py,d),tint=geologyTint(r,px+r.ax,py+r.ay,tintBuffer),shade=(.72+.28*Math.exp(Math.min(lightD,0)/180))*(1+.06*Math.sin((py+r.ay)*.017+(px+r.ax)*.002));
   shade*=.96+.04*Math.sin((px+r.ax)*.035+Math.sin((py+r.ay)*.022)*2);
-  var rim=1+.22*Math.exp(Math.min(d,0)/14);
+  var rim=1+.22*Math.exp(Math.min(lightD,0)/14);
   if(r.temple||r.mine){var wx=px+r.ax,wy=py+r.ay,row=Math.floor(wy/88),jx=((wx+(row%2)*110)%220+220)%220,jy=((wy%88)+88)%88;shade=r.mine?.7+.07*Math.sin(wx*.013+Math.sin(wy*.011)*2)*Math.sin(wy*.019):(jx<3||jy<3)?.49:.77+.03*Math.sin(wx*.04)*Math.sin(wy*.03);}
 
   im.data[i]=tint[0]*shade*rim;im.data[i+1]=tint[1]*shade*rim;im.data[i+2]=tint[2]*shade*rim;
@@ -52,7 +52,7 @@ function buildTerrainTiles(){
   if(r.w*r.h<1100000){r.textureScale=window.innerWidth<700?1:1.35;terrainTiles.push(r);return;}
   r.tiles=[];
   for(var y=0;y<r.h;y+=768)for(var x=0;x<r.w;x+=768){
-   var t={ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,tint:r.tint,organic:r.organic,ship:!!r.ship,ice:!!r.ice,terrainWave:r.terrainWave,caves:r.caves,rectCuts:r.rectCuts,temple:r.temple,mine:r.mine,k:r.k,glow:r.glow,z:r.z,ox:r.ox+x,oy:r.oy+y,w:Math.min(768,r.w-x),h:Math.min(768,r.h-y),wx0:r.wx0+x,wy0:r.wy0+y,tile:true,textureScale:window.innerWidth<700?1:1.35,streamBytes:0,streamPending:false,streamTouch:0,preview:null,spr:null};
+   var t={ax:r.ax,ay:r.ay,blobs:r.blobs,boxes:r.boxes,tint:r.tint,organic:r.organic,fusionNeighbors:r.fusionNeighbors,ship:!!r.ship,ice:!!r.ice,terrainWave:r.terrainWave,caves:r.caves,rectCuts:r.rectCuts,temple:r.temple,mine:r.mine,k:r.k,glow:r.glow,z:r.z,ox:r.ox+x,oy:r.oy+y,w:Math.min(768,r.w-x),h:Math.min(768,r.h-y),wx0:r.wx0+x,wy0:r.wy0+y,tile:true,textureScale:window.innerWidth<700?1:1.35,streamBytes:0,streamPending:false,streamTouch:0,preview:null,spr:null};
    t.wx1=t.wx0+t.w;t.wy1=t.wy0+t.h;
    // Skip rectangles entirely outside a rock or wholly within a large cave.
    var padding=Math.hypot(t.w,t.h)/2,centerDistance=rkField(r,t.ox+t.w/2,t.oy+t.h/2);
@@ -112,7 +112,7 @@ function requestStreamTexture(e){
  if(STREAM.worker){
   var id=++STREAM.job;STREAM.busy={id:id,entry:e,time:performance.now()};
   var m={id:id,seed:((e.ax||e.x)*1009+(e.ay||0)*917)|0};
-  if(e.blobs){m.type='rockTile';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,organic:e.organic,ship:!!e.ship,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,rectCuts:e.rectCuts,temple:e.temple,mine:e.mine,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=scale;}
+  if(e.blobs){m.type='rockTile';m.rock={ax:e.ax,ay:e.ay,blobs:e.blobs,boxes:e.boxes,tint:e.tint,organic:e.organic,fusionNeighbors:e.fusionNeighbors,ship:!!e.ship,ice:!!e.ice,terrainWave:e.terrainWave,caves:e.caves,rectCuts:e.rectCuts,temple:e.temple,mine:e.mine,k:e.k,glow:e.glow,z:e.z,ox:e.ox,oy:e.oy,w:e.w,h:e.h};m.scale=scale;}
   else{m.type='seabed';m.x=e.x;m.w=e.w;m.scale=scale;}
   try{STREAM.worker.postMessage(m);}catch(_){e.streamPending=false;disableStreamWorker();}
  }else if(e.blobs){
@@ -178,4 +178,9 @@ STREAM.ready=false;el('t-start').disabled=true;el('t-start').textContent='海域
 var startBeforeStreaming=startOrRestart;
 startOrRestart=function(){if(STREAM.ready)startBeforeStreaming();};
 
-async function finishBootTerrain(){for(var r of RK_list){var scale=Math.min(.35,768/Math.max(r.w,r.h)),c=newCanvas(Math.max(8,Math.ceil(r.w*scale)),Math.max(8,Math.ceil(r.h*scale))),g=c.getContext('2d'),im=g.createImageData(c.width,c.height);for(var row=0;row<c.height;row+=4){fillRockRows(r,im,row,Math.min(row+4,c.height));await bootYield();}g.putImageData(im,0,0);r.preview=c;r.spr=c;r.rearUnderlay=exactShelfRear(r,null);await bootYield();}}
+async function finishBootTerrain(){buildTerrainLightingNeighbors();for(var r of RK_list){var scale=Math.min(.35,768/Math.max(r.w,r.h)),c=newCanvas(Math.max(8,Math.ceil(r.w*scale)),Math.max(8,Math.ceil(r.h*scale))),g=c.getContext('2d'),im=g.createImageData(c.width,c.height);for(var row=0;row<c.height;row+=4){fillRockRows(r,im,row,Math.min(row+4,c.height));await bootYield();}g.putImageData(im,0,0);r.preview=c;r.spr=c;r.rearUnderlay=exactShelfRear(r,null);await bootYield();}}
+
+// Only lighting uses the combined solid. Collision and each material's opacity stay unchanged.
+function terrainLightDistance(r,x,y,d){if(d< -320)return d;var wx=x+r.ax,wy=y+r.ay,neighbors=r.fusionNeighbors||[];for(var q of neighbors){if(wx<q.wx0||wx>q.wx1||wy<q.wy0||wy>q.wy1)continue;var other=rkField(q,wx-q.ax,wy-q.ay);if(other<d)d=other;if(d< -320)break;}return d;}
+
+function buildTerrainLightingNeighbors(){for(var r of RK_list){r.fusionNeighbors=r.ship?[]:RK_list.filter(q=>q!==r&&!q.ship&&q.wx0<r.wx1&&q.wx1>r.wx0&&q.wy0<r.wy1&&q.wy1>r.wy0).map(q=>({ax:q.ax,ay:q.ay,blobs:q.blobs,boxes:q.boxes,caves:q.caves,rectCuts:q.rectCuts,organic:q.organic,terrainWave:q.terrainWave,k:q.k,ship:q.ship,wx0:q.wx0,wx1:q.wx1,wy0:q.wy0,wy1:q.wy1}));if(r.tiles)for(var t of r.tiles)t.fusionNeighbors=r.fusionNeighbors;}}

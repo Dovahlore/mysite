@@ -1,5 +1,5 @@
 'use strict';
-importScripts('geology-color.js?v=6.34','cavern-paint.js?v=6.34');
+importScripts('geology-color.js?v=6.35','cavern-paint.js?v=6.35');
 var CONF={WORLD_W:27200,WORLD_H:15800};var FLOOR;var FSTRIP_H=3350,FSTRIP_BS=.35,FSTRIP_Y0=12450;var RK_TINT=[[96,112,116],[98,104,120],[54,72,94],[80,98,112]];var seed=1;
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function lerp(a,b,t){return a+(b-a)*t;}
@@ -264,9 +264,9 @@ function fillRockRows(r,im,from,to){
  for(var y=from;y<to;y++)for(var x=0;x<im.width;x++){
   var px=r.ox+(x+.5)*r.w/im.width,py=r.oy+(y+.5)*r.h/im.height,d=rkField(r,px,py),i=(y*im.width+x)*4;
   if(d>Math.max(r.w/im.width,r.h/im.height))continue;
-  var tint=geologyTint(r,px+r.ax,py+r.ay,tintBuffer),shade=(.72+.28*Math.exp(Math.min(d,0)/180))*(1+.06*Math.sin((py+r.ay)*.017+(px+r.ax)*.002));
+  var lightD=terrainLightDistance(r,px,py,d),tint=geologyTint(r,px+r.ax,py+r.ay,tintBuffer),shade=(.72+.28*Math.exp(Math.min(lightD,0)/180))*(1+.06*Math.sin((py+r.ay)*.017+(px+r.ax)*.002));
   shade*=.96+.04*Math.sin((px+r.ax)*.035+Math.sin((py+r.ay)*.022)*2);
-  var rim=1+.22*Math.exp(Math.min(d,0)/14);
+  var rim=1+.22*Math.exp(Math.min(lightD,0)/14);
   if(r.temple||r.mine){var wx=px+r.ax,wy=py+r.ay,row=Math.floor(wy/88),jx=((wx+(row%2)*110)%220+220)%220,jy=((wy%88)+88)%88;shade=r.mine?.7+.07*Math.sin(wx*.013+Math.sin(wy*.011)*2)*Math.sin(wy*.019):(jx<3||jy<3)?.49:.77+.03*Math.sin(wx*.04)*Math.sin(wy*.03);}
 
   im.data[i]=tint[0]*shade*rim;im.data[i+1]=tint[1]*shade*rim;im.data[i+2]=tint[2]*shade*rim;
@@ -289,3 +289,6 @@ function paintAtlas(rocks){var c=newCanvas(500,Math.round(500*CONF.WORLD_H/CONF.
  }g.putImageData(im,0,0);return c;
 }
 onmessage=function(event){var m=event.data;if(m.type==='init'){FLOOR=new Float32Array(m.floor);CONF.WORLD_W=m.worldW||27200;CONF.WORLD_H=m.worldH||15800;FSTRIP_Y0=CONF.WORLD_H-FSTRIP_H;return;}try{seed=m.seed||1;var c;if(m.type==='cavernRear'){c=newCanvas(m.rock.w*m.scale,m.rock.h*m.scale);var cg=c.getContext('2d'),ci=cg.createImageData(c.width,c.height);fillCavernRearRows(m.rock,ci,0,ci.height);cg.putImageData(ci,0,0);}else if(m.type==='atlas'){c=paintAtlas(m.rocks);}else if(m.type==='rockTile'){c=paintRockTile(m.rock,m.scale);}else if(m.type==='rock'){rkBake(m.rock);c=m.rock.spr;}else{var oldScale=FSTRIP_BS;FSTRIP_BS=m.scale||oldScale;c=paintSeabed(m.x,m.w);FSTRIP_BS=oldScale;}var bitmap=c.transferToImageBitmap();postMessage({id:m.id,bitmap:bitmap},[bitmap]);}catch(error){postMessage({id:m.id,error:String(error)});}};
+
+// Only lighting uses the combined solid. Collision and each material's opacity stay unchanged.
+function terrainLightDistance(r,x,y,d){if(d< -320)return d;var wx=x+r.ax,wy=y+r.ay,neighbors=r.fusionNeighbors||[];for(var q of neighbors){if(wx<q.wx0||wx>q.wx1||wy<q.wy0||wy>q.wy1)continue;var other=rkField(q,wx-q.ax,wy-q.ay);if(other<d)d=other;if(d< -320)break;}return d;}
