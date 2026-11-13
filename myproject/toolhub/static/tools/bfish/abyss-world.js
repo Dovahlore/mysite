@@ -51,7 +51,7 @@ function biomeWater(x,y){
  return [lerp(lerp(r,52,fire*.8),2,a),lerp(lerp(g,23,fire*.8),5,a),lerp(lerp(b,37,fire*.8),13,a)];
 }
 var bakeBeforeAbyssWorld=bakeBackgrounds;
-bakeBackgrounds=function(){bakeBeforeAbyssWorld();if(WRECK)WRECK.y=CONF.WORLD_H+3000;FSTRIP=[];STREAM.entries=null;WORLD_DECORS=WORLD_DECORS.filter(p=>p.y<CONF.WORLD_H&&p.y<17500);VKELP=VKELP.filter(p=>p.y<8000);SPIRES=SPIRES.filter(p=>p.y<17000);buildDecorChunks();OCEAN.atlasGeometry=null;buildWorldAtlas();};
+bakeBackgrounds=async function(){await bakeBeforeAbyssWorld();await bootYield();if(WRECK)WRECK.y=CONF.WORLD_H+3000;FSTRIP=[];STREAM.entries=null;WORLD_DECORS=WORLD_DECORS.filter(p=>p.y<CONF.WORLD_H&&p.y<17500);VKELP=VKELP.filter(p=>p.y<8000);SPIRES=SPIRES.filter(p=>p.y<17000);buildDecorChunks();OCEAN.atlasGeometry=null;buildWorldAtlas();};
 // Region-local native depth bands; there is no horizontal barrier at 18100.
 var initBeforeAbyssBand=initHabitatFish;
 initHabitatFish=function(f,sp,x,y,size){initBeforeAbyssBand(f,sp,x,y,size);f.ecologyBand=y<3200?0:y<6900?1:y<10600?2:y<ABYSS_WORLD.fifthTop?3:4;return f;};

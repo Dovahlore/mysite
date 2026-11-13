@@ -16,7 +16,7 @@ drawShallowWreck=function(time){var s=SHALLOW_WRECK;if(!WRECK_DETAIL_ART||Math.a
 var seabedSpawn=spawnFood;spawnFood=function(type,bx,by){if(type!=='pearl'){var n=foods.length;seabedSpawn(type,bx,by);for(var i=n;i<foods.length;i++)foods[i].pearlBed=null;}};
 leaveEmptyOyster=function(f){if(f.pearlBed){f.pearlBed.ready=false;f.pearlBed.timer=PEARL_INTERVAL;}else EMPTY_OYSTERS.push({x:f.x,y:f.y});};
 function stockPearlBed(b){if(foods.some(f=>!f.dead&&f.pearlBed===b))return;var f=foodPool.length?foodPool.pop():newFood();Object.assign(f,{type:'pearl',x:b.x,y:b.y-12,r:15,t:0,seed:b.seed,life:-1,biome:zoneAt(b.x,b.y),dead:false,stingCd:0,dir:1,pearlBed:b});foods.push(f);b.ready=true;b.timer=0;}
-var seabedBake=bakeBackgrounds;bakeBackgrounds=function(){seabedBake();MORAY_POCKETS=MORAY_POCKETS.filter(d=>RK_list.includes(d.rock)&&!d.rock.ship&&(Math.abs(d.x-SHALLOW_WRECK.x)>850||Math.abs(d.y-SHALLOW_WRECK.y)>450));BACKGROUND_SHELLS=[];PEARL_BEDS=[];
+var seabedBake=bakeBackgrounds;bakeBackgrounds=async function(){await seabedBake();await bootYield();MORAY_POCKETS=MORAY_POCKETS.filter(d=>RK_list.includes(d.rock)&&!d.rock.ship&&(Math.abs(d.x-SHALLOW_WRECK.x)>850||Math.abs(d.y-SHALLOW_WRECK.y)>450));BACKGROUND_SHELLS=[];PEARL_BEDS=[];
  for(var x=2600,i=0;x<18700;x+=430,i++){var floor=shallowGround(x);if(floor===null||plantTouchesIce({x:x,y:floor})||rkInside(x,floor-42,18))continue;PEARL_BEDS.push({x:x,y:floor-18,seed:i,ready:false,timer:8+(i%6)*5});}
  // Lift bottom-dwelling art clear of rock and remove accidental duplicates.
  var lookup=new Map(DECOR_CATALOGUE.map(e=>[e.canvas,e]));WORLD_DECORS.forEach(d=>{var e=lookup.get(DECOR[d.z][d.spr]);if(e&&(e.kind==='海胆'||e.name.includes('牡蛎'))){d.y-=9;d.s=e.kind==='海胆'?1.5:1.35;}});buildDecorChunks();

@@ -1475,7 +1475,7 @@ function bakeCliff(left){
   }
   return c;
 }
-function bakeBackgrounds(){
+async function bakeBackgrounds(){await bootYield();
   bakeFloor();
   RK_init();
   var i;
@@ -3639,46 +3639,46 @@ function resetGame(){
 }
 
 </script>
-<script src="expedition.js?v=6.31"></script>
-<script src="ocean-world.js?v=6.31"></script>
-<script src="ocean-biomes.js?v=6.31"></script>
-<script src="wildlife.js?v=6.31"></script>
-<script src="reef-polish.js?v=6.31"></script>
-<script src="geology-color.js?v=6.31"></script>
-<script src="streaming.js?v=6.31"></script>
-<script src="mobile-controls.js?v=6.31"></script>
-<script src="field-guide.js?v=6.31"></script>
-<script src="ocean-life.js?v=6.31"></script>
-<script src="treasure-art.js?v=6.31"></script>
-<script src="prey-markers.js?v=6.31"></script>
-<script src="living-ocean.js?v=6.31"></script>
-<script src="ocean-refinement.js?v=6.31"></script>
-<script src="decor-art.js?v=6.31"></script>
-<script src="world-details.js?v=6.31"></script>
-<script src="variety-art.js?v=6.31"></script>
-<script src="habitat-scenery.js?v=6.31"></script>
-<script src="seabed-life.js?v=6.31"></script>
-<script src="ocean-backdrops.js?v=6.31"></script>
-<script src="ocean-foreground.js?v=6.31"></script>
-<script src="cavern-paint.js?v=6.31"></script>
-<script src="cavern-world.js?v=6.31"></script>
-<script src="surface-attachments.js?v=6.31"></script>
-<script src="cave-air.js?v=6.31"></script>
-<script src="coral-expansion.js?v=6.31"></script>
-<script src="surface-wildlife.js?v=6.31"></script>
-<script src="stable-a-landscape.js?v=6.31"></script>
-<script src="benthic-contact.js?v=6.31"></script>
-<script src="orca-ecology.js?v=6.31"></script>
-<script src="shoal-life.js?v=6.31"></script>
-<script src="depth-bottom-life.js?v=6.31"></script>
-<script src="abyss-world.js?v=6.31"></script>
-<script src="abyss-gardens.js?v=6.31"></script>
-<script src="abyss-life.js?v=6.31"></script>
-<script src="lost-realms.js?v=6.31"></script>
-<script src="ruins-art.js?v=6.31"></script>
-<script src="ocean-atmosphere.js?v=6.31"></script>
-<script src="abyss-diversity.js?v=6.31"></script>
-<script src="supply-art.js?v=6.31"></script>
+<script src="expedition.js?v=6.32"></script>
+<script src="ocean-world.js?v=6.32"></script>
+<script src="ocean-biomes.js?v=6.32"></script>
+<script src="wildlife.js?v=6.32"></script>
+<script src="reef-polish.js?v=6.32"></script>
+<script src="geology-color.js?v=6.32"></script>
+<script src="streaming.js?v=6.32"></script>
+<script src="mobile-controls.js?v=6.32"></script>
+<script src="field-guide.js?v=6.32"></script>
+<script src="ocean-life.js?v=6.32"></script>
+<script src="treasure-art.js?v=6.32"></script>
+<script src="prey-markers.js?v=6.32"></script>
+<script src="living-ocean.js?v=6.32"></script>
+<script src="ocean-refinement.js?v=6.32"></script>
+<script src="decor-art.js?v=6.32"></script>
+<script src="world-details.js?v=6.32"></script>
+<script src="variety-art.js?v=6.32"></script>
+<script src="habitat-scenery.js?v=6.32"></script>
+<script src="seabed-life.js?v=6.32"></script>
+<script src="ocean-backdrops.js?v=6.32"></script>
+<script src="ocean-foreground.js?v=6.32"></script>
+<script src="cavern-paint.js?v=6.32"></script>
+<script src="cavern-world.js?v=6.32"></script>
+<script src="surface-attachments.js?v=6.32"></script>
+<script src="cave-air.js?v=6.32"></script>
+<script src="coral-expansion.js?v=6.32"></script>
+<script src="surface-wildlife.js?v=6.32"></script>
+<script src="stable-a-landscape.js?v=6.32"></script>
+<script src="benthic-contact.js?v=6.32"></script>
+<script src="orca-ecology.js?v=6.32"></script>
+<script src="shoal-life.js?v=6.32"></script>
+<script src="depth-bottom-life.js?v=6.32"></script>
+<script src="abyss-world.js?v=6.32"></script>
+<script src="abyss-gardens.js?v=6.32"></script>
+<script src="abyss-life.js?v=6.32"></script>
+<script src="lost-realms.js?v=6.32"></script>
+<script src="ruins-art.js?v=6.32"></script>
+<script src="ocean-atmosphere.js?v=6.32"></script>
+<script src="abyss-diversity.js?v=6.32"></script>
+<script src="supply-art.js?v=6.32"></script>
 <script>
 // 链接限定的地图预览，普通游戏保持原有规则。
 var mapPreview = new URLSearchParams(location.search).get('preview') === 'map';
@@ -3709,6 +3709,7 @@ if (mapPreview){
     depthPicker.appendChild(button);
   });
   document.body.appendChild(depthPicker);
+  Object.defineProperty(expedition,'stamina',{configurable:true,get:function(){return 100;},set:function(){}});var sprintBeforePreview=advanceSprint;advanceSprint=function(dt,held){sprintCooldown=0;sprintExhausted=false;return !!held;};
   Object.defineProperty(player, 'hunger', {configurable:true, get:function(){return CONF.HUNGER_MAX;}, set:function(){}});
   var previewResetGame = resetGame;
   resetGame = function(){
@@ -3721,19 +3722,22 @@ if (mapPreview){
   };
   playerDie = function(){};
 }
+function bootYield(){return new Promise(resolve=>setTimeout(resolve,0));}
 // ==================== 分阶段启动 ====================
 (async function bootGame(){
   try {
     var phases = [bakeAllSprites, bakeBackgrounds, FF_init, SF_init, gridInit, initPools, resizeCanvas, resetGame];
     for (var phase = 0; phase < phases.length; phase++){
       await new Promise(function(resolve){requestAnimationFrame(function(){setTimeout(resolve,0);});});
-      phases[phase]();
+      el('t-start').textContent='正在加载 '+Math.round(phase/phases.length*100)+'%';
+    await phases[phase]();
+    if(phases[phase]===bakeBackgrounds)await finishBootTerrain();
     }
     gameState = "start";
     mouseSX = W / 2; mouseSY = H / 2;
     lastTime = performance.now();
     STREAM.ready = true;
-    el('t-start').disabled = false;
+    el('t-start').disabled = false;el('t-start').textContent='开始游戏';
     syncUI();
     requestAnimationFrame(gameLoop);
   } catch (e){

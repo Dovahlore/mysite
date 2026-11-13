@@ -108,8 +108,7 @@ function addFloraOnSurface(r,x,ceiling,index){
  }
 }
 var backgroundBeforeWorld=bakeBackgrounds;
-bakeBackgrounds=function(){
- backgroundBeforeWorld();WORLD_DECORS=[];WORLD_CAVES=[];SPIRES=[];SARG=[];VKELP=[];SEEPS=[];
+bakeBackgrounds=async function(){await backgroundBeforeWorld();await bootYield();WORLD_DECORS=[];WORLD_CAVES=[];SPIRES=[];SARG=[];VKELP=[];SEEPS=[];
  RK_list.forEach(function(r,ri){
   var spacing=r.w>2000?380:80;
   for(var x=r.wx0+40,j=0;x<r.wx1-40;x+=spacing,j++)addFloraOnSurface(r,x,false,j+ri);

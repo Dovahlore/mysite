@@ -127,8 +127,7 @@ buildWorldAtlas=function(){
  }g.putImageData(im,0,0);OCEAN.atlas=c;MINIMAP_BASE=newCanvas(180,Math.round(180*CONF.WORLD_H/CONF.WORLD_W));MINIMAP_BASE.getContext('2d').drawImage(c,0,0,MINIMAP_BASE.width,MINIMAP_BASE.height);
 };
 var bakeBeforeBiomes=bakeBackgrounds;
-bakeBackgrounds=function(){
- bakeBeforeBiomes();
+bakeBackgrounds=async function(){await bakeBeforeBiomes();await bootYield();
  WORLD_DECORS=WORLD_DECORS.filter(function(d){return d.y<8500&&d.x<19000;});
  // Dense, distinct coral gardens live on the uppermost shelf only.
  for(var x=500,i=0;x<18500;x+=180,i++){
@@ -658,8 +657,7 @@ function bakeBroadKelp(seed){
  return c;
 }
 var backgroundBeforeShallowScenery=bakeBackgrounds;
-bakeBackgrounds=function(){
- backgroundBeforeShallowScenery();
+bakeBackgrounds=async function(){await backgroundBeforeShallowScenery();await bootYield();
  WORLD_DECORS=WORLD_DECORS.filter(function(d){return Math.abs(d.x-SHALLOW_WRECK.x)>900||Math.abs(d.y-SHALLOW_WRECK.y)>450;});
  SHALLOW_SCENERY.sprites=[bakeBroadKelp(0),bakeBroadKelp(1),bakeBroadKelp(2)];SHALLOW_SCENERY.plants=[];SHALLOW_SCENERY.chunks.clear();
  var bands=[[3000,6200],[6800,7700],[9800,13500],[15000,17900]];

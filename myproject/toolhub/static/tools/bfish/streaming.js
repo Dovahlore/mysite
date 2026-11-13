@@ -2,7 +2,7 @@
 'use strict';
 var STREAM_CHUNK=2048;
 var STREAM={worker:null,busy:null,disabled:false,job:0,resident:0,maxBytes:(navigator.deviceMemory&&navigator.deviceMemory<=2?32:window.innerWidth<700?64:96)*1024*1024,loaded:0,evicted:0,failed:0,fallback:null,frame:0,nextScan:0,scanCount:0,lastScan:null,entries:null};
-var streamWorkerURL=new URL('streaming-worker.js?v=6.31',document.currentScript.src).href;
+var streamWorkerURL=new URL('streaming-worker.js?v=6.32',document.currentScript.src).href;
 var originalRockBake=rkBake;
 function rockBounds(r){
  var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
@@ -34,7 +34,7 @@ function fillRockRows(r,im,from,to){
 rkBake=function(r){
  rockBounds(r);
  var scale=Math.min(.35,768/Math.max(r.w,r.h));
- r.preview=rockPixels(r,Math.max(8,Math.ceil(r.w*scale)),Math.max(8,Math.ceil(r.h*scale)));
+ r.preview=newCanvas(2,2);
  r.spr=r.preview;r.streamBytes=0;r.streamTouch=0;r.streamPending=false;
 };
 function makeSeabedPreview(x,w){
@@ -158,8 +158,7 @@ function streamedDecors(left,top,right,bottom){
  }return visibleDecorScratch;
 }
 var bakeBeforeStreaming=bakeBackgrounds;
-bakeBackgrounds=function(){
- bakeBeforeStreaming();
+bakeBackgrounds=async function(){await bakeBeforeStreaming();await bootYield();
  for(var i=0;i<FSTRIP.length;i++){var e=FSTRIP[i];e.preview=e.c;e.streamBytes=0;e.streamTouch=0;e.streamPending=false;}
  buildTerrainTiles();buildDecorChunks();startStreamWorker();
 };
@@ -178,3 +177,5 @@ window.addEventListener('pagehide',function(){if(STREAM.worker)STREAM.worker.ter
 STREAM.ready=false;el('t-start').disabled=true;el('t-start').textContent='海域准备中…';
 var startBeforeStreaming=startOrRestart;
 startOrRestart=function(){if(STREAM.ready)startBeforeStreaming();};
+
+async function finishBootTerrain(){for(var r of RK_list){var scale=Math.min(.35,768/Math.max(r.w,r.h)),c=newCanvas(Math.max(8,Math.ceil(r.w*scale)),Math.max(8,Math.ceil(r.h*scale))),g=c.getContext('2d'),im=g.createImageData(c.width,c.height);for(var row=0;row<c.height;row+=4){fillRockRows(r,im,row,Math.min(row+4,c.height));await bootYield();}g.putImageData(im,0,0);r.preview=c;r.spr=c;}}

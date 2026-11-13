@@ -23,7 +23,7 @@ function buildLayerPassageCore(r){
  return {path:path,upper:upper,lower:lower};
 }
 var bakeBeforePassageAtmosphere=bakeBackgrounds;
-bakeBackgrounds=function(){bakeBeforePassageAtmosphere();PASSAGE_CORES.clear();RK_list.forEach(r=>{if(/^第[一二三]层：/.test(r.name))PASSAGE_CORES.set(r,buildLayerPassageCore(r));});};
+bakeBackgrounds=async function(){await bakeBeforePassageAtmosphere();await bootYield();PASSAGE_CORES.clear();RK_list.forEach(r=>{if(/^第[一二三]层：/.test(r.name))PASSAGE_CORES.set(r,buildLayerPassageCore(r));});};
 function clipLayerPassageRear(r){var core=PASSAGE_CORES.get(r);if(core)ctx.clip(core.path);}
 function drawLivingSky(time,left,right,top){
  ctx.save();ctx.clip();var sky=ctx.createLinearGradient(0,Math.min(top,-1700),0,0);sky.addColorStop(0,'#477fae');sky.addColorStop(.55,'#86c4df');sky.addColorStop(.86,'#c9e6e9');sky.addColorStop(1,'#e4eee4');ctx.fillStyle=sky;ctx.fillRect(left,top,right-left,-top+30);

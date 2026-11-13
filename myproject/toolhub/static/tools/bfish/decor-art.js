@@ -32,8 +32,7 @@ function paintLeafKelp(g,seed,cold){
  g.fillStyle='#5a6956';g.beginPath();g.ellipse(60,157,30,2.5,0,0,Math.PI*2);g.fill();
 }
 function makeDecorAsset(kind,w,h,seed){return decorCanvas(w,h,function(g){if(kind==='branch'||kind==='staghorn'||kind==='fan')paintBranchCoral(g,seed,kind==='staghorn',kind==='fan');else if(kind==='rock'||kind==='basalt'||kind==='iceRock')paintStone(g,seed,kind==='iceRock',kind==='basalt');else if(kind==='pillar')paintPillar(g,seed);else if(kind==='table')paintTableCoral(g,seed);else if(kind==='anemone')paintAnemone(g,seed);else if(kind==='kelp'||kind==='coldKelp')paintLeafKelp(g,seed,kind==='coldKelp');else paintRibbonWeed(g,seed,kind==='coldWeed',kind==='ribbon');});}
-var bakeBeforeDecorArt=bakeBackgrounds;bakeBackgrounds=function(){
- bakeBeforeDecorArt();DECOR_CATALOGUE=[];var defs=[
+var bakeBeforeDecorArt=bakeBackgrounds;bakeBackgrounds=async function(){await bakeBeforeDecorArt();await bootYield();DECOR_CATALOGUE=[];var defs=[
  [0,0,'羽状浅海草','weed',46,90,'水草','浅海'],[0,1,'浅海层理石','rock',44,31,'石块','浅海'],[0,2,'宽叶海草','ribbon',46,70,'水草','浅海'],
  [1,0,'粉枝珊瑚','branch',60,52,'珊瑚','珊瑚礁'],[1,1,'暖橙鹿角珊瑚','staghorn',60,52,'珊瑚','珊瑚礁'],[1,2,'礁岸岩块','rock',38,27,'石块','陆架'],[1,3,'翡翠丝带草','ribbon',46,78,'水草','陆架'],[1,4,'管状海绵群','pillar',110,200,'珊瑚','陆架'],[1,5,'层叠桌形珊瑚','table',160,130,'珊瑚','陆架'],
  [2,0,'深水荧光海葵','anemone',40,60,'水草','暮光海域'],[2,1,'深海玄武岩','basalt',52,37,'石块','深海'],[2,2,'玄武岩碎块','basalt',34,24,'石块','深海'],

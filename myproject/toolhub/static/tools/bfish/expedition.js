@@ -31,10 +31,10 @@ function fishGrowth(f){
 }
 // Fixed seed makes terrain reproducible while wildlife stays different each run.
 var baseBake=bakeBackgrounds;
-bakeBackgrounds=function(){
+bakeBackgrounds=async function(){
  var nativeRandom=Math.random, seed=972113;
  Math.random=function(){seed=(Math.imul(seed,1664525)+1013904223)>>>0; return seed/4294967296;};
- try {baseBake();} finally {Math.random=nativeRandom;}
+ try {await baseBake();} finally {Math.random=nativeRandom;}
  // Remove painted, non-collidable caves; actual carved SDF caves are retained.
  WORLD_CAVES=[];
  if(window.CUSTOM_MAP)return;
@@ -172,8 +172,7 @@ drawFishSprite=function(f,x,y,s,a,t,inflated,isPlayer,time){
 };
 // Rich reef dressing uses the very same SDF surface as collision.
 var v4Bake=bakeBackgrounds;
-bakeBackgrounds=function(){
- v4Bake();
+bakeBackgrounds=async function(){await v4Bake();await bootYield();
  if(window.CUSTOM_MAP)return;
  var reefs=[{x:13200,y:8120,r:140},{x:14150,y:8160,r:180},{x:13250,y:7120,r:130},{x:14380,y:7380,r:110},
  {x:12720,y:6940,r:155},{x:12980,y:9180,r:175},{x:15380,y:7540,r:180},{x:15760,y:9180,r:160}];
@@ -226,8 +225,7 @@ function swimShrimp(f, dt){
 }
 var shallowReefs=[];
 var bakeBeforeShallows=bakeBackgrounds;
-bakeBackgrounds=function(){
- bakeBeforeShallows();shallowReefs=[];
+bakeBackgrounds=async function(){await bakeBeforeShallows();await bootYield();shallowReefs=[];
  if(window.CUSTOM_MAP)return;
  // Staggered islands leave wide open channels and an uninterrupted surface lane.
  for(var i=0;i<48;i++){
