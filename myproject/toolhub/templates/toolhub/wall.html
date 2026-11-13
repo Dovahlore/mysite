@@ -58,7 +58,7 @@
         function reveal() {
             if (token !== generation || el.firstElementChild !== media) return;
             var bg = document.querySelector("video.video-background");
-            resumeBackground = !!(bg && !bg.paused);
+            resumeBackground = !!(bg && (!bg.paused || bg.autoplay));
             if (resumeBackground) bg.pause();
             el.classList.add("on");
         }
